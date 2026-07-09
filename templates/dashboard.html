@@ -59,7 +59,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku STNK</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -68,7 +67,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #000000;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit kadaluarsa</td></tr>
@@ -96,7 +94,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku STNK</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -105,7 +102,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #ff0000;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
@@ -133,7 +129,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku STNK</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -142,7 +137,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
@@ -170,7 +164,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Status</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -179,7 +172,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td class="text-primary fw-bold">Tidak Ada</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Semua unit memiliki data STNK</td></tr>
@@ -217,7 +209,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku Asuransi</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -226,7 +217,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #000000;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit kadaluarsa</td></tr>
@@ -254,7 +244,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku Asuransi</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -263,7 +252,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
@@ -291,7 +279,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Masa Berlaku Asuransi</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -300,7 +287,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
@@ -328,7 +314,6 @@
                                                 <th style="width: 10%;">No</th>
                                                 <th>Code Number (CN)</th>
                                                 <th>Status</th>
-                                                <th>Kategori Unit</th>
                                             </tr>
                                         </thead>
                                         <tbody style="border-top: none;">
@@ -337,7 +322,6 @@
                                                 <td class="text-muted">{{ loop.index }}</td>
                                                 <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
                                                 <td class="text-primary fw-bold">Tidak Ada</td>
-                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
                                             </tr>
                                             {% else %}
                                             <tr><td colspan="4" class="text-center text-muted py-3">Semua unit memiliki data asuransi</td></tr>

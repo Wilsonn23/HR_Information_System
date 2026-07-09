@@ -68,12 +68,12 @@ def create_user(username, password, role):
 
 @app.before_request
 def batasi_akses_global():
-    halaman_bebas = ['login', 'static']
-    
-    if 'logged_in' not in session and request.endpoint not in halaman_bebas:
-        if request.endpoint:
-            flash("Silakan login terlebih dahulu untuk mengakses halaman tersebut.", "warning")
-            return redirect(url_for('login'))
+    if request.path == '/login' or request.path.startswith('/static'):
+        return None # Return None artinya Flask akan melanjutkan ke fungsi /login Anda
+        
+    if 'logged_in' not in session:
+        flash("Silakan login terlebih dahulu untuk mengakses halaman tersebut.", "warning")
+        return redirect('/login')
 
 # ===============================================================================================================
 # DATABASE INITIALIZATION
@@ -137,10 +137,6 @@ class ReportEntry(db.Model):
     tanggal_bayar: Mapped[str] = mapped_column(nullable=False)
     tanggal_input: Mapped[str] = mapped_column(nullable=False)
     diinput_oleh: Mapped[str] = mapped_column(nullable=False)
-
-class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired(message="Username tidak boleh kosong.")])
-    password = StringField('Password', validators=[DataRequired(message="Password tidak boleh kosong.")])
 
 class DataForm(FlaskForm):
     pt = StringField('Nama PT', validators=[
@@ -240,7 +236,6 @@ class ExtendForm(FlaskForm):
     ])
     tanggal_bayar = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[DataRequired(message="Tanggal tidak boleh kosong.")])
 
-    
 # ===============================================================================================================
 # ROUTING
 # ===============================================================================================================
@@ -251,34 +246,35 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        username = form.username.data.strip()
-        password = form.password.data
+    if 'logged_in' in session:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
         
         query = text("SELECT id, username, password_hash, role FROM users WHERE username = :username")
-        user = db.session.execute(query, {"username": username}).fetchone()
+        result = db.session.execute(query, {"username": username}).fetchone()
         
-        # Verifikasi keberadaan user dan kecocokan hash password-nya
-        if user and check_password_hash(user.password_hash, password):
+        if result and check_password_hash(result.password_hash, password):
             # Regenerasi session ID baru untuk mencegah Session Fixation Attack
             session.clear()
             
             # Set cookie session aman
-            session['user_id'] = user.id
-            session['logged_user'] = user.username
-            session['role'] = user.role
+            session['logged_in'] = True
+            session['result_id'] = result.id
+            session['logged_user'] = result.username
+            session['role'] = result.role
             
             return redirect(url_for('dashboard'))
         else:
             flash("Username atau Password salah!", "danger")
-            
-    return render_template('login.html', form=form)
+        
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
-    flash("Anda telah berhasil logout.", "success")
     return redirect(url_for('login'))
 
 @app.route('/master', methods=['GET'])
@@ -554,6 +550,15 @@ def submit_data():
             flash(f"Unexpected database error: {e}", "danger")
         
     return render_template('form.html', form=form)
+
+@app.route('/edit/<cn>')
+def edit(cn):
+    form = DataForm()
+    entry = db.session.execute(
+        db.select(DataEntry).where(DataEntry.cn == cn)
+    ).scalar_one_or_none()
+    
+    return render_template('edit.html', form=form, entries=entry)
 
 @app.route('/api/get-tagihan/<jenis>/<cn>')
 def get_tagihan(jenis, cn):
