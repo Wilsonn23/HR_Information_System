@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Menu Transaksi{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mx-auto" role="alert" style="max-width: 850px;">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm border-0 p-4 p-md-5 bg-white text-dark mx-auto" style="border-radius: 12px; max-width: 850px;">
+        
+        <div class="text-start mb-4">
+            <h2 class="fw-bold text-primary m-0">Transaksi</h2>
+            <p class="text-muted mt-2">Pilih aksi transaksi yang ingin dilakukan.</p>
+        </div>
+        
+        <div class="row g-3 mt-2">
+            
+            <div class="col-md-6">
+                <a href="/entry" class="btn btn-outline-primary btn-lg w-100 py-4 fw-bold d-flex flex-column align-items-center justify-content-center transition-all h-100" style="border-radius: 8px; font-size: 1.15rem; border-width: 2px;">
+                    <span class="fs-3 mb-2">➕</span>
+                    <span>Tambahkan data transaksi</span>
+                </a>
+            </div>
+            
+            <div class="col-md-6">
+                <a href="/perpanjang" class="btn btn-primary btn-lg w-100 py-4 fw-bold d-flex flex-column align-items-center justify-content-center shadow-sm transition-all h-100" style="border-radius: 8px; font-size: 1.15rem;">
+                    <span class="fs-3 mb-2">🔄</span>
+                    <span>Perpanjang Asuransi/STNK</span>
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    .btn-outline-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+    }
+    .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(13, 110, 253, 0.3) !important;
+    }
+</style>
+{% endblock %}

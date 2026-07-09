@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block title %}Entry Form{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+<div class="card form-card p-3 shadow-sm">
+    <h3 class="text-center mb-4 text-primary">Perpanjang</h3>
+    <form action="{{ url_for('submit_extend') }}" method="POST">
+        {{ form.csrf_token }}
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Jenis</label>
+                {{ form.jenis(id="jenis-input", class="form-control") }}
+            </div>
+            <div class="data-input">
+                <label for="cn-input" class="form-label">CN</label>
+                {{ form.cn(id="cn-input", class="form-control", placeholder="XX123") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label for="jumlah-tagihan" class="form-label">Jumlah Tagihan</label>
+                <input type="text" id="jumlah-tagihan" class="form-control bg-light" readonly placeholder="Akan muncul setelah CN diisi">
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Jumlah Dibayar</label>
+                {{ form.jumlah_dibayar(id="jumlah-dibayar", class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Tanggal Bayar</label>
+                {{ form.tanggal_bayar(id="tanggal-bayar", class="form-control", type="date") }}
+            </div>
+            <div class="data-input" id="wrapper-tanggal-baru" style="display: none;">
+                <label class="form-label font-weight-bold">Tanggal Berakhir Baru</label>
+                {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date") }}
+            </div>
+        </div>
+
+        <button type="submit" id="btn-submit" class="btn btn-primary w-100 mt-2">Submit Data</button>
+    </form>
+
+    <div class="mt-3">
+        <a href="/transaksi" class="btn btn-outline-secondary w-100">Cancel</a>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.rupiah-input').forEach(input => {
+        input.addEventListener('input', function(e) {
+            let cursorPosition = this.selectionStart;
+            let originalLength = this.value.length;
+            let cleanValue = this.value.replace(/[^0-9,]/g, '');
+            let parts = cleanValue.split(',');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + ',' + parts.slice(1).join('');
+            }
+            parts = cleanValue.split(',');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            if (parts[1]) { parts[1] = parts[1].substring(0, 2); }
+            this.value = parts.join(',');
+            let newLength = this.value.length;
+            this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const jenisInput = document.getElementById("jenis-input");
+        const cnInput = document.getElementById("cn-input");
+        const tagihanInput = document.getElementById("jumlah-tagihan");
+        const btnSubmit = document.getElementById("btn-submit");
+
+        // Fungsi untuk memformat angka ke format mata uang Rupiah tampilan biasa
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
+        }
+
+        function aturStatusTombolSubmit() {
+            const teksTagihan = tagihanInput.value.trim();
+            
+            // Ambil angka murni dari string format rupiah (misal "Rp 0,00" -> 0)
+            let angkaTagihan = teksTagihan.replace(/[^0-9,/]/g, "");
+            angkaTagihan = angkaTagihan.replace(/\./g, "").replace(",", ".");
+            const nilaiNumerik = parseFloat(angkaTagihan) || 0;
+
+            // Jika bernilai 0, mengandung pesan error, atau kosong, maka disable tombol submit
+            if (nilaiNumerik <= 0 || teksTagihan === "" || teksTagihan.includes("Gagal") || teksTagihan.includes("Tidak Valid")) {
+                    btnSubmit.disabled = true;
+                } else {
+                    btnSubmit.disabled = false;
+                }
+            }
+
+        // Jalankan deteksi setiap kali user selesai mengetik/mengubah CN
+        function muatJumlahTagihan() {
+        const jenisValue = jenisInput.value.trim();
+        const cnValue = cnInput.value.trim();
+
+        // Jika salah satu masih kosong, jangan tembak API dulu
+        if (jenisValue === "" || cnValue === "") {
+            aturStatusTombolSubmit();
+            tagihanInput.value = "";
+            return;
+        }
+
+        // Tembak API baru yang membawa parameter Jenis dan CN
+        fetch(`/api/get-tagihan/${jenisValue}/${cnValue}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    tagihanInput.value = formatRupiah(data.total_tagihan);
+                    
+                    // Trigger fungsi cekKondisiPelunasan() jika Anda menggunakan fitur sembunyi tanggal berakhir baru
+                    if (typeof cekKondisiPelunasan === "function") {
+                        setTimeout(cekKondisiPelunasan, 100);
+                    }
+                } else {
+                    tagihanInput.value = "CN Tidak Valid";
+                }
+                aturStatusTombolSubmit();
+            })
+            .catch(error => {
+                console.error("Error fetching data:", error);
+                tagihanInput.value = "Gagal mengambil data";
+                aturStatusTombolSubmit();
+            });
+        }
+
+        aturStatusTombolSubmit();
+        
+        cnInput.addEventListener("change", muatJumlahTagihan);
+    
+        jenisInput.addEventListener("change", muatJumlahTagihan);
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const tagihanInput = document.getElementById("jumlah-tagihan"); // Input dari AJAX sebelumnya
+        const dibayarInput = document.getElementById("jumlah-dibayar"); // Pastikan ID ini sesuai dengan input Anda
+        const wrapperTanggalBaru = document.getElementById("wrapper-tanggal-baru");
+
+        function dapatkanAngkaMurni(stringRef) {
+            if (!stringRef || stringRef.value.trim() === "") return 0;
+            let bersih = stringRef.value.replace(/[^0-9,/]/g, "");
+            bersih = bersih.replace(/\./g, "").replace(",", ".");
+            return parseFloat(bersih) || 0;
+        }
+
+        function cekKondisiPelunasan() {
+            const nilaiTagihan = dapatkanAngkaMurni(tagihanInput);
+            const nilaiDibayar = dapatkanAngkaMurni(dibayarInput);
+
+            if (nilaiTagihan > 0 && nilaiDibayar === nilaiTagihan) {
+                wrapperTanggalBaru.style.display = "block"; // Munculkan field tanggal
+            } else {
+                wrapperTanggalBaru.style.display = "none";  // Sembunyikan field tanggal
+                document.getElementById("tanggal-berakhir-baru").value = ""; // Bersihkan isinya jika disembunyikan
+            }
+        }
+
+        // Pantau perubahan saat user mengetik di kotak Jumlah Dibayar
+        dibayarInput.addEventListener("input", cekKondisiPelunasan);
+
+        // Pantau juga perubahan pada Jumlah Tagihan (sewaktu AJAX berhasil mengisi otomatis nilainya)
+        // Kita bisa memicu fungsinya dari observer atau memanggil cekKondisiPelunasan() tepat di akhir fungsi fetch AJAX Anda sebelumnya.
+        
+        // TAMBAHKAN BARIS INI tepat di dalam blok .then(data => { ... }) AJAX CN Anda yang sebelumnya:
+        // setelah baris: tagihanInput.value = formatRupiah(data.total_tagihan);
+        // panggil: setTimeout(cekKondisiPelunasan, 100);
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputTanggalBayar = document.getElementById("tanggal-bayar")
+        const inputTanggalBaru = document.getElementById("tanggal-berakhir-baru")
+        const hariIni = new Date().toISOString().split('T')[0];
+        
+        inputTanggalBayar.setAttribute("max", hariIni);
+        inputTanggalBaru.setAttribute("min", hariIni);
+
+        inputTanggalBayar.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan > hariIni) {
+                alert("⚠️ Maaf, tanggal bayar tidak boleh lebih dari hari ini!");
+                this.value = "";
+            }
+        });
+
+        inputTanggalBaru.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan > hariIni) {
+                alert("⚠️ Maaf, tanggal berakhir baru tidak boleh sebelum hari ini!");
+                this.value = "";
+            }
+        });
+    });
+</script>
+{% endblock %}

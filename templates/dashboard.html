@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Home{% endblock %}
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+    <div class="container-fluid px-4 mt-4">
+        <div class="row gx-3 gy-3">
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 h-100 summary-card bg-white text-dark" style="border-radius: 8px;">
+                    <div class="card-body">
+                        <h6 class="text-muted fw-bold">Total Peralatan</h6>
+                        <h3 class="fw-bold m-0 text-primary">{{ total_peralatan }}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 h-100 summary-card bg-white text-dark" style="border-radius: 8px;">
+                    <div class="card-body">
+                        <h6 class="text-muted fw-bold">Jumlah STNK Aktif</h6>
+                        <h3 class="fw-bold m-0 text-primary">{{ jumlah_stnk_aktif }}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 h-100 summary-card bg-white text-dark" style="border-radius: 8px;">
+                    <div class="card-body">
+                        <h6 class="text-muted fw-bold">Jumlah Asuransi Aktif</h6>
+                        <h3 class="fw-bold m-0 text-primary">{{ jumlah_asuransi_aktif }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-4 mt-5 text-dark" style="background-color: #f8f9fa;">
+        <div class="row">
+            
+            <div class="col-md-6 mb-4">
+                <h4 class="mb-4 d-flex align-items-center font-weight-bold" style="color: #212529;">
+                    <span class="me-2">📋</span> Dokumen STNK
+                </h4>
+                
+                <div class="accordion" id="accordionSTNK">
+                    
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingStnkExpired">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStnkExpired" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #000000; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                STNK Sudah Kadaluarsa ({{ stnk_expired|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseStnkExpired" class="accordion-collapse collapse" aria-labelledby="headingStnkExpired" data-bs-parent="#accordionSTNK">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku STNK</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in stnk_expired %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #000000;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit kadaluarsa</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingStnkWarning">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStnkWarning" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #ef4444; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                STNK Kadaluarsa &le; 30 Hari ({{ stnk_warning|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseStnkWarning" class="accordion-collapse collapse" aria-labelledby="headingStnkWarning" data-bs-parent="#accordionSTNK">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku STNK</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in stnk_warning %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #ff0000;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingStnkNotice">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStnkNotice" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #f97316; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                STNK Kadaluarsa &le; 90 Hari ({{ stnk_notice|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseStnkNotice" class="accordion-collapse collapse" aria-labelledby="headingStnkNotice" data-bs-parent="#accordionSTNK">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku STNK</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in stnk_notice %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingStnkNone">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStnkNone" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #3b82f6; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                Tidak Ada STNK ({{ stnk_none|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseStnkNone" class="accordion-collapse collapse" aria-labelledby="headingStnkNone" data-bs-parent="#accordionSTNK">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Status</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in stnk_none %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td class="text-primary fw-bold">Tidak Ada</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Semua unit memiliki data STNK</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <h4 class="mb-4 d-flex align-items-center font-weight-bold" style="color: #212529;">
+                    <span class="me-2">🛡️</span> Polis Asuransi
+                </h4>
+                
+                <div class="accordion" id="accordionAsuransi">
+                    
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingAsuExpired">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAsuExpired" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #000000; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                Asuransi Sudah Kadaluarsa ({{ asuransi_expired|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseAsuExpired" class="accordion-collapse collapse" aria-labelledby="headingAsuExpired" data-bs-parent="#accordionAsuransi">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku Asuransi</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in asuransi_expired %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #000000;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit kadaluarsa</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingAsuWarning">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAsuWarning" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #ef4444; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                Asuransi Kadaluarsa &le; 30 Hari ({{ asuransi_warning|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseAsuWarning" class="accordion-collapse collapse" aria-labelledby="headingAsuWarning" data-bs-parent="#accordionAsuransi">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku Asuransi</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in asuransi_warning %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingAsuNotice">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAsuNotice" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #f97316; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                Asuransi Kadaluarsa &le; 90 Hari ({{ asuransi_notice|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseAsuNotice" class="accordion-collapse collapse" aria-labelledby="headingAsuNotice" data-bs-parent="#accordionAsuransi">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Masa Berlaku Asuransi</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in asuransi_notice %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_asuransi }}</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data unit dalam peringatan</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item shadow-sm border-0 mb-3" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                        <h2 class="accordion-header" id="headingAsuNone">
+                            <button class="accordion-button collapsed text-dark shadow-none font-weight-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAsuNone" aria-expanded="false" style="background-color: #ffffff;">
+                                <span class="badge rounded-circle me-2" style="background-color: #3b82f6; width: 12px; height: 12px; display: inline-block; padding: 0;"></span> 
+                                Tidak Ada Asuransi ({{ asuransi_none|length }} Unit)
+                            </button>
+                        </h2>
+                        <div id="collapseAsuNone" class="accordion-collapse collapse" aria-labelledby="headingAsuNone" data-bs-parent="#accordionAsuransi">
+                            <div class="accordion-body p-0" style="background-color: #f8f9fa;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped mb-0 small text-center align-middle" style="background-color: #f8f9fa; color: #212529;">
+                                        <thead>
+                                            <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
+                                                <th style="width: 10%;">No</th>
+                                                <th>Code Number (CN)</th>
+                                                <th>Status</th>
+                                                <th>Kategori Unit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="border-top: none;">
+                                            {% for unit in asuransi_none %}
+                                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                                <td class="text-muted">{{ loop.index }}</td>
+                                                <td class="font-weight-bold" style="color: #212529;">{{ unit.cn }}</td>
+                                                <td class="text-primary fw-bold">Tidak Ada</td>
+                                                <td class="text-muted">{{ unit.kategori_unit or '-' }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="4" class="text-center text-muted py-3">Semua unit memiliki data asuransi</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <style>
+        /* Mengatur ikon panah Bootstrap agar menggunakan warna hitam/gelap */
+        .accordion-button::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+        }
+        .accordion-button:not(.collapsed)::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+            transform: rotate(-180deg);
+        }
+        /* Penyesuaian tombol accordion saat aktif / terbuka */
+        .accordion-button:not(.collapsed) {
+            background-color: #f1f3f5 !important;
+            color: #212529 !important;
+            box-shadow: none !important;
+        }
+        /* Mengatur baris belang-beling (zebra striping) pada tabel bertema putih */
+        .table-striped>tbody>tr:nth-of-type(odd)>* {
+            --bs-table-accent-bg: #ffffff !important;
+        }
+        .table-striped>tbody>tr:nth-of-type(even)>* {
+            --bs-table-accent-bg: #fdfdfd !important;
+        }
+    </style>
+{% endblock %}

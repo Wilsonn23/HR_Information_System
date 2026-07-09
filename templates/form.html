@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block title %}Entry Form{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+<div class="card form-card p-3 shadow-sm">
+    <h3 class="text-center mb-4 text-primary">Data Entry</h3>
+    <form action="{{ url_for('submit_data') }}" method="POST">
+        {{ form.csrf_token }}
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Nama PT</label>
+                {{ form.pt(class="form-control", placeholder="BDP") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Nama Asuransi</label>
+                {{ form.nama_asuransi(class="form-control", placeholder="Zurich") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Pulau</label>
+                {{ form.pulau(class="form-control", placeholder="Papua") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Site (Provinsi)</label>
+                {{ form.provinsi(class="form-control", placeholder="Merauke") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">CN</label>
+                {{ form.cn(class="form-control", placeholder="XX123") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">No. Polis Asuransi</label>
+                {{ form.no_polis(class="form-control", placeholder="123456") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label">No. Polisi</label>
+                {{ form.no_polisi(class="form-control", placeholder="X1234XXX") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Varian</label>
+                {{ form.varian(class="form-control", placeholder="Caterpilar") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Kategori</label>
+                {{ form.kategori(class="form-control", placeholder="XXXXXX") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Equipment Model</label>
+                {{ form.eqp_model(class="form-control", placeholder="XXX123") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">SN Equipment</label>
+                {{ form.sn_equipment(class="form-control", placeholder="XXX123") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">SN Engine</label>
+                {{ form.sn_engine(class="form-control", placeholder="XXX123") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Status STNK</label>
+                {{ form.status_stnk(class="form-control", id="status-stnk-select") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Status Asuransi</label>
+                {{ form.status_asuransi(class="form-control", id="status-asuransi-select") }}
+            </div>
+        </div>
+        <div id="tanggal-row-wrapper" class="row" style="display:none">
+            <div class="col-md-6 mb-3">
+                <div id="stnk-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir STNK</label>
+                    {{ form.tanggal_berakhir_stnk(id="tanggal-berakhir-stnk", class="form-control", type="date") }}
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div id="asuransi-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir Asuransi</label>
+                    {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Year</label>
+                {{ form.year(class="form-control", placeholder="2026") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Remaks</label>
+                {{ form.remaks(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Perpanjang (STNK)</label>
+                {{ form.biaya_perpanjang_stnk(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Admin (STNK)</label>
+                {{ form.biaya_administrasi_stnk(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Perpanjang (Asuransi)</label>
+                {{ form.biaya_perpanjang_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Admin (Asuransi)</label>
+                {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-2">Submit Data</button>
+    </form>
+
+    <div class="mt-3">
+        <a href="/dashboard" class="btn btn-outline-secondary w-100">Cancel</a>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.rupiah-input').forEach(input => {
+        input.addEventListener('input', function(e) {
+            let cursorPosition = this.selectionStart;
+            let originalLength = this.value.length;
+            let cleanValue = this.value.replace(/[^0-9,]/g, '');
+            let parts = cleanValue.split(',');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + ',' + parts.slice(1).join('');
+            }
+            parts = cleanValue.split(',');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            if (parts[1]) { parts[1] = parts[1].substring(0, 2); }
+            this.value = parts.join(',');
+            let newLength = this.value.length;
+            this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
+        });
+    });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusStnkSelect = document.getElementById("status-stnk-select");
+    const stnkDateRow = document.getElementById("stnk-date-row");
+
+    function toggleStnkDate() {
+        const stnkDateElement = document.getElementById("stnk-date-row");
+        if (statusStnkSelect.value === "ON") {
+            stnkDateElement.classList.remove("invisible");
+        } else {
+            stnkDateElement.classList.add("invisible");
+        }
+    }
+
+    statusStnkSelect.addEventListener("change", toggleStnkDate);
+
+    toggleStnkDate();
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusAsuransiSelect = document.getElementById("status-asuransi-select");
+    const asuransiDateRow = document.getElementById("asuransi-date-row");
+
+    function toggleAsuransiDate() {
+        const asuransiDateElement = document.getElementById("asuransi-date-row");
+        if (statusAsuransiSelect.value === "ON") {
+            asuransiDateRow.classList.remove("invisible");
+        } else {
+            asuransiDateRow.classList.add("invisible");
+        }    
+    }
+
+    statusAsuransiSelect.addEventListener("change", toggleAsuransiDate);
+
+    toggleAsuransiDate();
+});
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const statusStnk = document.getElementById("status-stnk-select");
+        const statusAsuransi = document.getElementById("status-asuransi-select");
+        
+        const tanggalRowWrapper = document.getElementById("tanggal-row-wrapper");
+        const stnkDateCol = document.getElementById("stnk-date-col");
+        const asuransiDateCol = document.getElementById("asuransi-date-col");
+
+        function updateFields() {
+            const isStnkOn = statusStnk.value === "ON";
+            const isAsuransiOn = statusAsuransi.value === "ON";
+
+            if (isStnkOn || isAsuransiOn) {
+                tanggalRowWrapper.style.display = "flex"; // Munculkan baris
+            } else {
+                tanggalRowWrapper.style.display = "none";  // Sembunyikan baris & naikkan Year/Remaks
+            }
+
+            if (isStnkOn) {
+                stnkDateCol.classList.remove("invisible");
+            } else {
+                stnkDateCol.classList.add("invisible");
+            }
+
+            if (isAsuransiOn) {
+                asuransiDateCol.classList.remove("invisible");
+            } else {
+                asuransiDateCol.classList.add("invisible");
+            }
+        }
+
+        statusStnk.addEventListener("change", updateFields);
+        statusAsuransi.addEventListener("change", updateFields);
+
+        updateFields();
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputTanggalSTNK = document.getElementById("tanggal-berakhir-stnk");
+        const inputTanggalAsuransi = document.getElementById("tanggal-berakhir-asuransi");
+        const hariIni = new Date().toISOString().split('T')[0];
+        
+        inputTanggalSTNK.setAttribute("min", hariIni);
+        inputTanggalAsuransi.setAttribute("min", hariIni);
+
+        inputTanggalSTNK.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan < hariIni) {
+                alert("⚠️ Maaf, tanggal berakhir STNK tidak boleh sebelum hari ini!");
+                this.value = "";
+            }
+        });
+
+        inputTanggalAsuransi.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan < hariIni) {
+                alert("⚠️ Maaf, tanggal berakhir asuransi tidak boleh sebelum hari ini!");
+                this.value = "";
+            }
+        });
+    });
+</script>
+{% endblock %}

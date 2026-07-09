@@ -1,0 +1,14 @@
+.form-control::placeholder {
+    color: #6c757d !important; /* Standard Bootstrap muted gray */
+    opacity: 0.6;              /* Makes it look softer */
+}
+
+body {
+    padding-top: 56px; /* Pushes everything down so it clears the navbar */
+}
+
+.data-input {
+    flex: 0 0 auto;
+    width: 50%;
+    margin-bottom: 1rem;    
+}
