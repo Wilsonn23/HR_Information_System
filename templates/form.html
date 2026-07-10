@@ -16,7 +16,7 @@
 {% endwith %}
 <div class="card form-card p-3 shadow-sm">
     <h3 class="text-center mb-4 text-primary">Data Entry</h3>
-    <form action="{{ url_for('submit_data') }}" method="POST">
+    <form action="{{ url_for('submit_data') }}" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
         <div class="row">
             <div class="data-input">
@@ -131,6 +131,15 @@
             <div class="data-input">
                 <label class="form-label font-weight-bold">Biaya Admin (Asuransi)</label>
                 {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+
+        <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">📸 Dokumentasi & Foto Unit</h5>
+        <div class="row">
+            <div class="col-12 mb-3">
+                <label class="form-label font-weight-bold">Unggah Foto Unit (Bisa beberapa gambar sekaligus)</label>
+                <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
+                <div class="form-text text-muted small">Format yang didukung: .png, .jpg, .jpeg. Anda dapat memilih beberapa foto bersamaan.</div>
             </div>
         </div>
 

@@ -89,6 +89,14 @@ with app.app_context():
 # CLASS DEFINITIONS
 # ===============================================================================================================
 
+class UnitImage(db.Model):
+    __tablename__ = 'unit_images'
+    
+    id = db.mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    cn = db.mapped_column(db.String(50), db.ForeignKey('data_entries.cn'), nullable=False) # Hubungkan dengan CN Utama
+    filename = db.mapped_column(db.String(255), nullable=False)     # Menyimpan nama asli file (misal: depan.jpg)
+    file_data = db.mapped_column(db.LargeBinary, nullable=False)    # Menyimpan data biner gambar asli (BLOB/BYTEA)
+
 class DataEntry(db.Model):
     __tablename__ = "data_entries"
     
@@ -382,6 +390,28 @@ def report():
         active_filter=group_by
     )
 
+@app.route('/details')
+@app.route('/details/<cn>')
+def details(cn=None):
+    all_cn_list = db.session.execute(db.select(DataEntry.cn).order_by(DataEntry.cn)).scalars().all()
+    
+    if(not cn):        
+        return render_template('details.html', entry=None, all_cn_list=all_cn_list)
+    
+    entry = db.session.execute(
+        db.select(DataEntry).where(DataEntry.cn == cn)
+    ).scalar_one_or_none()
+    
+    if not entry:
+        flash("Data unit tidak ditemukan!", "danger")
+        return redirect(url_for('details'))
+        
+    db_images = db.session.execute(
+        db.select(UnitImage.id).where(UnitImage.cn == cn).order_by(UnitImage.id)
+    ).scalars().all()
+        
+    return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images)
+
 @app.route('/entry')
 def database():
     form = DataForm()
@@ -533,6 +563,18 @@ def submit_data():
 
         try:
             db.session.add(new_record)
+
+            uploaded_files = request.files.getlist('unit_photos')
+            for file in uploaded_files:
+                if file and file.filename != '':
+                    binary_data = file.read()
+                    new_image = UnitImage(
+                        cn=form.cn.data,
+                        filename=file.filename,
+                        file_data=binary_data
+                    )
+                    db.session.add(new_image)
+
             db.session.commit()
             return redirect(url_for('dashboard'))
         
@@ -551,14 +593,123 @@ def submit_data():
         
     return render_template('form.html', form=form)
 
-@app.route('/edit/<cn>')
+@app.route('/edit/<cn>', methods=['GET'])
 def edit(cn):
-    form = DataForm()
+    # Ambil data lama berdasarkan CN
     entry = db.session.execute(
         db.select(DataEntry).where(DataEntry.cn == cn)
     ).scalar_one_or_none()
     
-    return render_template('edit.html', form=form, entries=entry)
+    if not entry:
+        flash("Data unit dengan CN tersebut tidak ditemukan.", "danger")
+        return redirect(url_for('details'))
+        
+    form = DataForm(obj=entry)
+    
+    if entry.tanggal_berakhir_stnk:
+        try:
+            form.tanggal_berakhir_stnk.data = datetime.strptime(str(entry.tanggal_berakhir_stnk), '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    if entry.tanggal_berakhir_asuransi:
+        try:
+            form.tanggal_berakhir_asuransi.data = datetime.strptime(str(entry.tanggal_berakhir_asuransi), '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    form.biaya_perpanjang_stnk.data = f"{entry.biaya_perpanjang_stnk:,.2f}".replace('.', ',').replace(chr(160), '').replace(' ', '')
+    form.biaya_administrasi_stnk.data = f"{entry.biaya_administrasi_stnk:,.2f}".replace('.', ',')
+    form.biaya_perpanjang_asuransi.data = f"{entry.biaya_perpanjang_asuransi:,.2f}".replace('.', ',')
+    form.biaya_administrasi_asuransi.data = f"{entry.biaya_administrasi_asuransi:,.2f}".replace('.', ',')
+    
+    return render_template('edit.html', form=form, entry=entry)
+
+# Tambahkan route POST ini tepat di bawah fungsi def edit(cn) untuk memproses update data
+@app.route('/update_data/<cn>', methods=['POST'])
+def update_data(cn):
+    entry = db.session.execute(
+        db.select(DataEntry).where(DataEntry.cn == cn)
+    ).scalar_one_or_none()
+    
+    if not entry:
+        flash("Data tidak ditemukan!", "danger")
+        return redirect(url_for('details'))
+        
+    form = DataForm()
+    form.cn.data = cn
+    form.status_stnk.data=entry.status_stnk
+    form.status_asuransi.data=entry.status_asuransi
+    form.tanggal_berakhir_stnk.data=entry.tanggal_berakhir_stnk
+    form.tanggal_berakhir_asuransi.data=entry.tanggal_berakhir_asuransi
+
+    if form.validate_on_submit():
+        def clean_numeric_input(val):
+            if not val: return 0.0
+            val_str = str(val).strip().replace('.', '').replace(',', '.')
+            try: return round(float(val_str), 2)
+            except ValueError: return 0.0
+
+        # Kalkulasi hitung ulang biaya baru
+        biaya_perpanjang_stnk = clean_numeric_input(form.biaya_perpanjang_stnk.data)
+        biaya_admin_stnk = clean_numeric_input(form.biaya_administrasi_stnk.data)
+        total_stnk = biaya_perpanjang_stnk + biaya_admin_stnk
+        total_terpembulat_stnk = float(round(total_stnk, 0))
+        pembulatan_otomatis_stnk = round(total_terpembulat_stnk - total_stnk, 2)
+
+        biaya_perpanjang_asuransi = clean_numeric_input(form.biaya_perpanjang_asuransi.data)
+        biaya_admin_asuransi = clean_numeric_input(form.biaya_administrasi_asuransi.data)
+        total_asuransi = biaya_perpanjang_asuransi + biaya_admin_asuransi
+        total_terpembulat_asuransi = float(round(total_asuransi, 0))
+        pembulatan_otomatis_asuransi = round(total_terpembulat_asuransi - total_asuransi, 2)
+
+        # Update properti objek database lama dengan data kiriman dari form edit
+        entry.pt = form.pt.data
+        entry.nama_asuransi = form.nama_asuransi.data
+        entry.pulau = form.pulau.data
+        entry.provinsi = form.provinsi.data
+        entry.no_polis = form.no_polis.data
+        entry.no_polisi = form.no_polisi.data
+        entry.varian = form.varian.data
+        entry.kategori = form.kategori.data
+        entry.eqp_model = form.eqp_model.data
+        entry.sn_equipment = form.sn_equipment.data
+        entry.sn_engine = form.sn_engine.data
+        entry.year = form.year.data
+        entry.remaks = form.remaks.data if form.remaks.data else None
+        
+        entry.biaya_perpanjang_stnk = biaya_perpanjang_stnk
+        entry.biaya_administrasi_stnk = biaya_admin_stnk
+        entry.pembulatan_stnk = pembulatan_otomatis_stnk
+        entry.total_stnk = total_terpembulat_stnk
+        entry.harus_dibayar_stnk = total_terpembulat_stnk
+        
+        entry.biaya_perpanjang_asuransi = biaya_perpanjang_asuransi
+        entry.biaya_administrasi_asuransi = biaya_admin_asuransi
+        entry.pembulatan_asuransi = pembulatan_otomatis_asuransi
+        entry.total_asuransi = total_terpembulat_asuransi
+        entry.harus_dibayar_asuransi = total_terpembulat_asuransi
+        
+        entry.diinput_oleh = session.get('logged_user', 'System')
+
+        try:
+            uploaded_files = request.files.getlist('unit_photos')
+            for file in uploaded_files:
+                if file and file.filename != '':
+                    binary_data = file.read()
+                    new_image = UnitImage(
+                        cn=cn, # Tetap arahkan ke parameter CN unit ini
+                        filename=file.filename,
+                        file_data=binary_data
+                    )
+                    db.session.add(new_image)
+                    
+            db.session.commit()
+            return redirect(url_for('details'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Gagal memperbarui database: {e}", "danger")
+            
+    return render_template('edit.html', form=form, entry=entry)
 
 @app.route('/api/get-tagihan/<jenis>/<cn>')
 def get_tagihan(jenis, cn):
@@ -581,6 +732,20 @@ def get_tagihan(jenis, cn):
         })
     
     return jsonify({'success': False, 'message': 'CN tidak ditemukan'}), 404
+
+@app.route('/get_image/<int:image_id>')
+def get_image(image_id):
+    img_record = db.session.execute(
+        db.select(UnitImage).where(UnitImage.id == image_id)
+    ).scalar_one_or_none()
+    
+    if img_record:
+        ext = img_record.filename.split('.')[-1].lower()
+        mimetype = f'image/{ext}' if ext in ['png', 'jpg', 'jpeg', 'gif'] else 'image/jpeg'
+        
+        return Response(img_record.file_data, mimetype=mimetype)
+        
+    return "Gambar tidak ditemukan", 404
 
 @app.route('/export/csv')
 def export_csv():

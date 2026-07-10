@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}Detail Unit{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-4">
+    <div class="row g-4">
+        
+        <div class="col-md-4 col-lg-3">
+            <div class="card shadow border-0 rounded-3 h-100">
+                <div class="card-body p-4 d-flex flex-column">
+                    
+                    <h4 class="card-title fw-bold text-primary mb-4">🔎 Atribut Unit</h4>
+                    
+                    <div class="mb-2">
+                        <label for="cnNavigator" class="form-label fw-semibold text-secondary small">Pilih CN Unit:</label>
+                        <select id="cnNavigator" class="form-select form-select-sm shadow-sm" onchange="if(this.value) window.location.href='/details/' + this.value;">
+                            <option value="">-- Pilih Nomor CN --</option>
+                            {% for cn_item in all_cn_list %}
+                                <option value="{{ cn_item }}" {% if entry and cn_item == entry.cn %}selected{% endif %}>
+                                    {{ cn_item }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <hr class="text-muted my-3">
+
+                    {% if entry %}
+                        <div class="unit-attributes small flex-grow-1">
+                            
+                            <div class="mb-3 border-bottom pb-1">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">CN (Code Number)</div>
+                                <div class="fw-bold text-primary fs-5">{{ entry.cn }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Nama PT</div>
+                                <div class="fw-semibold text-dark">{{ entry.pt or '-' }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Nama Asuransi</div>
+                                <div class="fw-semibold text-dark">{{ entry.nama_asuransi or '-' }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Polisi (Plat)</div>
+                                <div class="fw-semibold text-dark">{{ entry.no_polisi or '-' }}</span></div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Varian Unit</div>
+                                <div class="fw-semibold text-dark">{{ entry.varian or '-' }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Kategori</div>
+                                <div class="fw-semibold text-dark">{{ entry.kategori or '-' }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Lokasi Wilayah</div>
+                                <div class="fw-semibold text-dark">{{ entry.pulau or '-' }} / {{ entry.provinsi or '-' }}</div>
+                            </div>
+
+                            <div class="mb-2.5 border-bottom pb-1.5">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Masa Berlaku STNK</div>
+                                <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_stnk or '-' }}</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted text-uppercase fw-semibold font-size-xs">Masa Berlaku Asuransi</div>
+                                <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_asuransi or '-' }}</div>
+                            </div>
+
+                        </div>
+
+                        <div class="d-grid gap-2 mt-auto">
+                            <a href="/edit/{{ entry.cn }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
+                                ✏️ Edit Data Unit
+                            </a>
+                            <a href="/dashboard" class="btn btn-outline-secondary btn-sm">
+                                Back to Dashboard
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 text-muted small my-auto">
+                            <p class="mb-0">Silakan tentukan nomor CN pada menu di atas untuk memuat data atribut.</p>
+                        </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8 col-lg-9">
+            <div class="card shadow border-0 rounded-3 h-100">
+                <div class="card-body p-4 d-flex flex-column bg-white">
+                    
+                    {% if entry %}
+                        <h4 class="text-dark fw-bold mb-4">🖼️ Visual & Dokumentasi Unit ({{ db_images|length }} Gambar)</h4>
+                        
+                        {% if db_images %}
+                            <div id="carouselDbImages" class="carousel slide shadow-sm border rounded-3 overflow-hidden bg-light my-auto" data-bs-ride="carousel">
+                                
+                                <div class="carousel-indicators">
+                                    {% for img_id in db_images %}
+                                        <button type="button" data-bs-target="#carouselDbImages" data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}" aria-current="{% if loop.first %}true{% endif %}"></button>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="carousel-inner">
+                                    {% for img_id in db_images %}
+                                        <div class="carousel-item {% if loop.first %}active{% endif %}" data-bs-interval="3500">
+                                            <div class="d-flex justify-content-center align-items-center" style="height: 480px;">
+                                                
+                                                <img src="{{ url_for('get_image', image_id=img_id) }}" 
+                                                     class="d-block img-fluid" 
+                                                     alt="Dokumen Biner Unit {{ entry.cn }}"
+                                                     style="max-height: 100%; object-fit: contain;">
+                                                     
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <button class="carousel-control-prev" type="button" data-bs-target="#carouselDbImages" data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Previous</span>
+                                </button>
+                                <button class="carousel-control-next" type="button" data-bs-target="#carouselDbImages" data-bs-slide="next">
+                                    <span class="carousel-control-next-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Next</span>
+                                </button>
+                            </div>
+                            
+                        {% else %}
+                            <div class="text-center text-muted my-auto p-5">
+                                <h5 class="fw-bold text-warning">⚠️ Foto Belum Tersedia</h5>
+                                <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.cn }}</strong>.</p>
+                            </div>
+                        {% endif %}
+                        
+                    {% else %}
+                        <div class="text-center text-muted my-auto p-5">
+                            <h5 class="fw-bold text-secondary">Belum Ada Unit yang Dipilih</h5>
+                            <p class="small mb-0">Slideshow gambar arsip unit dari database akan dimuat di sisi kanan ini setelah Anda memilih salah satu nomor CN pada panel sebelah kiri.</p>
+                        </div>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    .font-size-xs { font-size: 0.725rem; letter-spacing: 0.5px; }
+    .pb-1 { padding-bottom: 0.35rem; }
+    .mb-2 { margin-bottom: 0.65rem; }
+</style>
+{% endblock %}
