@@ -21,61 +21,61 @@
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Nama PT</label>
-                {{ form.pt(class="form-control", placeholder="BDP") }}
+                {{ form.pt(class="form-control hanya-huruf uppercase-input", placeholder="BDP") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Nama Asuransi</label>
-                {{ form.nama_asuransi(class="form-control", placeholder="Zurich") }}
+                {{ form.nama_asuransi(class="form-control hanya-huruf uppercase-input", placeholder="ZURICH") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Pulau</label>
-                {{ form.pulau(class="form-control", placeholder="Papua") }}
+                {{ form.pulau(class="form-control hanya-huruf uppercase-input", placeholder="PAPUA") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Site (Provinsi)</label>
-                {{ form.provinsi(class="form-control", placeholder="Merauke") }}
+                {{ form.provinsi(class="form-control hanya-huruf uppercase-input", placeholder="MERAUKE") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">CN</label>
-                {{ form.cn(class="form-control", placeholder="XX123") }}
+                {{ form.cn(class="form-control huruf-angka uppercase-input", placeholder="XX123") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">No. Polis Asuransi</label>
-                {{ form.no_polis(class="form-control", placeholder="123456") }}
+                {{ form.no_polis(class="form-control hanya-angka numeric", placeholder="123456") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label">No. Polisi</label>
-                {{ form.no_polisi(class="form-control", placeholder="X1234XXX") }}
+                {{ form.no_polisi(class="form-control huruf-angka uppercase-input", placeholder="X1234XXX") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Varian</label>
-                {{ form.varian(class="form-control", placeholder="Caterpilar") }}
+                {{ form.varian(class="form-control hanya-huruf uppercase-input", placeholder="CATERPILAR") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Kategori</label>
-                {{ form.kategori(class="form-control", placeholder="XXXXXX") }}
+                {{ form.kategori(class="form-control hanya-huruf uppercase-input", placeholder="XXXXXX") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Equipment Model</label>
-                {{ form.eqp_model(class="form-control", placeholder="XXX123") }}
+                {{ form.eqp_model(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">SN Equipment</label>
-                {{ form.sn_equipment(class="form-control", placeholder="XXX123") }}
+                {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">SN Engine</label>
-                {{ form.sn_engine(class="form-control", placeholder="XXX123") }}
+                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
         </div>
         <div class="row">
@@ -106,7 +106,7 @@
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Year</label>
-                {{ form.year(class="form-control", placeholder="2026") }}
+                {{ form.year(class="form-control hanya-angka numeric", placeholder="2026", maxlength="4") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Remaks</label>
@@ -275,6 +275,49 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("⚠️ Maaf, tanggal berakhir asuransi tidak boleh sebelum hari ini!");
                 this.value = "";
             }
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.uppercase-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+        });
+
+        const cnInput = document.getElementById("cn"); // Sesuaikan id dengan id field CN Anda
+        if (cnInput) {
+            cnInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^A-Z0-9]/g, '');
+            });
+        }
+
+        document.querySelectorAll('.numeric-year').forEach(input => {
+            input.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        });
+    });
+</script>
+
+<script>
+    document.querySelectorAll('.hanya-huruf').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^a-zA-Z ]/g, '');
+        });
+    });
+
+    document.querySelectorAll('.hanya-angka').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    });
+
+    document.querySelectorAll('.huruf-angka').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
         });
     });
 </script>

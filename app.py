@@ -147,87 +147,37 @@ class ReportEntry(db.Model):
     diinput_oleh: Mapped[str] = mapped_column(nullable=False)
 
 class DataForm(FlaskForm):
-    pt = StringField('Nama PT', validators=[
-        DataRequired(message="Nama PT tidak boleh kosong."), 
-        Length(min=1, max=100, message="Nama PT harus antara 1 dan 100 karakter.")
-    ])
-    nama_asuransi = StringField('Nama Asuransi', validators=[
-        DataRequired(message="Nama Asuransi tidak boleh kosong."), 
-        Length(min=1, max=100, message="Nama Asuransi harus antara 1 dan 100 karakter.")
-    ])
-    pulau = StringField('Pulau', validators=[
-        DataRequired(message="Pulau tidak boleh kosong."), 
-        Length(min=1, max=100, message="Pulau harus antara 1 dan 100 karakter.")
-    ])
-    provinsi = StringField('Province', validators=[
-        DataRequired(message="Site (Provinsi) tidak boleh kosong."), 
-        Length(min=1, max=100, message="Site (Provinsi) harus antara 1 dan 100 karakter.")
-    ])
-    cn = StringField('CN', validators=[
-        DataRequired(message="CN tidak boleh kosong."), 
-        Length(min=1, max=100, message="CN harus antara 1 dan 100 karakter.")
-    ])
-    no_polis = StringField('No. Polis', validators=[
-        DataRequired(message="No. Polis tidak boleh kosong."), 
-        Length(min=1, max=100, message="No. Polis harus antara 1 dan 100 karakter.")
-    ])
-    no_polisi = StringField('No. Polisi', validators=[
-        DataRequired(message="No. Polisi tidak boleh kosong."), 
-        Length(min=1, max=100, message="No. Polisi harus antara 1 dan 100 karakter.")
-    ])
-    varian = StringField('Varian', validators=[
-        DataRequired(message="Varian Asuransi tidak boleh kosong."), 
-        Length(min=1, max=100, message="Varian Asuransi harus antara 1 dan 100 karakter.")
-    ])
-    kategori = StringField('Kategori', validators=[
-        DataRequired(message="Kategori tidak boleh kosong."), 
-        Length(min=1, max=100, message="Kategori harus antara 1 dan 100 karakter.")
-    ])
-    eqp_model = StringField('Equipment Model', validators=[
-        DataRequired(message="Equipment Model tidak boleh kosong."), 
-        Length(min=1, max=100, message="Equipment Model harus antara 1 dan 100 karakter.")
-    ])   
-    sn_equipment = StringField('SN Equipment', validators=[
-        DataRequired(message="SN Equipment tidak boleh kosong."), 
-        Length(min=1, max=100, message="SN Equipment harus antara 1 dan 100 karakter.")
-    ])
-    sn_engine = StringField('SN Engine', validators=[
-        DataRequired(message="SN Engine tidak boleh kosong."), 
-        Length(min=1, max=100, message="SN Engine harus antara 1 dan 100 karakter.")
-    ])
-    status_stnk = SelectField(
-        'Status STNK', 
-        choices=[('OFF', 'OFF'), ('ON', 'ON')]
-    )
-    status_asuransi = SelectField(
-        'Status STNK', 
-        choices=[('OFF', 'OFF'), ('ON', 'ON')]
-    )
-    tanggal_berakhir_stnk = DateField('Tanggal Berakhir STNK', format='%Y-%m-%d', validators=[Optional()])
-    tanggal_berakhir_asuransi = DateField('Tanggal Berakhir Asuransi', format='%Y-%m-%d', validators=[Optional()])
-
-    current_year = datetime.now().year
+    pt = StringField('Nama PT', validators=[DataRequired(message="Nama PT wajib diisi!"), Length(max=100)])
+    nama_asuransi = StringField('Nama Asuransi', validators=[DataRequired(message="Nama Asuransi wajib diisi!")])
+    pulau = StringField('Provinsi', validators=[DataRequired()])
+    provinsi = StringField('Provinsi', validators=[DataRequired()])
     
-    year_choices = [(str(y), str(y)) for y in range(current_year, 1999, -1)]
+    # CN dibatasi panjang karakter idealnya (misal maksimal 20)
+    cn = StringField('CN', validators=[DataRequired(message="Nomor CN tidak boleh kosong!"), Length(min=1, max=20)])
     
-    year_choices.insert(0, ('', 'Select'))
-
-    year = SelectField('Year', choices=year_choices, default='Select', coerce=str)
+    no_polis = StringField('No Polis', validators=[Optional()])
+    no_polisi = StringField('No Polisi', validators=[Optional(), Length(max=20)])
+    varian = StringField('Varian', validators=[Optional()])
+    kategori = StringField('Kategori', validators=[Optional()])
+    eqp_model = StringField('Equipment Model', validators=[Optional()])
+    sn_equipment = StringField('S/N Equipment', validators=[Optional()])
+    sn_engine = StringField('S/N Engine', validators=[Optional()])
     
-    remaks = StringField('Remaks', validators=[Optional()])
-
-    biaya_perpanjang_stnk = StringField('Biaya Perpanjang STNK', validators=[
-        DataRequired(message="Biaya Perpanjang tidak boleh kosong."), 
-    ])
-    biaya_administrasi_stnk = StringField('Biaya Administrasi STNK', validators=[
-        DataRequired(message="Biaya Administrasi tidak boleh kosong."), 
-    ])
-    biaya_perpanjang_asuransi = StringField('Biaya Perpanjang Asuransi', validators=[
-        DataRequired(message="Biaya Perpanjang tidak boleh kosong."), 
-    ])
-    biaya_administrasi_asuransi = StringField('Biaya Administrasi Asuransi', validators=[
-        DataRequired(message="Biaya Administrasi tidak boleh kosong."), 
-    ])
+    status_stnk = SelectField('Status STNK', choices=[('ON', 'ON'), ('OFF', 'OFF')], validators=[DataRequired()])
+    status_asuransi = SelectField('Status Asuransi', choices=[('ON', 'ON'), ('OFF', 'OFF')], validators=[DataRequired()])
+    
+    tanggal_berakhir_stnk = DateField('Tanggal Berakhir STNK', validators=[Optional()])
+    tanggal_berakhir_asuransi = DateField('Tanggal Berakhir Asuransi', validators=[Optional()])
+    
+    # Tahun diwajibkan angka string
+    year = StringField('Tahun Pembuatan', validators=[DataRequired(message="Tahun harus diisi!"), Length(min=4, max=4, message="Tahun harus 4 digit!")])
+    remaks = StringField('Remarks', validators=[Optional()])
+    
+    # Bagian nominal uang tetap menggunakan Float / String bergantung setup awal Anda
+    biaya_perpanjang_stnk = StringField('Biaya Perpanjang STNK', validators=[Optional()])
+    biaya_administrasi_stnk = StringField('Biaya Admin STNK', validators=[Optional()])
+    biaya_perpanjang_asuransi = StringField('Biaya Perpanjang Asuransi', validators=[Optional()])
+    biaya_administrasi_asuransi = StringField('Biaya Admin Asuransi', validators=[Optional()])
 
 class ExtendForm(FlaskForm):
     jenis = SelectField(
@@ -293,7 +243,7 @@ def master():
     all_entries = db.session.execute(
         db.select(DataEntry)
     ).scalars().all()
-    return render_template('master.html', entries=all_entries)
+    return render_template('master.html', entries=all_entries, active_page='master')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
@@ -387,7 +337,8 @@ def report():
     return render_template(
         'report.html', 
         grouped_data=grouped_data, 
-        active_filter=group_by
+        active_filter=group_by,
+        active_page='report'
     )
 
 @app.route('/details')
@@ -396,7 +347,7 @@ def details(cn=None):
     all_cn_list = db.session.execute(db.select(DataEntry.cn).order_by(DataEntry.cn)).scalars().all()
     
     if(not cn):        
-        return render_template('details.html', entry=None, all_cn_list=all_cn_list)
+        return render_template('details.html', entry=None, all_cn_list=all_cn_list, active_page='details')
     
     entry = db.session.execute(
         db.select(DataEntry).where(DataEntry.cn == cn)
@@ -410,7 +361,7 @@ def details(cn=None):
         db.select(UnitImage.id).where(UnitImage.cn == cn).order_by(UnitImage.id)
     ).scalars().all()
         
-    return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images)
+    return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images, active_page='details')
 
 @app.route('/entry')
 def database():
@@ -526,17 +477,23 @@ def submit_data():
         
         pembulatan_otomatis_asuransi = round(total_terpembulat_asuransi - total_asuransi, 2)
 
+        if (biaya_perpanjang_stnk <= 0 or biaya_admin_stnk <= 0 or 
+            biaya_perpanjang_asuransi <= 0 or biaya_admin_asuransi <= 0):
+            flash("⚠️ Semua rincian biaya (STNK & Asuransi) wajib diisi dan tidak boleh bernilai 0!", "danger")
+
+            return render_template('form.html', form=form)
+
         new_record = DataEntry(
-            pt=form.pt.data,
-            nama_asuransi=form.nama_asuransi.data,
-            pulau=form.pulau.data,
-            provinsi=form.provinsi.data,
-            cn=form.cn.data,
-            no_polis=form.no_polis.data,
-            no_polisi=form.no_polisi.data,
-            varian=form.varian.data,
-            kategori=form.kategori.data,
-            eqp_model=form.eqp_model.data,
+            pt=form.pt.data.upper().strip(), # Otomatis kapital & hapus spasi berlebih di ujung
+            nama_asuransi=form.nama_asuransi.data.upper().strip(),
+            pulau=form.pulau.data.upper().strip(),
+            provinsi=form.provinsi.data.upper().strip(),
+            cn=form.cn.data.upper().replace(" ", ""), # CN dipaksa huruf besar tanpa spasi sama sekali
+            no_polis=form.no_polis.data.upper().strip() if form.no_polis.data else None,
+            no_polisi=form.no_polisi.data.upper().strip() if form.no_polisi.data else None,
+            varian=form.varian.data.upper().strip() if form.varian.data else None,
+            kategori=form.kategori.data.upper().strip() if form.kategori.data else None,
+            eqp_model=form.eqp_model.data.upper().strip() if form.eqp_model.data else None,
             sn_equipment=form.sn_equipment.data,
             sn_engine=form.sn_engine.data,
             status_stnk=form.status_stnk.data,
@@ -591,6 +548,9 @@ def submit_data():
             db.session.rollback()
             flash(f"Unexpected database error: {e}", "danger")
         
+    if form.errors:
+        print("WTF Validasi Error detail:", form.errors)
+
     return render_template('form.html', form=form)
 
 @app.route('/edit/<cn>', methods=['GET'])
@@ -623,6 +583,34 @@ def edit(cn):
     form.biaya_administrasi_asuransi.data = f"{entry.biaya_administrasi_asuransi:,.2f}".replace('.', ',')
     
     return render_template('edit.html', form=form, entry=entry)
+
+@app.route('/delete/<cn>', methods=['GET'])
+def delete(cn):
+    entry = db.session.execute(
+        db.select(DataEntry).where(DataEntry.cn == cn)
+    ).scalar_one_or_none()
+    
+    if not entry:
+        flash("Data unit dengan CN tersebut tidak ditemukan.", "danger")
+        return redirect(url_for('details'))
+    
+    try:
+        related_images = db.session.execute(
+            db.select(UnitImage).where(UnitImage.cn == cn)
+        ).scalars().all()
+        
+        for img in related_images:
+            db.session.delete(img)
+
+        db.session.delete(entry)
+        
+        db.session.commit()
+                
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Gagal menghapus data unit dari database: {e}", "danger")
+        
+    return redirect(url_for('details'))
 
 # Tambahkan route POST ini tepat di bawah fungsi def edit(cn) untuk memproses update data
 @app.route('/update_data/<cn>', methods=['POST'])
@@ -662,16 +650,22 @@ def update_data(cn):
         total_terpembulat_asuransi = float(round(total_asuransi, 0))
         pembulatan_otomatis_asuransi = round(total_terpembulat_asuransi - total_asuransi, 2)
 
+        if (biaya_perpanjang_stnk <= 0 or biaya_admin_stnk <= 0 or 
+            biaya_perpanjang_asuransi <= 0 or biaya_admin_asuransi <= 0):
+            flash("⚠️ Semua rincian biaya (STNK & Asuransi) wajib diisi dan tidak boleh bernilai 0!", "danger")
+               
+            return render_template('edit.html', form=form, entry=entry)
+
         # Update properti objek database lama dengan data kiriman dari form edit
-        entry.pt = form.pt.data
-        entry.nama_asuransi = form.nama_asuransi.data
-        entry.pulau = form.pulau.data
-        entry.provinsi = form.provinsi.data
-        entry.no_polis = form.no_polis.data
-        entry.no_polisi = form.no_polisi.data
-        entry.varian = form.varian.data
-        entry.kategori = form.kategori.data
-        entry.eqp_model = form.eqp_model.data
+        entry.pt = form.pt.data.upper().strip()
+        entry.nama_asuransi = form.nama_asuransi.data.upper().strip()
+        entry.pulau = form.pulau.data.upper().strip()
+        entry.provinsi = form.provinsi.data.upper().strip()
+        entry.no_polis = form.no_polis.data.upper().strip() if form.no_polis.data else None
+        entry.no_polisi = form.no_polisi.data.upper().strip() if form.no_polisi.data else None
+        entry.varian = form.varian.data.upper().strip() if form.varian.data else None
+        entry.kategori = form.kategori.data.upper().strip() if form.kategori.data else None
+        entry.eqp_model = form.eqp_model.data.upper().strip() if form.eqp_model.data else None
         entry.sn_equipment = form.sn_equipment.data
         entry.sn_engine = form.sn_engine.data
         entry.year = form.year.data
@@ -681,13 +675,11 @@ def update_data(cn):
         entry.biaya_administrasi_stnk = biaya_admin_stnk
         entry.pembulatan_stnk = pembulatan_otomatis_stnk
         entry.total_stnk = total_terpembulat_stnk
-        entry.harus_dibayar_stnk = total_terpembulat_stnk
         
         entry.biaya_perpanjang_asuransi = biaya_perpanjang_asuransi
         entry.biaya_administrasi_asuransi = biaya_admin_asuransi
         entry.pembulatan_asuransi = pembulatan_otomatis_asuransi
         entry.total_asuransi = total_terpembulat_asuransi
-        entry.harus_dibayar_asuransi = total_terpembulat_asuransi
         
         entry.diinput_oleh = session.get('logged_user', 'System')
 
@@ -702,7 +694,7 @@ def update_data(cn):
                         file_data=binary_data
                     )
                     db.session.add(new_image)
-                    
+
             db.session.commit()
             return redirect(url_for('details'))
         except Exception as e:
@@ -780,6 +772,27 @@ def export_csv():
     # except Exception as e:
     #     return f"Could not export data: {e}", 500
     pass
+
+def check_and_update_expired_units():
+    hari_ini = datetime.today().date()
+    
+    all_entries = db.session.execute(db.select(DataEntry)).scalars().all()
+    
+    updated = False
+    for entry in all_entries:
+        if entry.tanggal_berakhir_stnk and hari_ini > entry.tanggal_berakhir_stnk:
+            entry.harus_dibayar_stnk = entry.total_stnk
+            entry.status_stnk = 'OFF'
+            updated = True
+                
+        # Pengecekan untuk Asuransi
+        if entry.tanggal_berakhir_asuransi and hari_ini > entry.tanggal_berakhir_asuransi:
+            entry.harus_dibayar_asuransi = entry.total_asuransi
+            entry.status_asuransi = 'OFF'
+            updated = True
+                
+    if updated:
+        db.session.commit()
 
 if __name__ == '__main__':
     app.run(debug=True)
