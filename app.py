@@ -197,10 +197,11 @@ class ExtendForm(FlaskForm):
         'Jenis', 
         choices=[('STNK', 'STNK'), ('Asuransi', 'Asuransi')]
     )
-    cn = SelectField('CN', choices=[], validators=[DataRequired()])
+    cn = StringField('CN', validators=[
+        DataRequired(message="Jumlah dibayar tidak boleh kosong.")])
     tanggal_berakhir_baru = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[Optional()])
     jumlah_dibayar = StringField('Biaya Administrasi', validators=[
-        DataRequired(message="Jumlah dibayar tidak boleh kosong."), 
+        DataRequired(message="Jumlah dibayar tidak boleh kosong.") 
     ])
     tanggal_bayar = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[DataRequired(message="Tanggal tidak boleh kosong.")])
 
@@ -363,13 +364,6 @@ def transaksi():
 @app.route('/perpanjang')
 def perpanjang():
     form = ExtendForm()
-
-    all_units = db.session.execute(
-        db.select(DataEntry.cn).order_by(DataEntry.cn)
-    ).scalars().all()
-
-    form.cn.choices = [(cn, cn) for cn in all_units]
-
     return render_template('perpanjang.html', form=form, active_page='perpanjang')
 
 @app.route('/report')
