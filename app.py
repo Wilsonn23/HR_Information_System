@@ -218,7 +218,7 @@ def manage_users():
     form = UserForm()
     
     if form.validate_on_submit():
-        username_clean = form.username.data.strip().lower()
+        username_clean = form.username.data.strip()
         existing_user = db.session.execute(db.select(UserEntry).where(UserEntry.username == username_clean)).scalar_one_or_none()
         
         if existing_user:
