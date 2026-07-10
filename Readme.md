@@ -2,4 +2,4 @@
 python app.py
 
 'Create User'
-flask create-user <Username> <Password>
+flask create-user (Username) (Password) (Role)
