@@ -2,174 +2,323 @@
 
 {% block title %}Entry Form{% endblock %}
 
-{% block body_class %}dashboard-page bg-light{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <div class="card shadow border-0 rounded-3 overflow-hidden bg-white text-dark">
-                <div class="card-header bg-primary text-white py-3 d-flex align-items-center gap-2">
-                    <span class="fs-4">📝</span>
-                    <h4 class="m-0 fw-bold">Formulir Tambah Data Entry Baru</h4>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+<div class="card form-card p-3 shadow-sm">
+    <h3 class="text-center mb-4 text-primary">Data Entry</h3>
+    <form action="{{ url_for('submit_data') }}" method="POST" enctype="multipart/form-data">
+        {{ form.csrf_token }}
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Nama PT</label>
+                {{ form.pt(class="form-control hanya-huruf uppercase-input", placeholder="BDP") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Nama Asuransi</label>
+                {{ form.nama_asuransi(class="form-control hanya-huruf uppercase-input", placeholder="ZURICH") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Pulau</label>
+                {{ form.pulau(class="form-control hanya-huruf uppercase-input", placeholder="PAPUA") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Site (Provinsi)</label>
+                {{ form.provinsi(class="form-control hanya-huruf uppercase-input", placeholder="MERAUKE") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">CN</label>
+                {{ form.cn(class="form-control huruf-angka uppercase-input", placeholder="XX123") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">No. Polis Asuransi</label>
+                {{ form.no_polis(class="form-control hanya-angka numeric", placeholder="123456") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label">No. Polisi</label>
+                {{ form.no_polisi(class="form-control huruf-angka uppercase-input", placeholder="X1234XXX") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Varian</label>
+                {{ form.varian(class="form-control hanya-huruf uppercase-input", placeholder="CATERPILAR") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Kategori</label>
+                {{ form.kategori(class="form-control hanya-huruf uppercase-input", placeholder="XXXXXX") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Equipment Model</label>
+                {{ form.eqp_model(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">SN Equipment</label>
+                {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">SN Engine</label>
+                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Status STNK</label>
+                {{ form.status_stnk(class="form-control", id="status-stnk-select") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Status Asuransi</label>
+                {{ form.status_asuransi(class="form-control", id="status-asuransi-select") }}
+            </div>
+        </div>
+        <div id="tanggal-row-wrapper" class="row" style="display:none">
+            <div class="col-md-6 mb-3">
+                <div id="stnk-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir STNK</label>
+                    {{ form.tanggal_berakhir_stnk(id="tanggal-berakhir-stnk", class="form-control", type="date") }}
                 </div>
-                
-                <form action="{{ url_for('submit_data') }}" method="POST" enctype="multipart/form-data" class="card-body p-4 p-md-5">
-                    {{ form.csrf_token }}
-
-                    <div class="mb-5">
-                        <div class="d-flex align-items-center gap-2 border-bottom pb-2 mb-4">
-                            <span class="text-primary fw-bold fs-5">🏢</span>
-                            <h5 class="fw-bold m-0 text-secondary text-uppercase font-size-sm tracking-wider">Informasi Perusahaan & Lokasi</h5>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Nama PT <span class="text-danger">*</span></label>
-                                {{ form.pt(class="form-control form-control-lg hanya-huruf uppercase-input shadow-sm fs-6", placeholder="Contoh: PPA") }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Nama Asuransi <span class="text-danger">*</span></label>
-                                {{ form.nama_asuransi(class="form-control form-control-lg hanya-huruf uppercase-input shadow-sm fs-6", placeholder="Contoh: ZURICH") }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Pulau <span class="text-danger">*</span></label>
-                                {{ form.pulau(class="form-control form-control-lg hanya-huruf uppercase-input shadow-sm fs-6", placeholder="Contoh: KALIMANTAN") }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Site (Provinsi) <span class="text-danger">*</span></label>
-                                {{ form.provinsi(class="form-control form-control-lg hanya-huruf uppercase-input shadow-sm fs-6", placeholder="Contoh: KALIMANTAN TIMUR") }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-5">
-                        <div class="d-flex align-items-center gap-2 border-bottom pb-2 mb-4">
-                            <span class="text-primary fw-bold fs-5">🚚</span>
-                            <h5 class="fw-bold m-0 text-secondary text-uppercase font-size-sm tracking-wider">Identitas & Spesifikasi Unit</h5>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">CN Unit <span class="text-danger">*</span></label>
-                                {{ form.cn(class="form-control form-control-lg uppercase-input shadow-sm fs-6", id="cn", placeholder="Contoh: DT123") }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">No. Polisi <span class="text-danger">*</span></label>
-                                {{ form.no_polisi(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Contoh: KT 1234 ABC") }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Tahun Pembuatan (Year) <span class="text-danger">*</span></label>
-                                {{ form.year(class="form-control form-control-lg numeric-year shadow-sm fs-6", placeholder="Contoh: 2022") }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Varian <span class="text-danger">*</span></label>
-                                {{ form.varian(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Contoh: DUMP TRUCK") }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Kategori <span class="text-danger">*</span></label>
-                                {{ form.kategori(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Contoh: HEAVY EQUIPMENT") }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Equipment Model</label>
-                                {{ form.eqp_model(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Contoh: SCANIA P410") }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Serial Number (SN) Equipment</label>
-                                {{ form.sn_equipment(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Masukkan SN Equipment") }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Serial Number (SN) Engine</label>
-                                {{ form.sn_engine(class="form-control form-control-lg uppercase-input shadow-sm fs-6", placeholder="Masukkan SN Engine") }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 border-bottom pb-2 mb-4">
-                            <span class="text-primary fw-bold fs-5">📄</span>
-                            <h5 class="fw-bold m-0 text-secondary text-uppercase font-size-sm tracking-wider">Lampiran & Catatan Tambahan</h5>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Upload Foto Unit / Dokumen Pendukung</label>
-                                {{ form.foto(class="form-control form-control-lg shadow-sm fs-6") }}
-                                <div class="form-text text-muted small mt-1">Format file diizinkan: .jpg, .jpeg, .png (Maks 2MB).</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Remarks (Catatan Khusus)</label>
-                                {{ form.remaks(class="form-control form-control-lg shadow-sm fs-6", placeholder="Tambahkan catatan khusus mengenai armada ini...", rows=2) }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end align-items-center gap-3 pt-4 border-top mt-5">
-                        <a href="{{ url_for('master_page') }}" class="btn btn-light btn-lg border px-4 fw-semibold fs-6">
-                            ❌ Batal
-                        </a>
-                        <button type="submit" class="btn btn-primary btn-lg px-5 fw-bold shadow-sm fs-6 d-flex align-items-center gap-2">
-                            <span>💾</span> Simpan Unit Baru
-                        </button>
-                    </div>
-
-                </form>
             </div>
 
+            <div class="col-md-6 mb-3">
+                <div id="asuransi-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir Asuransi</label>
+                    {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
+                </div>
+            </div>
         </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Year</label>
+                {{ form.year(class="form-control hanya-angka numeric", placeholder="2026", maxlength="4") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Remaks</label>
+                {{ form.remaks(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Perpanjang (STNK)</label>
+                {{ form.biaya_perpanjang_stnk(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Admin (STNK)</label>
+                {{ form.biaya_administrasi_stnk(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Perpanjang (Asuransi)</label>
+                {{ form.biaya_perpanjang_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Biaya Admin (Asuransi)</label>
+                {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
+            </div>
+        </div>
+
+        <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">📸 Dokumentasi & Foto Unit</h5>
+        <div class="row">
+            <div class="col-12 mb-3">
+                <label class="form-label font-weight-bold">Unggah Foto Unit (Bisa beberapa gambar sekaligus)</label>
+                <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
+                <div class="form-text text-muted small">Format yang didukung: .png, .jpg, .jpeg. Anda dapat memilih beberapa foto bersamaan.</div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-2">Submit Data</button>
+    </form>
+
+    <div class="mt-3">
+        <a href="/dashboard" class="btn btn-outline-secondary w-100">Cancel</a>
     </div>
 </div>
 
 <script>
+    document.querySelectorAll('.rupiah-input').forEach(input => {
+        input.addEventListener('input', function(e) {
+            let cursorPosition = this.selectionStart;
+            let originalLength = this.value.length;
+            let cleanValue = this.value.replace(/[^0-9,]/g, '');
+            let parts = cleanValue.split(',');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + ',' + parts.slice(1).join('');
+            }
+            parts = cleanValue.split(',');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            if (parts[1]) { parts[1] = parts[1].substring(0, 2); }
+            this.value = parts.join(',');
+            let newLength = this.value.length;
+            this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
+        });
+    });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusStnkSelect = document.getElementById("status-stnk-select");
+    const stnkDateRow = document.getElementById("stnk-date-row");
+
+    function toggleStnkDate() {
+        const stnkDateElement = document.getElementById("stnk-date-row");
+        if (statusStnkSelect.value === "ON") {
+            stnkDateElement.classList.remove("invisible");
+        } else {
+            stnkDateElement.classList.add("invisible");
+        }
+    }
+
+    statusStnkSelect.addEventListener("change", toggleStnkDate);
+
+    toggleStnkDate();
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusAsuransiSelect = document.getElementById("status-asuransi-select");
+    const asuransiDateRow = document.getElementById("asuransi-date-row");
+
+    function toggleAsuransiDate() {
+        const asuransiDateElement = document.getElementById("asuransi-date-row");
+        if (statusAsuransiSelect.value === "ON") {
+            asuransiDateRow.classList.remove("invisible");
+        } else {
+            asuransiDateRow.classList.add("invisible");
+        }    
+    }
+
+    statusAsuransiSelect.addEventListener("change", toggleAsuransiDate);
+
+    toggleAsuransiDate();
+});
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const statusStnk = document.getElementById("status-stnk-select");
+        const statusAsuransi = document.getElementById("status-asuransi-select");
+        
+        const tanggalRowWrapper = document.getElementById("tanggal-row-wrapper");
+        const stnkDateCol = document.getElementById("stnk-date-col");
+        const asuransiDateCol = document.getElementById("asuransi-date-col");
+
+        function updateFields() {
+            const isStnkOn = statusStnk.value === "ON";
+            const isAsuransiOn = statusAsuransi.value === "ON";
+
+            if (isStnkOn || isAsuransiOn) {
+                tanggalRowWrapper.style.display = "flex"; // Munculkan baris
+            } else {
+                tanggalRowWrapper.style.display = "none";  // Sembunyikan baris & naikkan Year/Remaks
+            }
+
+            if (isStnkOn) {
+                stnkDateCol.classList.remove("invisible");
+            } else {
+                stnkDateCol.classList.add("invisible");
+            }
+
+            if (isAsuransiOn) {
+                asuransiDateCol.classList.remove("invisible");
+            } else {
+                asuransiDateCol.classList.add("invisible");
+            }
+        }
+
+        statusStnk.addEventListener("change", updateFields);
+        statusAsuransi.addEventListener("change", updateFields);
+
+        updateFields();
+    });
+</script>
+
+<script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Auto-Kapitalisasi Inputan Teks khusus class tertentu
+        const inputTanggalSTNK = document.getElementById("tanggal-berakhir-stnk");
+        const inputTanggalAsuransi = document.getElementById("tanggal-berakhir-asuransi");
+        const hariIni = new Date().toISOString().split('T')[0];
+        
+        inputTanggalSTNK.setAttribute("min", hariIni);
+        inputTanggalAsuransi.setAttribute("min", hariIni);
+
+        inputTanggalSTNK.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan < hariIni) {
+                alert("⚠️ Maaf, tanggal berakhir STNK tidak boleh sebelum hari ini!");
+                this.value = "";
+            }
+        });
+
+        inputTanggalAsuransi.addEventListener("blur", function() {
+            const tanggalPilihan = this.value;
+            
+            if (tanggalPilihan && tanggalPilihan < hariIni) {
+                alert("⚠️ Maaf, tanggal berakhir asuransi tidak boleh sebelum hari ini!");
+                this.value = "";
+            }
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
         document.querySelectorAll('.uppercase-input').forEach(input => {
             input.addEventListener('input', function() {
                 this.value = this.value.toUpperCase();
             });
         });
 
-        // Validasi Alfanumerik Ketat untuk CN Unit (Hanya Huruf Kapital dan Angka)
-        const cnInput = document.getElementById("cn");
+        const cnInput = document.getElementById("cn"); // Sesuaikan id dengan id field CN Anda
         if (cnInput) {
             cnInput.addEventListener('input', function() {
                 this.value = this.value.replace(/[^A-Z0-9]/g, '');
             });
         }
 
-        // Hanya mengizinkan angka 4 digit untuk kolom tahun
         document.querySelectorAll('.numeric-year').forEach(input => {
             input.addEventListener('input', function() {
                 this.value = this.value.replace(/[^0-9]/g, '');
-                if(this.value.length > 4) {
-                    this.value = this.value.slice(0,4);
-                }
-            });
-        });
-
-        // Hanya mengizinkan huruf teks alfabet dan spasi
-        document.querySelectorAll('.hanya-huruf').forEach(input => {
-            input.addEventListener('input', function() {
-                this.value = this.value.replace(/[^a-zA-Z ]/g, '');
             });
         });
     });
 </script>
 
-<style>
-    .tracking-wider { letter-spacing: 0.08em; }
-    .font-size-sm { font-size: 0.85rem; }
-    .form-control:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.15) !important;
-    }
-</style>
+<script>
+    document.querySelectorAll('.hanya-huruf').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^a-zA-Z ]/g, '');
+        });
+    });
+
+    document.querySelectorAll('.hanya-angka').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    });s
+
+    document.querySelectorAll('.huruf-angka').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
+        });
+        });
+</script>
 {% endblock %}
