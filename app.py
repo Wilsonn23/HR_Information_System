@@ -176,8 +176,8 @@ class DataForm(FlaskForm):
     sn_equipment = StringField('S/N Equipment', validators=[Optional()])
     sn_engine = StringField('S/N Engine', validators=[Optional()])
     
-    status_stnk = SelectField('Status STNK', choices=[('ON', 'ON'), ('OFF', 'OFF')], validators=[DataRequired()])
-    status_asuransi = SelectField('Status Asuransi', choices=[('ON', 'ON'), ('OFF', 'OFF')], validators=[DataRequired()])
+    status_stnk = SelectField('Status STNK', choices=[('OFF', 'OFF'), ('ON', 'ON')], validators=[DataRequired()])
+    status_asuransi = SelectField('Status Asuransi', choices=[('OFF', 'OFF'), ('ON', 'ON')], validators=[DataRequired()])
     
     tanggal_berakhir_stnk = DateField('Tanggal Berakhir STNK', validators=[Optional()])
     tanggal_berakhir_asuransi = DateField('Tanggal Berakhir Asuransi', validators=[Optional()])
