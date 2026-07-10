@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Jejak Audit - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark">
+        <div class="card-body p-4">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">📜 Jejak Audit Sistem (Audit Logs)</h3>
+                </div>
+                <div style="max-width: 300px;" class="w-100">
+                    <input type="text" id="logSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan CN, Pelaksana...">
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle table-bordered" id="logTable">
+                    <thead class="table-dark text-nowrap">
+                        <tr>
+                            <th scope="col" style="width: 15%;">Waktu</th>
+                            <th scope="col" style="width: 10%;">Unit (CN)</th>
+                            <th scope="col" style="width: 10%;">Aksi</th>
+                            <th scope="col" style="width: 15%;">Komponen / Kolom</th>
+                            <th scope="col" style="width: 20%;">Nilai Lama</th>
+                            <th scope="col" style="width: 20%;">Nilai Baru</th>
+                            <th scope="col" style="width: 10%;">Pelaksana</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="text-muted small">{{ log.tanggal_aksi.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                {% if log.aksi != 'HAPUS' %}
+                                    <a href="/details/{{ log.cn }}" class="fw-bold text-decoration-none text-primary">{{ log.cn }}</a>
+                                {% else %}
+                                    <span class="fw-bold text-secondary">{{ log.cn }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.aksi == 'TAMBAH' %}
+                                    <span class="badge bg-success d-block py-1.5">TAMBAH</span>
+                                {% elif log.aksi == 'EDIT' %}
+                                    <span class="badge bg-warning text-dark d-block py-1.5">EDIT</span>
+                                {% else %}
+                                    <span class="badge bg-danger d-block py-1.5">HAPUS</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold">{{ log.kolom_diubah }}</td>
+                            <td class="text-danger small">
+                                {% if log.aksi == 'EDIT' %}<del>{{ log.nilai_lama }}</del>{% else %}{{ log.nilai_lama }}{% endif %}
+                            </td>
+                            <td class="text-success small fw-bold">{{ log.nilai_baru }}</td>
+                            <td><span class="badge bg-secondary px-2 py-1 fs-6">{{ log.diubah_oleh }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                📁 Belum ada rekam jejak aktivitas audit yang tercatat di database.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('logSearchInput').addEventListener('keyup', function() {
+        let filter = this.value.toUpperCase();
+        let rows = document.querySelectorAll('#logTable tbody tr');
+        
+        rows.forEach(row => {
+            // Cari kecocokan kata di seluruh kolom teks baris tersebut
+            let text = row.textContent || row.innerText;
+            if (text.toUpperCase().indexOf(filter) > -1) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    });
+</script>
+{% endblock %}

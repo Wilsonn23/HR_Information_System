@@ -5,3 +5,4 @@ wtforms
 flask-wtf
 dotenv
 psycopg2
+openpyxl

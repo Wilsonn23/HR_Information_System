@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Manajemen Pengguna - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow border-0 rounded-3 h-100">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-primary mb-3">👤 Daftarkan Akun Baru</h5>
+                    <form method="POST" action="/users">
+                        {{ form.csrf_token }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Username</label>
+                            {{ form.username(class="form-control", placeholder="Username") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Password</label>
+                            {{ form.password(class="form-control", type="password", placeholder="Password (Minimal 6 karakter)") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Hak Akses Sistem (Role)</label>
+                            {{ form.role(class="form-select") }}
+                        </div>
+                        
+                        {{ form.submit(class="btn btn-primary w-100 fw-bold shadow-sm mt-2") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow border-0 rounded-3 h-100">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-secondary mb-3">📋 Daftar Pengguna Aplikasi Aktif</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle border">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nama Pengguna (Username)</th>
+                                    <th>Hak Akses (Role)</th>
+                                    <th class="text-center">Aksi Operasi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr>
+                                    <td class="text-muted small">{{ loop.index }}</td>
+                                    <td class="fw-bold">{{ u.username }}</td>
+                                    <td>
+                                        {% if u.role == 'admin' %}
+                                            <span class="badge bg-danger">Administrator</span>
+                                        {% else %}
+                                            <span class="badge bg-info text-dark">Staff Operasional</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <form action="/users/delete/{{ u.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus permanen akses akun untuk user ini?');" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-3">Hapus Akses</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

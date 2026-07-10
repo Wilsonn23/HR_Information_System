@@ -2,48 +2,57 @@
 
 {% block title %}Data Report{% endblock %}
 
-{% block body_class %}dashboard-page{% endblock %}
+{% block body_class %}dashboard-page bg-light{% endblock %}
 {% block content %}
-<div class="container-fluid px-4 mt-4">
+<div class="container-fluid px-4 mt-5 pt-3">
     
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <label for="groupby-select" class="form-label font-weight-bold">Kelompokkan Data Berdasarkan:</label>
-            <select id="groupby-select" class="form-select" onchange="location = this.value;">
-                <option value="?groupby=ALL" {% if active_filter == 'ALL' %}selected{% endif %}>Tampilkan Semua</option>
-				<option value="?groupby=pt" {% if active_filter == 'pt' %}selected{% endif %}>Nama PT</option>
-                <option value="?groupby=nama_asuransi" {% if active_filter == 'nama_asuransi' %}selected{% endif %}>Nama Asuransi</option>
-				<option value="?groupby=tahun_bayar" {% if active_filter == 'tahun_bayar' %}selected{% endif %}>Tahun Bayar</option>
-				<option value="?groupby=pulau" {% if active_filter == 'pulau' %}selected{% endif %}>Pulau</option>
-                <option value="?groupby=provinsi" {% if active_filter == 'provinsi' %}selected{% endif %}>Site (Provinsi)</option>
-                <option value="?groupby=status_pembayaran" {% if active_filter == 'status_pembayaran' %}selected{% endif %}>Status Pembayaran</option>
-            </select>
+    <div class="card shadow-sm border-0 mb-4 bg-white text-dark">
+        <div class="card-body p-4">
+            <div class="row align-items-end g-3">
+                <div class="col-md-5 col-lg-4">
+                    <label for="groupby-select" class="form-label fw-bold text-secondary small">📁 Kelompokkan Data Berdasarkan:</label>
+                    <select id="groupby-select" class="form-select shadow-sm" onchange="location = this.value;">
+                        <option value="?groupby=ALL" {% if active_filter == 'ALL' %}selected{% endif %}>Tampilkan Semua</option>
+                        <option value="?groupby=pt" {% if active_filter == 'pt' %}selected{% endif %}>Nama PT</option>
+                        <option value="?groupby=nama_asuransi" {% if active_filter == 'nama_asuransi' %}selected{% endif %}>Nama Asuransi</option>
+                        <option value="?groupby=tahun_bayar" {% if active_filter == 'tahun_bayar' %}selected{% endif %}>Tahun Bayar</option>
+                        <option value="?groupby=pulau" {% if active_filter == 'pulau' %}selected{% endif %}>Pulau</option>
+                        <option value="?groupby=provinsi" {% if active_filter == 'provinsi' %}selected{% endif %}>Site (Provinsi)</option>
+                        <option value="?groupby=status_pembayaran" {% if active_filter == 'status_pembayaran' %}selected{% endif %}>Status Pembayaran</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-4 col-lg-3">
+                    <a href="/export/report/excel?groupby={{ active_filter }}" class="btn btn-success fw-bold w-100 shadow-sm d-flex align-items-center justify-content-center gap-2 py-2">
+                        <span>📊</span> Download Excel (.xlsx)
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
     {% if grouped_data %}
-        
         {% if active_filter == 'ALL' %}
-            {% for key_name, rows in grouped_data.items() %}
-            <div class="card shadow-sm mb-5">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0 font-weight-bold">Semua Report</h4>
-                    <span class="badge bg-primary fs-6">{{ rows|length }} Unit</span>
+            <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+                <div class="card-header bg-dark text-white fw-bold py-3">
+                    📋 Semua Data Transaksi Laporan
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
-                            <thead class="table-light">
+                        <table class="table table-striped table-hover align-middle m-0 text-nowrap border">
+                            <thead class="table-secondary font-size-xs text-uppercase fw-bold text-secondary">
                                 <tr>
+                                    <th>No</th>
                                     <th>CN</th>
-                                    <th>Jenis</th>
                                     <th>Nama PT</th>
                                     <th>Nama Asuransi</th>
-                                    <th>No Polis</th>
-                                    <th>No Polisi</th>
-                                    <th>Jumlah Tagihan</th>
-                                    <th>Jumlah Dibayar</th>
-                                    <th>Status Pembayaran</th>
+                                    <th>Jenis Transaksi</th>
+                                    <th>No. Polis</th>
+                                    <th>Net Premium</th>
+                                    <th>Biaya Admin</th>
+                                    <th>Pembulatan</th>
+                                    <th>Total Tagihan</th>
+                                    <th>Status Bayar</th>
                                     <th>Sisa Tagihan</th>
                                     <th>Tanggal Bayar</th>
                                     <th>Diinput Oleh</th>
@@ -51,36 +60,31 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for entry, report_entry in rows %}
+                                {% for report_entry in grouped_data['Semua Data'] %}
                                 <tr>
-                                    <td><strong>{{ entry.cn }}</strong></td>
-                                    <td>{{ report_entry.jenis }}</td>
-                                    <td>{{ entry.pt }}</td>
-                                    <td>{{ entry.nama_asuransi }}</td>
-                                    <td>{{ entry.no_polis }}</td>
-                                    <td>{{ entry.no_polisi }}</td>
+                                    <td class="text-muted small fw-bold">{{ loop.index }}</td>
+                                    <td class="fw-bold text-primary">{{ report_entry.cn }}</td>
+                                    <td>{{ report_entry.pt }}</td>
+                                    <td>{{ report_entry.nama_asuransi }}</td>
                                     <td>
-                                        {% if report_entry.jenis == 'STNK' %}
-                                            Rp {{ "{:,.2f}".format(entry.total_stnk or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}
-                                        {% elif report_entry.jenis == 'Asuransi' %}
-                                            Rp {{ "{:,.2f}".format(entry.total_asuransi or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        <span class="badge bg-secondary">{{ report_entry.jenis_transaksi or '-' }}</span>
+                                    </td>
+                                    <td>{{ report_entry.no_polis or '-' }}</td>
+                                    <td>Rp {{ "{:,.2f}".format(report_entry.net_premium or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                    <td>Rp {{ "{:,.2f}".format(report_entry.biaya_administrasi or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                    <td>Rp {{ "{:,.2f}".format(report_entry.pembulatan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                    <td class="fw-bold">Rp {{ "{:,.2f}".format(report_entry.total or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                    <td>
+                                        {% if report_entry.status_pembayaran == 'LUNAS' %}
+                                            <span class="badge bg-success">LUNAS</span>
                                         {% else %}
-                                            Rp 0,00
+                                            <span class="badge bg-warning text-dark">{{ report_entry.status_pembayaran }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                    <td>{{ report_entry.status_pembayaran }}</td>
-                                    <td>Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                    <td>{{ report_entry.tanggal_bayar }}</td>
-                                    <td>{{ report_entry.diinput_oleh }}</td>
-                                    <td>{{ report_entry.tanggal_input }}</td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="13" class="text-center text-muted py-5">
-                                        <i class="fas fa-folder-open d-block fs-2 mb-2"></i>
-                                        <span class="fw-bold">No data entries found.</span>
-                                    </td>
+                                    <td class="text-danger fw-semibold">Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                    <td>{{ report_entry.tanggal_bayar or '-' }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ report_entry.diinput_oleh }}</span></td>
+                                    <td class="text-muted small">{{ report_entry.tanggal_input }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -88,76 +92,72 @@
                     </div>
                 </div>
             </div>
-            {% endfor %}
-
         {% else %}
-            {% for key_name, rows in grouped_data.items() %}
-            {% set section_id = "collapse_" ~ active_filter ~ "_" ~ loop.index %}
-            <div class="card shadow-sm mb-3">
-                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center" 
-                    data-bs-toggle="collapse" data-bs-target="#{{ section_id }}" style="cursor: pointer;">
-                    <h5 class="mb-0 font-weight-bold">
-                        <i class="fas fa-chevron-down me-2 small"></i> {{ active_filter|replace('_', ' ')|upper }}: {{ key_name }}
-                    </h5>
-                    <span class="badge bg-light text-dark fs-6">{{ rows|length }} Unit</span>
-                </div>
-                
-                <div id="{{ section_id }}" class="collapse">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>CN</th>
-                                        <th>Jenis</th>
-                                        <th>Nama PT</th>
-                                        <th>Nama Asuransi</th>
-                                        <th>No Polis</th>
-                                        <th>No Polisi</th>
-                                        <th>Jumlah Tagihan</th>
-                                        <th>Jumlah Dibayar</th>
-                                        <th>Status Pembayaran</th>
-                                        <th>Sisa Tagihan</th>
-                                        <th>Tanggal Bayar</th>
-                                        <th>Diinput Oleh</th>
-                                        <th>Tanggal Input</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for entry, report_entry in rows %}
-                                    <tr>
-                                        <td><strong>{{ entry.cn }}</strong></td>
-                                        <td>{{ report_entry.jenis }}</td>
-                                        <td>{{ entry.pt }}</td>
-                                        <td>{{ entry.nama_asuransi }}</td>
-                                        <td>{{ entry.no_polis }}</td>
-                                        <td>{{ entry.no_polisi }}</td>
-                                        <td>
-                                            {% if report_entry.jenis == 'STNK' %}
-                                                Rp {{ "{:,.2f}".format(entry.total_stnk or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}
-                                            {% elif report_entry.jenis == 'Asuransi' %}
-                                                Rp {{ "{:,.2f}".format(entry.total_asuransi or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}
-                                            {% else %}
-                                                Rp 0,00
-                                            {% endif %}
-                                        </td>
-                                        <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                        <td>{{ report_entry.status_pembayaran }}</td>
-                                        <td>Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                        <td>{{ report_entry.tanggal_bayar }}</td>
-                                        <td>{{ report_entry.diinput_oleh }}</td>
-                                        <td>{{ report_entry.tanggal_input }}</td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="13" class="text-center text-muted py-5">
-                                            <i class="fas fa-folder-open d-block fs-2 mb-2"></i>
-                                            <span class="fw-bold">No data entries found.</span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+            {% for group_name, entries in grouped_data.items() %}
+            <div class="accordion mb-3 shadow-sm border-0" id="accordionReport-{{ loop.index }}">
+                <div class="accordion-item border-0 rounded-3 overflow-hidden">
+                    <h2 class="accordion-header" id="heading-{{ loop.index }}">
+                        <button class="accordion-button bg-white text-dark fw-bold d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="true" aria-controls="collapse-{{ loop.index }}">
+                            <div class="d-flex align-items-center w-100 justify-content-between pe-3">
+                                <span>📂 Kelompok: <span class="text-primary">{{ group_name | upper }}</span></span>
+                                <span class="badge bg-primary rounded-pill small ms-2">{{ entries|length }} Unit</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse show" aria-labelledby="heading-{{ loop.index }}">
+                        <div class="accordion-body p-0 bg-white">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover align-middle text-nowrap m-0 border-top">
+                                    <thead class="table-light font-size-xs text-uppercase fw-bold text-secondary">
+                                        <tr>
+                                            <th>No</th>
+                                            <th>CN</th>
+                                            <th>Nama PT</th>
+                                            <th>Nama Asuransi</th>
+                                            <th>Jenis Transaksi</th>
+                                            <th>No. Polis</th>
+                                            <th>Net Premium</th>
+                                            <th>Biaya Admin</th>
+                                            <th>Pembulatan</th>
+                                            <th>Total Tagihan</th>
+                                            <th>Status Bayar</th>
+                                            <th>Sisa Tagihan</th>
+                                            <th>Tanggal Bayar</th>
+                                            <th>Diinput Oleh</th>
+                                            <th>Tanggal Input</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for report_entry in entries %}
+                                        <tr>
+                                            <td class="text-muted small fw-bold">{{ loop.index }}</td>
+                                            <td class="fw-bold text-primary">{{ report_entry.cn }}</td>
+                                            <td>{{ report_entry.pt }}</td>
+                                            <td>{{ report_entry.nama_asuransi }}</td>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ report_entry.jenis_transaksi or '-' }}</span>
+                                            </td>
+                                            <td>{{ report_entry.no_polis or '-' }}</td>
+                                            <td>Rp {{ "{:,.2f}".format(report_entry.net_premium or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                            <td>Rp {{ "{:,.2f}".format(report_entry.biaya_administrasi or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                            <td>Rp {{ "{:,.2f}".format(report_entry.pembulatan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                            <td class="fw-bold">Rp {{ "{:,.2f}".format(report_entry.total or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                            <td>
+                                                {% if report_entry.status_pembayaran == 'LUNAS' %}
+                                                    <span class="badge bg-success">LUNAS</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning text-dark">{{ report_entry.status_pembayaran }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-danger fw-semibold">Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                            <td>{{ report_entry.tanggal_bayar or '-' }}</td>
+                                            <td><span class="badge bg-light text-dark border">{{ report_entry.diinput_oleh }}</span></td>
+                                            <td class="text-muted small">{{ report_entry.tanggal_input }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -166,12 +166,22 @@
         {% endif %}
 
     {% else %}
-        <div class="card shadow-sm mb-5">
+        <div class="card shadow-sm border-0 mb-5 rounded-3 bg-white">
             <div class="card-body py-5 text-center text-muted">
-                <p class="mb-0 fs-5 fw-bold">No data entries found.</p>
+                <p class="mb-0 fs-5 fw-bold">📭 Tidak ada entri data laporan yang ditemukan.</p>
             </div>
         </div>
     {% endif %}
 
 </div>
+
+<style>
+    .font-size-xs {
+        font-size: 0.775rem;
+        letter-spacing: 0.5px;
+    }
+    .accordion-button::after {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+    }
+</style>
 {% endblock %}
