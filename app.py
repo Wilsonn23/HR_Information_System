@@ -56,12 +56,12 @@ if RAW_PASSWORD:
 
 @app.before_request
 def batasi_akses_global():
-    if request.path == '/login':
-        return None # Return None artinya Flask akan melanjutkan ke fungsi /login Anda
+    if request.path == '/login' or request.path == '/':
+        return None 
         
     if 'logged_in' not in session:
         flash("Silakan login terlebih dahulu untuk mengakses halaman tersebut.", "warning")
-        return redirect('/login')
+        return redirect(url_for('login'))
 
 # ===============================================================================================================
 # DATABASE INITIALIZATION
@@ -1095,4 +1095,4 @@ def check_and_update_expired_units():
         db.session.commit()
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)
