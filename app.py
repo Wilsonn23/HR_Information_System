@@ -361,6 +361,11 @@ def dashboard():
 def transaksi():
     return render_template('transaksi.html', active_page='transaksi')
 
+@app.route('/entry')
+def database():
+    form = DataForm()
+    return render_template('form.html', form=form, active_page='entry')
+
 @app.route('/perpanjang')
 def perpanjang():
     form = ExtendForm()
@@ -431,11 +436,6 @@ def details(cn=None):
     ).scalars().all()
         
     return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images, active_page='details')
-
-@app.route('/entry')
-def database():
-    form = DataForm()
-    return render_template('form.html', form=form, active_page='entry')
 
 @app.route('/submit_extend', methods=['POST'])
 def submit_extend():
@@ -591,6 +591,12 @@ def submit_data():
             diinput_oleh=session['logged_user']
         )
 
+        uploaded_photos = request.files.getlist('unit_photos')
+
+        if len(uploaded_photos) > 10:
+            flash("⚠️ Gagal! Maksimal foto yang dapat diunggah adalah 10 foto per unit.", "danger")
+            return render_template('form.html', form=form)
+
         print(form.errors)
 
         try:
@@ -644,6 +650,10 @@ def edit(cn):
     entry = db.session.execute(
         db.select(DataEntry).where(DataEntry.cn == cn)
     ).scalar_one_or_none()
+
+    photo = db.session.execute(
+        db.select(UnitImage).where(UnitImage.cn == cn)
+    ).scalars().all()
     
     if not entry:
         flash("Data unit dengan CN tersebut tidak ditemukan.", "danger")
@@ -662,12 +672,12 @@ def edit(cn):
         except ValueError:
             pass
 
-    form.biaya_perpanjang_stnk.data = f"{entry.biaya_perpanjang_stnk:,.2f}".replace('.', ',').replace(chr(160), '').replace(' ', '')
-    form.biaya_administrasi_stnk.data = f"{entry.biaya_administrasi_stnk:,.2f}".replace('.', ',')
-    form.biaya_perpanjang_asuransi.data = f"{entry.biaya_perpanjang_asuransi:,.2f}".replace('.', ',')
-    form.biaya_administrasi_asuransi.data = f"{entry.biaya_administrasi_asuransi:,.2f}".replace('.', ',')
+    form.biaya_perpanjang_stnk.data = f"{entry.biaya_perpanjang_stnk:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.').replace(chr(160), '').replace(' ', '')
+    form.biaya_administrasi_stnk.data = f"{entry.biaya_administrasi_stnk:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    form.biaya_perpanjang_asuransi.data = f"{entry.biaya_perpanjang_asuransi:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    form.biaya_administrasi_asuransi.data = f"{entry.biaya_administrasi_asuransi:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     
-    return render_template('edit.html', form=form, entry=entry)
+    return render_template('edit.html', form=form, entry=entry, photo=photo)
 
 @app.route('/delete/<cn>', methods=['GET'])
 def delete(cn):
@@ -706,12 +716,15 @@ def delete(cn):
         
     return redirect(url_for('details'))
 
-# Tambahkan route POST ini tepat di bawah fungsi def edit(cn) untuk memproses update data
 @app.route('/update_data/<cn>', methods=['POST'])
 def update_data(cn):
     entry = db.session.execute(
         db.select(DataEntry).where(DataEntry.cn == cn)
     ).scalar_one_or_none()
+
+    photo = db.session.execute(
+        db.select(UnitImage).where(UnitImage.cn == cn)
+    ).scalars().all()
     
     if not entry:
         flash("Data tidak ditemukan!", "danger")
@@ -748,17 +761,30 @@ def update_data(cn):
             biaya_perpanjang_asuransi <= 0 or biaya_admin_asuransi <= 0):
             flash("⚠️ Semua rincian biaya (STNK & Asuransi) wajib diisi dan tidak boleh bernilai 0!", "danger")
                
-            return render_template('edit.html', form=form, entry=entry)
+            return render_template('edit.html', form=form, entry=entry, photo=photo)
 
         fields_to_check = [
+            ('pt', 'Nama PT', form.pt.data.upper().strip() if form.pt.data else None),
+            ('nama_asuransi', 'Nama Asuransi', form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None),
+            ('pulau', 'Pulau', form.pulau.data.upper().strip() if form.pulau.data else None),
+            ('provinsi', 'Site (Provinsi)', form.provinsi.data.upper().strip() if form.provinsi.data else None),
             ('no_polis', 'No. Polis', form.no_polis.data.upper().strip() if form.no_polis.data else None),
             ('no_polisi', 'No. Polisi', form.no_polisi.data.upper().strip() if form.no_polisi.data else None),
+            ('varian', 'Varian', form.varian.data.upper().strip() if form.varian.data else None),
+            ('kategori', 'Kategori', form.kategori.data.upper().strip() if form.kategori.data else None),
+            ('eqp_model', 'Equipment Model', form.eqp_model.data.upper().strip() if form.eqp_model.data else None),
+            ('sn_equipment', 'SN Equipment', form.sn_equipment.data if form.sn_equipment.data else None),
+            ('sn_engine', 'SN Engine', form.sn_engine.data if form.sn_engine.data else None),
+            ('year', 'Year', form.year.data if form.year.data else None),
+            ('remaks', 'Remarks', form.remaks.data.strip() if form.remaks.data else None),
             ('status_stnk', 'Status STNK', form.status_stnk.data),
             ('status_asuransi', 'Status Asuransi', form.status_asuransi.data),
             ('tanggal_berakhir_stnk', 'Masa Berlaku STNK', form.tanggal_berakhir_stnk.data),
             ('tanggal_berakhir_asuransi', 'Masa Berlaku Asuransi', form.tanggal_berakhir_asuransi.data),
             ('biaya_perpanjang_stnk', 'Biaya STNK', biaya_perpanjang_stnk),
+            ('biaya_administrasi_stnk', 'Biaya Admin STNK', biaya_admin_stnk),
             ('biaya_perpanjang_asuransi', 'Biaya Asuransi', biaya_perpanjang_asuransi),
+            ('biaya_administrasi_asuransi', 'Biaya Admin Asuransi', biaya_admin_asuransi),
         ]
 
         for attr, label, new_val in fields_to_check:
@@ -802,6 +828,19 @@ def update_data(cn):
         
         entry.diinput_oleh = session.get('logged_user', 'System')
 
+        # Validasi di fungsi update_data
+        uploaded_photos = request.files.getlist('unit_photos')
+        existing_photos_count = db.session.execute(
+            db.select(db.func.count(UnitImage.id)).where(UnitImage.cn == cn)
+        ).scalar()
+
+        # Memastikan file yang diunggah benar-benar ada/tidak kosong
+        valid_uploaded_count = sum(1 for photo in uploaded_photos if photo.filename != '')
+
+        if (existing_photos_count + valid_uploaded_count) > 10:
+            flash(f"⚠️ Gagal! Jumlah total foto melebihi batas. Saat ini sudah ada {existing_photos_count} foto, Anda hanya bisa menambah maksimal {10 - existing_photos_count} foto lagi.", "danger")
+            return render_template('edit.html', form=form, entry=entry, photo=photo)
+
         try:
             uploaded_files = request.files.getlist('unit_photos')
             for file in uploaded_files:
@@ -820,7 +859,7 @@ def update_data(cn):
             db.session.rollback()
             flash(f"Gagal memperbarui database: {e}", "danger")
             
-    return render_template('edit.html', form=form, entry=entry)
+    return render_template('edit.html', form=form, entry=entry, photo=photo)
 
 @app.route('/api/get-tagihan/<jenis>/<cn>')
 def get_tagihan(jenis, cn):
@@ -857,6 +896,35 @@ def get_image(image_id):
         return Response(img_record.file_data, mimetype=mimetype)
         
     return "Gambar tidak ditemukan", 404
+
+@app.route('/delete_image/<int:image_id>', methods=['POST'])
+def delete_image(image_id):
+    img_record = db.session.execute(
+        db.select(UnitImage).where(UnitImage.id == image_id)
+    ).scalar_one_or_none()
+    
+    if img_record:
+        cn = img_record.cn
+        filename = img_record.filename
+        try:
+            # Tambahkan audit log
+            log_delete = AuditLog(
+                cn=cn,
+                aksi="EDIT",
+                kolom_diubah="Foto Unit",
+                nilai_lama=f"Menghapus foto: {filename}",
+                nilai_baru="Foto dihapus",
+                diubah_oleh=session.get('logged_user', 'System')
+            )
+            db.session.add(log_delete)
+            db.session.delete(img_record)
+            db.session.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 500
+            
+    return jsonify({'success': False, 'message': 'Gambar tidak ditemukan'}), 404
 
 @app.route('/export/excel')
 def export_excel():

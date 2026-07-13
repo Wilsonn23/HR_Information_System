@@ -5,14 +5,14 @@
 {% block body_class %}dashboard-page{% endblock %}
 {% block content %}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 <div class="card form-card p-3 shadow-sm">
     <h3 class="text-center mb-4 text-primary">Data Entry</h3>
@@ -99,7 +99,8 @@
             <div class="col-md-6 mb-3">
                 <div id="asuransi-date-row">
                     <label class="form-label font-weight-bold text-success">Tanggal Berakhir Asuransi</label>
-                    {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
+                    {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date")
+                    }}
                 </div>
             </div>
         </div>
@@ -137,9 +138,10 @@
         <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">📸 Dokumentasi & Foto Unit</h5>
         <div class="row">
             <div class="col-12 mb-3">
-                <label class="form-label font-weight-bold">Unggah Foto Unit (Bisa beberapa gambar sekaligus)</label>
+                <label class="form-label font-weight-bold">Unggah Foto Unit (Maksimal 10 Foto)</label>
                 <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
-                <div class="form-text text-muted small">Format yang didukung: .png, .jpg, .jpeg. Anda dapat memilih beberapa foto bersamaan.</div>
+                <div class="form-text text-muted small">Format yang didukung: .png, .jpg, .jpeg. Anda dapat memilih
+                    beberapa foto bersamaan.</div>
             </div>
         </div>
 
@@ -153,7 +155,7 @@
 
 <script>
     document.querySelectorAll('.rupiah-input').forEach(input => {
-        input.addEventListener('input', function(e) {
+        input.addEventListener('input', function (e) {
             let cursorPosition = this.selectionStart;
             let originalLength = this.value.length;
             let cleanValue = this.value.replace(/[^0-9,]/g, '');
@@ -169,53 +171,47 @@
             this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
         });
     });
-</script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const statusStnkSelect = document.getElementById("status-stnk-select");
-    const stnkDateRow = document.getElementById("stnk-date-row");
+    document.addEventListener("DOMContentLoaded", function () {
+        const statusStnkSelect = document.getElementById("status-stnk-select");
+        const stnkDateRow = document.getElementById("stnk-date-row");
 
-    function toggleStnkDate() {
-        const stnkDateElement = document.getElementById("stnk-date-row");
-        if (statusStnkSelect.value === "ON") {
-            stnkDateElement.classList.remove("invisible");
-        } else {
-            stnkDateElement.classList.add("invisible");
+        function toggleStnkDate() {
+            const stnkDateElement = document.getElementById("stnk-date-row");
+            if (statusStnkSelect.value === "ON") {
+                stnkDateElement.classList.remove("invisible");
+            } else {
+                stnkDateElement.classList.add("invisible");
+            }
         }
-    }
 
-    statusStnkSelect.addEventListener("change", toggleStnkDate);
+        statusStnkSelect.addEventListener("change", toggleStnkDate);
 
-    toggleStnkDate();
-});
-</script>
+        toggleStnkDate();
+    });
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const statusAsuransiSelect = document.getElementById("status-asuransi-select");
-    const asuransiDateRow = document.getElementById("asuransi-date-row");
+    document.addEventListener("DOMContentLoaded", function () {
+        const statusAsuransiSelect = document.getElementById("status-asuransi-select");
+        const asuransiDateRow = document.getElementById("asuransi-date-row");
 
-    function toggleAsuransiDate() {
-        const asuransiDateElement = document.getElementById("asuransi-date-row");
-        if (statusAsuransiSelect.value === "ON") {
-            asuransiDateRow.classList.remove("invisible");
-        } else {
-            asuransiDateRow.classList.add("invisible");
-        }    
-    }
+        function toggleAsuransiDate() {
+            const asuransiDateElement = document.getElementById("asuransi-date-row");
+            if (statusAsuransiSelect.value === "ON") {
+                asuransiDateRow.classList.remove("invisible");
+            } else {
+                asuransiDateRow.classList.add("invisible");
+            }
+        }
 
-    statusAsuransiSelect.addEventListener("change", toggleAsuransiDate);
+        statusAsuransiSelect.addEventListener("change", toggleAsuransiDate);
 
-    toggleAsuransiDate();
-});
-</script>
+        toggleAsuransiDate();
+    });
 
-<script>
     document.addEventListener("DOMContentLoaded", function () {
         const statusStnk = document.getElementById("status-stnk-select");
         const statusAsuransi = document.getElementById("status-asuransi-select");
-        
+
         const tanggalRowWrapper = document.getElementById("tanggal-row-wrapper");
         const stnkDateCol = document.getElementById("stnk-date-col");
         const asuransiDateCol = document.getElementById("asuransi-date-col");
@@ -248,77 +244,81 @@ document.addEventListener("DOMContentLoaded", function () {
 
         updateFields();
     });
-</script>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         const inputTanggalSTNK = document.getElementById("tanggal-berakhir-stnk");
         const inputTanggalAsuransi = document.getElementById("tanggal-berakhir-asuransi");
         const hariIni = new Date().toISOString().split('T')[0];
-        
+
         inputTanggalSTNK.setAttribute("min", hariIni);
         inputTanggalAsuransi.setAttribute("min", hariIni);
 
-        inputTanggalSTNK.addEventListener("blur", function() {
+        inputTanggalSTNK.addEventListener("blur", function () {
             const tanggalPilihan = this.value;
-            
+
             if (tanggalPilihan && tanggalPilihan < hariIni) {
                 alert("⚠️ Maaf, tanggal berakhir STNK tidak boleh sebelum hari ini!");
                 this.value = "";
             }
         });
 
-        inputTanggalAsuransi.addEventListener("blur", function() {
+        inputTanggalAsuransi.addEventListener("blur", function () {
             const tanggalPilihan = this.value;
-            
+
             if (tanggalPilihan && tanggalPilihan < hariIni) {
                 alert("⚠️ Maaf, tanggal berakhir asuransi tidak boleh sebelum hari ini!");
                 this.value = "";
             }
         });
     });
-</script>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll('.uppercase-input').forEach(input => {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 this.value = this.value.toUpperCase();
             });
         });
 
-        const cnInput = document.getElementById("cn"); // Sesuaikan id dengan id field CN Anda
+        const cnInput = document.getElementById("cn");
         if (cnInput) {
-            cnInput.addEventListener('input', function() {
+            cnInput.addEventListener('input', function () {
                 this.value = this.value.replace(/[^A-Z0-9]/g, '');
             });
         }
 
         document.querySelectorAll('.numeric-year').forEach(input => {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 this.value = this.value.replace(/[^0-9]/g, '');
             });
         });
     });
-</script>
 
-<script>
     document.querySelectorAll('.hanya-huruf').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^a-zA-Z ]/g, '');
         });
     });
 
     document.querySelectorAll('.hanya-angka').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^0-9]/g, '');
         });
-    });s
+    }); s
 
     document.querySelectorAll('.huruf-angka').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
         });
+    });
+
+    const photoInput = document.querySelector('input[type="file"][multiple]');
+    if (photoInput) {
+        photoInput.addEventListener('change', function () {
+            if (this.files.length > 10) {
+                alert("Maksimal foto yang bisa dipilih adalah 10 foto!");
+                this.value = "";
+            }
         });
+    }
 </script>
 {% endblock %}

@@ -5,32 +5,32 @@
 {% block body_class %}dashboard-page{% endblock %}
 {% block content %}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 <div class="card form-card p-3 shadow-sm">
     <h3 class="text-center mb-4 text-primary">Edit Data Entry</h3>
-    
+
     <form action="{{ url_for('update_data', cn=entry.cn) }}" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
 
         {% if form.errors %}
-            <div class="alert alert-danger">
-                <strong>⚠️ Gagal menyimpan, periksa kolom berikut:</strong>
-                <ul>
-                    {% for field, errors in form.errors.items() %}
-                        {% for error in errors %}
-                            <li>{{ form[field].label.text }}: {{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
-                </ul>
-            </div>
+        <div class="alert alert-danger">
+            <strong>⚠️ Gagal menyimpan, periksa kolom berikut:</strong>
+            <ul>
+                {% for field, errors in form.errors.items() %}
+                {% for error in errors %}
+                <li>{{ form[field].label.text }}: {{ error }}</li>
+                {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
         {% endif %}
 
         <div class="row">
@@ -125,11 +125,29 @@
         </div>
 
         <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">📸 Perbarui / Tambah Foto Unit</h5>
+        
+        {% if photo is iterable and photo|length > 0 %}
+        <div class="mb-4">
+            <label class="form-label font-weight-bold">Foto Saat Ini (Klik tanda silang untuk menghapus):</label>
+            <div class="d-flex flex-wrap gap-3">
+                {% for img in photo %}
+                <div class="position-relative existing-photo-card" id="photo-card-{{ img.id }}">
+                    <img src="{{ url_for('get_image', image_id=img.id) }}" alt="{{ img.filename }}" class="img-thumbnail" style="width: 120px; height: 120px; object-fit: cover;">
+                    <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn" data-photo-id="{{ img.id }}" style="padding: 2px 6px; font-size: 10px; line-height: 1.2;">
+                        &times;
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="row">
             <div class="col-12 mb-3">
-                <label class="form-label font-weight-bold">Unggah Foto Unit Tambahan</label>
+                <label class="form-label font-weight-bold">Unggah Foto Unit Tambahan (Maksimal 10 Foto, Saat Ini Ada <span id="photo-count">{% if photo is iterable %}{{ photo|length }}{% else %}{{ photo }}{% endif %}</span> Foto)</label>
                 <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
-                <div class="form-text text-muted small">Foto yang diunggah di sini akan ditambahkan ke dalam galeri database unit <strong>{{ entry.cn }}</strong>.</div>
+                <div class="form-text text-muted small">Foto yang diunggah di sini akan ditambahkan ke dalam galeri
+                    database unit <strong>{{ entry.cn }}</strong>.</div>
             </div>
         </div>
 
@@ -143,7 +161,7 @@
 
 <script>
     document.querySelectorAll('.rupiah-input').forEach(input => {
-        input.addEventListener('input', function(e) {
+        input.addEventListener('input', function (e) {
             let cursorPosition = this.selectionStart;
             let originalLength = this.value.length;
             let cleanValue = this.value.replace(/[^0-9,]/g, '');
@@ -157,47 +175,96 @@
             this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
         });
     });
-</script>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll('.uppercase-input').forEach(input => {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 this.value = this.value.toUpperCase();
             });
         });
 
         const cnInput = document.getElementById("cn"); // Sesuaikan id dengan id field CN Anda
         if (cnInput) {
-            cnInput.addEventListener('input', function() {
+            cnInput.addEventListener('input', function () {
                 this.value = this.value.replace(/[^A-Z0-9]/g, '');
             });
         }
 
         document.querySelectorAll('.numeric-year').forEach(input => {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 this.value = this.value.replace(/[^0-9]/g, '');
             });
         });
     });
-</script>
 
-<script>
     document.querySelectorAll('.hanya-huruf').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^a-zA-Z ]/g, '');
         });
     });
 
     document.querySelectorAll('.hanya-angka').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^0-9]/g, '');
         });
     });
 
     document.querySelectorAll('.huruf-angka').forEach(input => {
-        input.addEventListener('input', function() {
+        input.addEventListener('input', function () {
             this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
+        });
+    });
+
+    const photoInput = document.querySelector('input[type="file"][multiple]');
+    if (photoInput) {
+        photoInput.addEventListener('change', function () {
+            if (this.files.length > 10) {
+                alert("Maksimal foto yang bisa dipilih adalah 10 foto!");
+                this.value = ""; // Reset input jika melebihi batas
+            }
+        });
+    }
+
+    // Dynamic deletion of photos
+    document.querySelectorAll('.delete-photo-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const photoId = this.getAttribute('data-photo-id');
+            const photoCard = document.getElementById(`photo-card-${photoId}`);
+            
+            if (confirm("Apakah Anda yakin ingin menghapus foto ini secara permanen dari database?")) {
+                fetch(`/delete_image/${photoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Smoothly fade out and remove the photo card
+                        photoCard.style.opacity = '0';
+                        photoCard.style.transform = 'scale(0.8)';
+                        setTimeout(() => {
+                            photoCard.remove();
+                            // Update photo count in UI dynamically
+                            const countEl = document.getElementById('photo-count');
+                            if (countEl) {
+                                let currentCount = parseInt(countEl.textContent) || 0;
+                                if (currentCount > 0) {
+                                    countEl.textContent = currentCount - 1;
+                                }
+                            }
+                        }, 300);
+                    } else {
+                        alert("Gagal menghapus gambar: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert("Terjadi kesalahan koneksi.");
+                });
+            }
         });
     });
 </script>
