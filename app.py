@@ -458,55 +458,92 @@ def submit_extend():
                 return 0.0
 
         jumlah_dibayar = clean_numeric_input(form.jumlah_dibayar.data)
-        
         cn = form.cn.data
-
         jenis = form.jenis.data
-        if(jenis=="STNK"):
-            query = text("SELECT harus_dibayar_stnk FROM data_entries WHERE cn = :cn")
-        elif(jenis=="Asuransi"):
-            query = text("SELECT harus_dibayar_asuransi FROM data_entries WHERE cn = :cn")
 
-        sisa = db.session.execute(query, {"cn": cn}).scalar()
-        sisa = float(sisa)
-        sisa -= jumlah_dibayar
-        
-        if(sisa <= 0):
-            sisa = 0.0 
-            status_pembayaran = "Lunas"
-        else:
-            status_pembayaran = "Belum Lunas"
+        entry = db.session.execute(
+            db.select(DataEntry).where(DataEntry.cn == cn)
+        ).scalar_one_or_none()
 
-        new_record = ReportEntry(
-            jenis=jenis,
-            cn=form.cn.data,
-            status_pembayaran=status_pembayaran,
-            tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
-            jumlah_dibayar=jumlah_dibayar,
-            sisa_tagihan=sisa,
-            tanggal_bayar=form.tanggal_bayar.data,
-            tanggal_input=datetime.today().date(),
-            diinput_oleh=session['logged_user']
-        )
+        if not entry:
+            flash("Data unit tidak ditemukan!", "danger")
+            return render_template('perpanjang.html', form=form)
 
         try:
-            if(jenis=="STNK"):
-                query = text("UPDATE data_entries SET harus_dibayar_stnk = :sisa WHERE cn = :cn")
-            elif(jenis=="Asuransi"):
-                query = text("UPDATE data_entries SET harus_dibayar_asuransi = :sisa WHERE cn = :cn")
-            db.session.execute(query, {"sisa":sisa, "cn":cn})
-            if(status_pembayaran=="Lunas"):
-                if(form.jenis.data=="STNK"):
-                    query = text("UPDATE data_entries SET status_stnk = 'ON', tanggal_berakhir_stnk = :stnk WHERE cn = :cn")
-                    db.session.execute(query, {"stnk": form.tanggal_berakhir_baru.data, "cn":cn})
-                    query = text("UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE cn = :cn and jenis = :jenis")
-                    db.session.execute(query, {"status_pembayaran": status_pembayaran, "cn":cn, "jenis":jenis})
-                elif(form.jenis.data=="Asuransi"):
-                    query = text("UPDATE data_entries SET status_asuransi = 'ON', tanggal_berakhir_asuransi = :asuransi WHERE cn = :cn")
-                    db.session.execute(query, {"asuransi": form.tanggal_berakhir_baru.data, "cn":cn})
-                    query = text("UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE cn = :cn and jenis = :jenis")
-                    db.session.execute(query, {"status_pembayaran": status_pembayaran, "cn":cn, "jenis":jenis})
+            if jenis == "STNK":
+                old_tagihan = entry.harus_dibayar_stnk
+                old_status = entry.status_stnk
+                old_tanggal = entry.tanggal_berakhir_stnk
+                
+                sisa = old_tagihan - jumlah_dibayar
+                if sisa <= 0:
+                    sisa = 0.0
+                    status_pembayaran = "Lunas"
+                    entry.status_stnk = "ON"
+                    if form.tanggal_berakhir_baru.data:
+                        entry.tanggal_berakhir_stnk = form.tanggal_berakhir_baru.data
+                else:
+                    status_pembayaran = "Belum Lunas"
+                
+                entry.harus_dibayar_stnk = sisa
+                
+                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}, Tagihan: Rp {old_tagihan:,.2f}"
+                new_val_str = f"Masa Berlaku Baru: {entry.tanggal_berakhir_stnk or '-'}, Sisa Tagihan: Rp {sisa:,.2f}"
+                
+            else: # Asuransi
+                old_tagihan = entry.harus_dibayar_asuransi
+                old_status = entry.status_asuransi
+                old_tanggal = entry.tanggal_berakhir_asuransi
+                
+                sisa = old_tagihan - jumlah_dibayar
+                if sisa <= 0:
+                    sisa = 0.0
+                    status_pembayaran = "Lunas"
+                    entry.status_asuransi = "ON"
+                    if form.tanggal_berakhir_baru.data:
+                        entry.tanggal_berakhir_asuransi = form.tanggal_berakhir_baru.data
+                else:
+                    status_pembayaran = "Belum Lunas"
+                
+                entry.harus_dibayar_asuransi = sisa
+                
+                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}, Tagihan: Rp {old_tagihan:,.2f}"
+                new_val_str = f"Masa Berlaku Baru: {entry.tanggal_berakhir_asuransi or '-'}, Sisa Tagihan: Rp {sisa:,.2f}"
+
+            old_val_str = old_val_str.replace(',', 'X').replace('.', ',').replace('X', '.')
+            new_val_str = new_val_str.replace(',', 'X').replace('.', ',').replace('X', '.')
+            bayar_formatted = f"{jumlah_dibayar:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+            if status_pembayaran == "Lunas":
+                query_update_reports = text(
+                    "UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE cn = :cn and jenis = :jenis"
+                )
+                db.session.execute(query_update_reports, {"status_pembayaran": status_pembayaran, "cn": cn, "jenis": jenis})
+
+            new_record = ReportEntry(
+                jenis=jenis,
+                cn=cn,
+                status_pembayaran=status_pembayaran,
+                tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
+                jumlah_dibayar=jumlah_dibayar,
+                sisa_tagihan=sisa,
+                tanggal_bayar=form.tanggal_bayar.data,
+                tanggal_input=datetime.today().date(),
+                diinput_oleh=session.get('logged_user', 'System')
+            )
             db.session.add(new_record)
+
+            # Tambahkan Audit Log
+            log_extend = AuditLog(
+                cn=cn,
+                aksi="EDIT",
+                kolom_diubah=f"Perpanjang {jenis}",
+                nilai_lama=old_val_str,
+                nilai_baru=f"Bayar: Rp {bayar_formatted} ({status_pembayaran}). {new_val_str}",
+                diubah_oleh=session.get('logged_user', 'System')
+            )
+            db.session.add(log_extend)
+
             db.session.commit()
             return redirect(url_for('dashboard'))
                 
