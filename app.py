@@ -820,11 +820,13 @@ def update_data(cn):
         entry.biaya_administrasi_stnk = biaya_admin_stnk
         entry.pembulatan_stnk = pembulatan_otomatis_stnk
         entry.total_stnk = total_terpembulat_stnk
+        entry.harus_dibayar_stnk = total_terpembulat_stnk
         
         entry.biaya_perpanjang_asuransi = biaya_perpanjang_asuransi
         entry.biaya_administrasi_asuransi = biaya_admin_asuransi
         entry.pembulatan_asuransi = pembulatan_otomatis_asuransi
         entry.total_asuransi = total_terpembulat_asuransi
+        entry.harus_dibayar_asuransi = total_terpembulat_asuransi
         
         entry.diinput_oleh = session.get('logged_user', 'System')
 
@@ -852,6 +854,16 @@ def update_data(cn):
                         file_data=binary_data
                     )
                     db.session.add(new_image)
+
+                    log_upload = AuditLog(
+                        cn=cn,
+                        aksi="EDIT",
+                        kolom_diubah="Foto Unit",
+                        nilai_lama="-",
+                        nilai_baru=f"Menambahkan foto: {file.filename}",
+                        diubah_oleh=session.get('logged_user', 'System')
+                    )
+                    db.session.add(log_upload)
 
             db.session.commit()
             return redirect(url_for('details'))
@@ -907,7 +919,6 @@ def delete_image(image_id):
         cn = img_record.cn
         filename = img_record.filename
         try:
-            # Tambahkan audit log
             log_delete = AuditLog(
                 cn=cn,
                 aksi="EDIT",
