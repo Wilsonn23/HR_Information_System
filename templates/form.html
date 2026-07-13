@@ -45,7 +45,7 @@
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">No. Polis Asuransi</label>
-                {{ form.no_polis(class="form-control hanya-angka numeric", placeholder="123456") }}
+                {{ form.no_polis(class="form-control huruf-angka uppercase-input", placeholder="12AB3456") }}
             </div>
         </div>
         <div class="row">
@@ -292,11 +292,6 @@
             });
         }
 
-        document.querySelectorAll('.numeric-year').forEach(input => {
-            input.addEventListener('input', function () {
-                this.value = this.value.replace(/[^0-9]/g, '');
-            });
-        });
     });
 
     document.querySelectorAll('.hanya-huruf').forEach(input => {
