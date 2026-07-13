@@ -319,6 +319,7 @@ def master():
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
+    check_and_update_expired_units()
     query = text("SELECT COUNT(*) FROM data_entries")
     total_peralatan=db.session.execute(query).scalar()
 
@@ -340,8 +341,8 @@ def dashboard():
     stnk_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_stnk == None)).all()
     
     asuransi_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi < hari_ini).all()
-    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= satu_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= satu_bulan_lagi).all()
-    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi).all()
+    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= satu_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi).all()
+    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= satu_bulan_lagi).all()
     asuransi_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_asuransi == None)).all()
 
     return render_template(
@@ -605,7 +606,7 @@ def submit_data():
             provinsi=form.provinsi.data.upper().strip(),
             cn=form.cn.data.upper().replace(" ", ""), # CN dipaksa huruf besar tanpa spasi sama sekali
             no_polis=form.no_polis.data.upper().strip() if form.no_polis.data else None,
-            no_polisi=form.no_polisi.data.upper().strip() if form.no_polisi.data else None,
+            no_polisi=form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None,
             varian=form.varian.data.upper().strip() if form.varian.data else None,
             kategori=form.kategori.data.upper().strip() if form.kategori.data else None,
             eqp_model=form.eqp_model.data.upper().strip() if form.eqp_model.data else None,
@@ -849,7 +850,7 @@ def update_data(cn):
         entry.pulau = form.pulau.data.upper().strip()
         entry.provinsi = form.provinsi.data.upper().strip()
         entry.no_polis = form.no_polis.data.upper().strip() if form.no_polis.data else None
-        entry.no_polisi = form.no_polisi.data.upper().strip() if form.no_polisi.data else None
+        entry.no_polisi = form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None
         entry.varian = form.varian.data.upper().strip() if form.varian.data else None
         entry.kategori = form.kategori.data.upper().strip() if form.kategori.data else None
         entry.eqp_model = form.eqp_model.data.upper().strip() if form.eqp_model.data else None
@@ -1189,22 +1190,41 @@ def export_report_excel():
         return f"Gagal mengekspor laporan: {str(e)}", 500
 
 def check_and_update_expired_units():
-    hari_ini = datetime.today().date()
+    hari_ini_str = datetime.today().date().strftime('%Y-%m-%d')
     
     all_entries = db.session.execute(db.select(DataEntry)).scalars().all()
     
     updated = False
     for entry in all_entries:
-        if entry.tanggal_berakhir_stnk and hari_ini > entry.tanggal_berakhir_stnk:
-            entry.harus_dibayar_stnk = entry.total_stnk
-            entry.status_stnk = 'OFF'
-            updated = True
+        # Check STNK status
+        if entry.tanggal_berakhir_stnk:
+            if entry.tanggal_berakhir_stnk > hari_ini_str:
+                if entry.status_stnk != 'ON':
+                    entry.status_stnk = 'ON'
+                    updated = True
+            else:
+                if entry.status_stnk != 'OFF':
+                    entry.status_stnk = 'OFF'
+                    updated = True
+        else:
+            if entry.status_stnk != 'OFF':
+                entry.status_stnk = 'OFF'
+                updated = True
                 
-        # Pengecekan untuk Asuransi
-        if entry.tanggal_berakhir_asuransi and hari_ini > entry.tanggal_berakhir_asuransi:
-            entry.harus_dibayar_asuransi = entry.total_asuransi
-            entry.status_asuransi = 'OFF'
-            updated = True
+        # Check Asuransi status
+        if entry.tanggal_berakhir_asuransi:
+            if entry.tanggal_berakhir_asuransi > hari_ini_str:
+                if entry.status_asuransi != 'ON':
+                    entry.status_asuransi = 'ON'
+                    updated = True
+            else:
+                if entry.status_asuransi != 'OFF':
+                    entry.status_asuransi = 'OFF'
+                    updated = True
+        else:
+            if entry.status_asuransi != 'OFF':
+                entry.status_asuransi = 'OFF'
+                updated = True
                 
     if updated:
         db.session.commit()
