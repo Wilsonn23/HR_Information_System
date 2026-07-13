@@ -123,17 +123,26 @@
                 {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input") }}
             </div>
         </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Notes</label>
+                {{ form.notes(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+            </div>
+        </div>
 
         <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">📸 Perbarui / Tambah Foto Unit</h5>
-        
+
         {% if photo is iterable and photo|length > 0 %}
         <div class="mb-4">
             <label class="form-label font-weight-bold">Foto Saat Ini (Klik tanda silang untuk menghapus):</label>
             <div class="d-flex flex-wrap gap-3">
                 {% for img in photo %}
                 <div class="position-relative existing-photo-card" id="photo-card-{{ img.id }}">
-                    <img src="{{ url_for('get_image', image_id=img.id) }}" alt="{{ img.filename }}" class="img-thumbnail" style="width: 120px; height: 120px; object-fit: cover;">
-                    <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn" data-photo-id="{{ img.id }}" style="padding: 2px 6px; font-size: 10px; line-height: 1.2;">
+                    <img src="{{ url_for('get_image', image_id=img.id) }}" alt="{{ img.filename }}"
+                        class="img-thumbnail" style="width: 120px; height: 120px; object-fit: cover;">
+                    <button type="button"
+                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn"
+                        data-photo-id="{{ img.id }}" style="padding: 2px 6px; font-size: 10px; line-height: 1.2;">
                         &times;
                     </button>
                 </div>
@@ -144,7 +153,9 @@
 
         <div class="row">
             <div class="col-12 mb-3">
-                <label class="form-label font-weight-bold">Unggah Foto Unit Tambahan (Maksimal 10 Foto, Saat Ini Ada <span id="photo-count">{% if photo is iterable %}{{ photo|length }}{% else %}{{ photo }}{% endif %}</span> Foto)</label>
+                <label class="form-label font-weight-bold">Unggah Foto Unit Tambahan (Maksimal 10 Foto, Saat Ini Ada
+                    <span id="photo-count">{% if photo is iterable %}{{ photo|length }}{% else %}{{ photo }}{% endif
+                        %}</span> Foto)</label>
                 <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
                 <div class="form-text text-muted small">Foto yang diunggah di sini akan ditambahkan ke dalam galeri
                     database unit <strong>{{ entry.cn }}</strong>.</div>
@@ -227,10 +238,10 @@
 
     // Dynamic deletion of photos
     document.querySelectorAll('.delete-photo-btn').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', function () {
             const photoId = this.getAttribute('data-photo-id');
             const photoCard = document.getElementById(`photo-card-${photoId}`);
-            
+
             if (confirm("Apakah Anda yakin ingin menghapus foto ini secara permanen dari database?")) {
                 fetch(`/delete_image/${photoId}`, {
                     method: 'POST',
@@ -239,31 +250,31 @@
                         'X-CSRFToken': '{{ csrf_token() }}'
                     }
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Smoothly fade out and remove the photo card
-                        photoCard.style.opacity = '0';
-                        photoCard.style.transform = 'scale(0.8)';
-                        setTimeout(() => {
-                            photoCard.remove();
-                            // Update photo count in UI dynamically
-                            const countEl = document.getElementById('photo-count');
-                            if (countEl) {
-                                let currentCount = parseInt(countEl.textContent) || 0;
-                                if (currentCount > 0) {
-                                    countEl.textContent = currentCount - 1;
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Smoothly fade out and remove the photo card
+                            photoCard.style.opacity = '0';
+                            photoCard.style.transform = 'scale(0.8)';
+                            setTimeout(() => {
+                                photoCard.remove();
+                                // Update photo count in UI dynamically
+                                const countEl = document.getElementById('photo-count');
+                                if (countEl) {
+                                    let currentCount = parseInt(countEl.textContent) || 0;
+                                    if (currentCount > 0) {
+                                        countEl.textContent = currentCount - 1;
+                                    }
                                 }
-                            }
-                        }, 300);
-                    } else {
-                        alert("Gagal menghapus gambar: " + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert("Terjadi kesalahan koneksi.");
-                });
+                            }, 300);
+                        } else {
+                            alert("Gagal menghapus gambar: " + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert("Terjadi kesalahan koneksi.");
+                    });
             }
         });
     });

@@ -129,6 +129,7 @@ class DataEntry(db.Model):
     total_asuransi: Mapped[float] = mapped_column(default=0.0)
     harus_dibayar_stnk: Mapped[float] = mapped_column(default=0.0)
     harus_dibayar_asuransi: Mapped[float] = mapped_column(default=0.0)
+    notes: Mapped[str] = mapped_column(nullable=True)
     tanggal_input: Mapped[str] = mapped_column(nullable=True)
     diinput_oleh: Mapped[str] = mapped_column(nullable=True)
 
@@ -191,6 +192,8 @@ class DataForm(FlaskForm):
     biaya_administrasi_stnk = StringField('Biaya Admin STNK', validators=[Optional()])
     biaya_perpanjang_asuransi = StringField('Biaya Perpanjang Asuransi', validators=[Optional()])
     biaya_administrasi_asuransi = StringField('Biaya Admin Asuransi', validators=[Optional()])
+
+    notes = StringField('Notes', validators=[Optional()])
 
 class ExtendForm(FlaskForm):
     jenis = SelectField(
@@ -624,6 +627,7 @@ def submit_data():
             harus_dibayar_stnk=total_terpembulat_stnk,
             total_asuransi=total_terpembulat_asuransi,
             harus_dibayar_asuransi=total_terpembulat_asuransi,
+            notes=form.notes.data,
             tanggal_input=datetime.today().date(),
             diinput_oleh=session['logged_user']
         )
@@ -822,6 +826,7 @@ def update_data(cn):
             ('biaya_administrasi_stnk', 'Biaya Admin STNK', biaya_admin_stnk),
             ('biaya_perpanjang_asuransi', 'Biaya Asuransi', biaya_perpanjang_asuransi),
             ('biaya_administrasi_asuransi', 'Biaya Admin Asuransi', biaya_admin_asuransi),
+            ('notes', 'Notes', form.notes.data)
         ]
 
         for attr, label, new_val in fields_to_check:
