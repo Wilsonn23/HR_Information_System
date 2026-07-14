@@ -81,7 +81,7 @@ class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
-    pkey: Mapped[str] = mapped_column(db.String(50), nullable=False) 
+    pkey: Mapped[str] = mapped_column(db.String(150), nullable=False) 
     aksi: Mapped[str] = mapped_column(db.String(20), nullable=False) 
     kolom_diubah: Mapped[str] = mapped_column(db.Text, nullable=True) 
     nilai_lama: Mapped[str] = mapped_column(db.Text, nullable=True) 
@@ -93,7 +93,7 @@ class UnitImage(db.Model):
     __tablename__ = 'unit_images'
     
     id = db.mapped_column(db.Integer, primary_key=True, autoincrement=True)
-    pkey = db.mapped_column(db.String(50), db.ForeignKey('data_entries.pkey'), nullable=False) # Hubungkan dengan CN Utama
+    pkey = db.mapped_column(db.String(150), db.ForeignKey('data_entries.pkey'), nullable=False) # Hubungkan dengan CN Utama
     filename = db.mapped_column(db.String(255), nullable=False)     # Menyimpan nama asli file (misal: depan.jpg)
     file_data = db.mapped_column(db.LargeBinary, nullable=False)    # Menyimpan data biner gambar asli (BLOB/BYTEA)
 
@@ -761,7 +761,7 @@ def submit_data():
             pt=form.pt.data.upper().strip(),
             unit=form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip(),
             kode_unit=form.kode_unit.data.upper().replace(" ", ""),
-            pkey=form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
+            pkey=form.pulau.data+"-"+form.kota.data+"-"+form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
             lokasi_kerja=form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else None,
 
             nama_asuransi=form.nama_asuransi.data.upper().strip(),

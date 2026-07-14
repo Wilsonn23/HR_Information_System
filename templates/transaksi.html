@@ -6,16 +6,7 @@
 
 {% block content %}
 <div class="container py-5">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mx-auto" role="alert" style="max-width: 850px;">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+
 
     <div class="card shadow-sm border-0 p-4 p-md-5 bg-white text-dark mx-auto" style="border-radius: 12px; max-width: 850px;">
         
