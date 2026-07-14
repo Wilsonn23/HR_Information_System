@@ -33,7 +33,7 @@
     </div>
 </div>
 
-<div class="container-fluid px-4 mt-5 text-dark" style="background-color: #f8f9fa;">
+<div class="container-fluid px-4 mt-4 text-dark" style="background-color: #f8f9fa;">
     <div class="row">
 
         <div class="col-md-6 mb-4">
@@ -456,6 +456,44 @@
             </div>
         </div>
 
+        <div class="container-fluid px-4 mt-4">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-3 bg-white text-dark">
+                        <div class="card-body p-4 text-center">
+                            <h5 class="fw-bold mb-3 text-primary">📊 Distribusi Status STNK</h5>
+                            <div style="max-height: 250px; display: flex; justify-content: center; position: relative;">
+                                <canvas id="stnkChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-3 bg-white text-dark">
+                        <div class="card-body p-4 text-center">
+                            <h5 class="fw-bold mb-3 text-primary">📊 Distribusi Status Asuransi</h5>
+                            <div style="max-height: 250px; display: flex; justify-content: center; position: relative;">
+                                <canvas id="asuransiChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chartData" 
+            data-stnk-expired="{{ stnk_expired|length }}"
+            data-stnk-warning="{{ stnk_warning|length }}"
+            data-stnk-notice="{{ stnk_notice|length }}"
+            data-stnk-none="{{ stnk_none|length }}"
+            data-stnk-safe="{{ total_peralatan - stnk_expired|length - stnk_warning|length - stnk_notice|length - stnk_none|length }}"
+            data-asuransi-expired="{{ asuransi_expired|length }}"
+            data-asuransi-warning="{{ asuransi_warning|length }}"
+            data-asuransi-notice="{{ asuransi_notice|length }}"
+            data-asuransi-none="{{ asuransi_none|length }}"
+            data-asuransi-safe="{{ total_peralatan - asuransi_expired|length - asuransi_warning|length - asuransi_notice|length - asuransi_none|length }}">
+        </div>
+
     </div>
 </div>
 
@@ -486,4 +524,91 @@
         --bs-table-accent-bg: #fdfdfd !important;
     }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const dataEl = document.getElementById('chartData');
+        if (!dataEl) return;
+
+        // Parse dataset values
+        const stnkExpired = parseInt(dataEl.getAttribute('data-stnk-expired')) || 0;
+        const stnkWarning = parseInt(dataEl.getAttribute('data-stnk-warning')) || 0;
+        const stnkNotice = parseInt(dataEl.getAttribute('data-stnk-notice')) || 0;
+        const stnkNone = parseInt(dataEl.getAttribute('data-stnk-none')) || 0;
+        const stnkSafe = parseInt(dataEl.getAttribute('data-stnk-safe')) || 0;
+
+        const asuransiExpired = parseInt(dataEl.getAttribute('data-asuransi-expired')) || 0;
+        const asuransiWarning = parseInt(dataEl.getAttribute('data-asuransi-warning')) || 0;
+        const asuransiNotice = parseInt(dataEl.getAttribute('data-asuransi-notice')) || 0;
+        const asuransiNone = parseInt(dataEl.getAttribute('data-asuransi-none')) || 0;
+        const asuransiSafe = parseInt(dataEl.getAttribute('data-asuransi-safe')) || 0;
+
+        const colors = {
+            expired: '#212529',  // Black/Dark Grey
+            warning: '#ef4444',  // Red
+            notice: '#fd7e14',   // Orange
+            safe: '#10b981',     // Green
+            none: '#3b82f6'      // Blue
+        };
+
+        const labels = ['Kadaluarsa', 'Peringatan (<30 hari)', 'Hampir Habis (30-90 hari)', 'Aman (>90 hari)', 'Belum Ada Data'];
+
+        // STNK Chart
+        new Chart(document.getElementById('stnkChart'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: [stnkExpired, stnkWarning, stnkNotice, stnkSafe, stnkNone],
+                    backgroundColor: [colors.expired, colors.warning, colors.notice, colors.safe, colors.none],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Asuransi Chart
+        new Chart(document.getElementById('asuransiChart'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: [asuransiExpired, asuransiWarning, asuransiNotice, asuransiSafe, asuransiNone],
+                    backgroundColor: [colors.expired, colors.warning, colors.notice, colors.safe, colors.none],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}
