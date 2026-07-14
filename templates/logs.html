@@ -37,10 +37,10 @@
                             <td class="text-muted small">{{ log.tanggal_aksi.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                             <td>
                                 {% if log.aksi != 'HAPUS' %}
-                                <a href="/details/{{ log.cn }}" class="fw-bold text-decoration-none text-primary">{{
-                                    log.cn }}</a>
+                                <a href="/details/{{ log.fkey }}" class="fw-bold text-decoration-none text-primary">{{
+                                    log.fkey }}</a>
                                 {% else %}
-                                <span class="fw-bold text-secondary">{{ log.cn }}</span>
+                                <span class="fw-bold text-secondary">{{ log.fkey }}</span>
                                 {% endif %}
                             </td>
                             <td>

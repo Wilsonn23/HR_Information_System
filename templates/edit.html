@@ -17,7 +17,7 @@
 <div class="card form-card p-3 shadow-sm">
     <h3 class="text-center mb-4 text-primary">Edit Data Entry</h3>
 
-    <form action="{{ url_for('update_data', cn=entry.cn) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('update_data', pkey=entry.pkey) }}" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
 
         {% if form.errors %}
@@ -35,28 +35,19 @@
 
         <div class="row">
             <div class="data-input">
-                <label class="form-label font-weight-bold">Nama PT</label>
-                {{ form.pt(class="form-control hanya-huruf uppercase-input", placeholder="BDP") }}
+                <label class="form-label font-weight-bold">Kode Unit (CN) - Read Only</label>
+                {{ form.kode_unit(class="form-control huruf-angka uppercase-input", placeholder="XX123", readonly=true) }}
             </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Lokasi Kerja</label>
+                {{ form.lokasi_kerja(class="form-control hanya-huruf uppercase-input", placeholder="MERAUKE") }}
+            </div>
+        </div>
+
+        <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Nama Asuransi</label>
                 {{ form.nama_asuransi(class="form-control hanya-huruf uppercase-input", placeholder="ZURICH") }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Pulau</label>
-                {{ form.pulau(class="form-control hanya-huruf uppercase-input", placeholder="PAPUA") }}
-            </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Site (Provinsi)</label>
-                {{ form.provinsi(class="form-control hanya-huruf uppercase-input", placeholder="MERAUKE") }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">CN (Read Only)</label>
-                {{ form.cn(class="form-control bg-light uppercase-input", readonly=True) }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">No. Polis Asuransi</label>
@@ -69,64 +60,73 @@
                 {{ form.no_polisi(class="form-control huruf-angka uppercase-input", placeholder="X1234XXX") }}
             </div>
             <div class="data-input">
-                <label class="form-label font-weight-bold">Varian</label>
-                {{ form.varian(class="form-control hanya-huruf uppercase-input", placeholder="Caterpilar") }}
+                <label class="form-label font-weight-bold">Year</label>
+                {{ form.year(class="form-control hanya-angka numeric", placeholder="2026", maxlength="4") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
-                <label class="form-label font-weight-bold">Kategori</label>
-                {{ form.kategori(class="form-control hanya-huruf uppercase-input", placeholder="XXXXXX") }}
+                <label class="form-label font-weight-bold">Merk</label>
+                {{ form.merk(class="form-control hanya-huruf uppercase-input", placeholder="MITSUBISHI") }}
             </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Kategori</label>
+                {{ form.kategori(class="form-control hanya-huruf uppercase-input", placeholder="LIGHT VEHICLE") }}
+            </div>
+        </div>
+        <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Equipment Model</label>
                 {{ form.eqp_model(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
-        </div>
-        <div class="row">
             <div class="data-input">
-                <label class="form-label font-weight-bold">SN Equipment</label>
+                <label class="form-label font-weight-bold">S/N Equipment</label>
                 {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">SN Engine</label>
-                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
-            </div>
         </div>
         <div class="row">
             <div class="data-input">
-                <label class="form-label font-weight-bold">Year</label>
-                {{ form.year(class="form-control hanya-angka numeric", placeholder="2026", maxlength="4") }}
+                <label class="form-label font-weight-bold">S/N Engine</label>
+                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
             </div>
             <div class="data-input">
-                <label class="form-label font-weight-bold">Remaks</label>
-                {{ form.remaks(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+                <label class="form-label font-weight-bold">Notes</label>
+                {{ form.notes(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+            </div>
+        </div>
+        <div id="tanggal-row-wrapper" class="row" style="display:none">
+            <div class="col-md-6 mb-3">
+                <div id="stnk-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir STNK</label>
+                    {{ form.tanggal_berakhir_stnk(id="tanggal-berakhir-stnk", class="form-control", type="date") }}
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div id="asuransi-date-row">
+                    <label class="form-label font-weight-bold text-success">Tanggal Berakhir Asuransi</label>
+                    {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date")}}
+                </div>
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Biaya Perpanjang (STNK)</label>
-                {{ form.biaya_perpanjang_stnk(class="form-control rupiah-input") }}
+                {{ form.biaya_perpanjang_stnk(class="form-control rupiah-input", placeholder="0,00") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Biaya Admin (STNK)</label>
-                {{ form.biaya_administrasi_stnk(class="form-control rupiah-input") }}
+                {{ form.biaya_administrasi_stnk(class="form-control rupiah-input", placeholder="0,00") }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Biaya Perpanjang (Asuransi)</label>
-                {{ form.biaya_perpanjang_asuransi(class="form-control rupiah-input") }}
+                {{ form.biaya_perpanjang_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Biaya Admin (Asuransi)</label>
-                {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input") }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Notes</label>
-                {{ form.notes(class="form-control", placeholder="Kosongkan jika tidak ada") }}
+                {{ form.biaya_administrasi_asuransi(class="form-control rupiah-input", placeholder="0,00") }}
             </div>
         </div>
 
@@ -157,8 +157,6 @@
                     <span id="photo-count">{% if photo is iterable %}{{ photo|length }}{% else %}{{ photo }}{% endif
                         %}</span> Foto)</label>
                 <input type="file" name="unit_photos" class="form-control" accept="image/*" multiple>
-                <div class="form-text text-muted small">Foto yang diunggah di sini akan ditambahkan ke dalam galeri
-                    database unit <strong>{{ entry.cn }}</strong>.</div>
             </div>
         </div>
 
@@ -194,9 +192,9 @@
             });
         });
 
-        const cnInput = document.getElementById("cn"); // Sesuaikan id dengan id field CN Anda
-        if (cnInput) {
-            cnInput.addEventListener('input', function () {
+        const pkeyInput = document.getElementById("pkey"); // Sesuaikan id dengan id field PKEY Anda
+        if (pkeyInput) {
+            pkeyInput.addEventListener('input', function () {
                 this.value = this.value.replace(/[^A-Z0-9]/g, '');
             });
         }
@@ -206,6 +204,43 @@
                 this.value = this.value.replace(/[^0-9]/g, '');
             });
         });
+
+        // DYNAMIC KOTA DROPDOWN BASED ON PULAU
+        const pulauSelect = document.getElementById("pulau");
+        const kotaSelect = document.getElementById("kota");
+
+        if (pulauSelect && kotaSelect) {
+            function updateKotaChoices() {
+                const pulauVal = pulauSelect.value;
+                if (!pulauVal) {
+                    kotaSelect.innerHTML = '<option value="">-- Pilih Kota/Site --</option>';
+                    return;
+                }
+
+                const currentSelected = kotaSelect.getAttribute('data-selected') || kotaSelect.value;
+
+                fetch(`/api/get-kota/${encodeURIComponent(pulauVal)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let optionsHtml = '<option value="">-- Pilih Kota/Site --</option>';
+                        data.forEach(item => {
+                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                        });
+                        kotaSelect.innerHTML = optionsHtml;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching kota:', error);
+                    });
+            }
+
+            pulauSelect.addEventListener("change", updateKotaChoices);
+
+            // Run once on load if there's already an active selection
+            if (pulauSelect.value) {
+                updateKotaChoices();
+            }
+        }
     });
 
     document.querySelectorAll('.hanya-huruf').forEach(input => {

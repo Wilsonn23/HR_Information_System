@@ -23,7 +23,7 @@ HEADER_MAPPINGS = {
     'pt': ['pt', 'nama pt', 'nama_pt'],
     'pulau': ['pulau'],
     'provinsi': ['site(provinsi)', 'site (provinsi)', 'provinsi', 'site', 'provinsi/site'],
-    'cn': ['cn', 'cn unit', 'nomor cn', 'cn_unit'],
+    'pkey': ['cn', 'cn unit', 'nomor cn', 'cn_unit', 'pkey', 'primary key'],
     'no_polisi': ['no_police', 'no. polisi', 'no polisi', 'no. police', 'no police', 'no_polisi'],
     'varian': ['varian'],
     'kategori': ['categori', 'kategori', 'category'],
@@ -185,10 +185,10 @@ def import_excel(file_path):
     header_row = rows[0]
     col_map = map_headers(header_row)
     
-    # Check if critical column 'CN' is mapped
-    if 'cn' not in col_map:
-        print("Warning: Could not identify 'CN' (Primary Key) column in Excel headers.")
-        print("A unique dummy CN (e.g. DMY-2, DMY-3) will be automatically generated for each row.")
+    # Check if critical column 'pkey' is mapped
+    if 'pkey' not in col_map:
+        print("Warning: Could not identify 'CN/PKEY' (Primary Key) column in Excel headers.")
+        print("A unique dummy PKEY (e.g. DMY-2, DMY-3) will be automatically generated for each row.")
 
     print("\nDetected Column Mappings:")
     for field, idx in col_map.items():
@@ -202,26 +202,26 @@ def import_excel(file_path):
 
     with app.app_context():
         for row_idx, row in enumerate(rows[1:], start=2):
-            cn_val = None
-            if 'cn' in col_map:
-                cn_cell = row[col_map['cn']]
+            pkey_val = None
+            if 'pkey' in col_map:
+                cn_cell = row[col_map['pkey']]
                 if cn_cell.value is not None:
-                    cn_val = str(cn_cell.value).strip().upper().replace(" ", "")
+                    pkey_val = str(cn_cell.value).strip().upper().replace(" ", "")
 
-            if not cn_val:
-                # If CN is empty, see if the whole row is empty
+            if not pkey_val:
+                # If PKEY is empty, see if the whole row is empty
                 is_empty_row = all(cell.value is None for cell in row)
                 if is_empty_row:
                     continue
                 
-                # Generate a unique dummy CN
+                # Generate a unique dummy PKEY
                 dummy_base = f"DMY-{row_idx}"
-                cn_val = dummy_base
+                pkey_val = dummy_base
                 counter = 1
-                while db.session.query(DataEntry).filter_by(cn=cn_val).first() is not None:
-                    cn_val = f"DMY-{row_idx}-{counter}"
+                while db.session.query(DataEntry).filter_by(pkey=pkey_val).first() is not None:
+                    pkey_val = f"DMY-{row_idx}-{counter}"
                     counter += 1
-                print(f"Row {row_idx}: Generated dummy CN '{cn_val}' because CN column was empty/missing.")
+                print(f"Row {row_idx}: Generated dummy PKEY '{pkey_val}' because CN column was empty/missing.")
 
             try:
                 # Extract values from columns with defaults
@@ -301,11 +301,11 @@ def import_excel(file_path):
                 else:
                     status_asuransi_val = "OFF"
 
-                # Ensure unique CN to allow insert and avoid unique constraint error
-                orig_cn = cn_val
+                # Ensure unique PKEY to allow insert and avoid unique constraint error
+                orig_pkey = pkey_val
                 counter = 1
-                while db.session.query(DataEntry).filter_by(cn=cn_val).first() is not None:
-                    cn_val = f"{orig_cn}-{counter}"
+                while db.session.query(DataEntry).filter_by(pkey=pkey_val).first() is not None:
+                    pkey_val = f"{orig_pkey}-{counter}"
                     counter += 1
 
                 # Insert new record
@@ -313,8 +313,8 @@ def import_excel(file_path):
                     pt=pt_val,
                     nama_asuransi=nama_asuransi_val,
                     pulau=pulau_val,
-                    provinsi=provinsi_val,
-                    cn=cn_val,
+                    kota=provinsi_val,
+                    pkey=pkey_val,
                     no_polis=no_polis_val,
                     no_polisi=no_polisi_val,
                     varian=varian_val,
@@ -346,11 +346,11 @@ def import_excel(file_path):
                 db.session.add(new_record)
                 
                 log_add = AuditLog(
-                    cn=cn_val,
+                    fkey=pkey_val,
                     aksi="TAMBAH",
                     kolom_diubah="Semua Kolom (Unit Baru via Excel)",
                     nilai_lama="-",
-                    nilai_baru=f"CN={cn_val}, PT={pt_val}, No Polis={no_polis_val}",
+                    nilai_baru=f"PKEY={pkey_val}, PT={pt_val}, No Polis={no_polis_val}",
                     diubah_oleh="Excel Import",
                     tanggal_aksi=datetime.now()
                 )
@@ -358,7 +358,7 @@ def import_excel(file_path):
                 inserted_count += 1
 
             except Exception as e:
-                print(f"Row {row_idx} (CN={cn_val if 'cn_val' in locals() else 'Unknown'}): Error processing row - {e}")
+                print(f"Row {row_idx} (PKEY={pkey_val if 'pkey_val' in locals() else 'Unknown'}): Error processing row - {e}")
                 db.session.rollback()
                 error_count += 1
                 continue

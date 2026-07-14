@@ -2,55 +2,85 @@
 
 {% block title %}Detail Unit{% endblock %}
 
-{% block body_class %}dashboard-page bg-light{% endblock %}
+{% block body_class %}dashboard-page bg-light details-body{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 mt-4">
-    <div class="row g-4">
+<div class="container-fluid px-4 mt-3 details-container">
+    <div class="row g-4 h-100">
 
-        <div class="col-md-4 col-lg-3">
+        <div class="col-md-4 col-lg-3 h-100">
             <div class="card shadow border-0 rounded-3 h-100">
-                <div class="card-body p-4 d-flex flex-column">
+                <div class="card-body p-4 d-flex flex-column h-100 overflow-hidden">
 
-                    <h4 class="card-title fw-bold text-primary mb-4">🔎 Detail Unit</h4>
+                    <h4 class="card-title fw-bold text-primary mb-1">🔎 Detail Unit</h4>
 
-                    <div class="mb-2">
-                        <label for="cnNavigator" class="form-label fw-semibold text-secondary small">Pilih CN
-                            Unit:</label>
-                        <select id="cnNavigator" class="form-select form-select-sm shadow-sm"
-                            onchange="if(this.value) window.location.href='/details/' + this.value;">
-                            <option value="">-- Pilih Nomor CN --</option>
-                            {% for cn_item in all_cn_list %}
-                            <option value="{{ cn_item }}" {% if entry and cn_item==entry.cn %}selected{% endif %}>
-                                {{ cn_item }}
-                            </option>
-                            {% endfor %}
+                    <div class="mb-1">
+                        <label for="pulau" class="form-label fw-semibold text-secondary small">Pulau:</label>
+                        <select id="pulau" class="form-select form-select-sm shadow-sm mb-1">
+                            <option value="">-- Pilih Pulau --</option>
+                            <option value="SUMATRA" {% if entry and entry.pulau == 'SUMATRA' %}selected{% endif %}>Sumatra</option>
+                            <option value="NUSA TENGGARA BARAT" {% if entry and entry.pulau == 'NUSA TENGGARA BARAT' %}selected{% endif %}>Nusa Tenggara Barat</option>
+                            <option value="JAWA" {% if entry and entry.pulau == 'JAWA' %}selected{% endif %}>Jawa</option>
+                            <option value="PAPUA" {% if entry and entry.pulau == 'PAPUA' %}selected{% endif %}>Papua</option>
                         </select>
                     </div>
 
-                    <hr class="text-muted my-3">
+                    <div class="mb-1">
+                        <label for="kota" class="form-label fw-semibold text-secondary small">Kota:</label>
+                        <select id="kota" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.kota if entry else '' }}">
+                            <option value="">-- Pilih Kota --</option>
+                        </select>
+                    </div>
 
+                    <div class="mb-1">
+                        <label for="pt" class="form-label fw-semibold text-secondary small">Nama PT:</label>
+                        <select id="pt" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.pt if entry else '' }}">
+                            <option value="">-- Pilih PT --</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-1">
+                        <label for="unit" class="form-label fw-semibold text-secondary small">Nama Unit:</label>
+                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.unit if entry else '' }}">
+                            <option value="">-- Pilih Unit --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-1">
+                        <label for="cn" class="form-label fw-semibold text-secondary small">Kode Unit (CN):</label>
+                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pkey if entry else '' }}">
+                            <option value="">-- Pilih Kode Unit --</option>
+                        </select>
+                    </div>
+                    
+                    <hr class="text-muted my-2">
+                    
                     {% if entry %}
-                    <div class="unit-attributes small flex-grow-1">
+                    <div class="unit-attributes small flex-grow-1" style="overflow-y: auto; padding-right: 5px;">
 
                         <div class="mb-2.5 border-bottom pb-1.5">
-                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Nama PT</div>
-                            <div class="fw-semibold text-dark">{{ entry.pt or '-' }}</div>
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Lokasi Kerja</div>
+                            <div class="fw-semibold text-dark">{{ entry.lokasi_kerja or '-' }}</div>
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
                             <div class="text-muted text-uppercase fw-semibold font-size-xs">Nama Asuransi</div>
                             <div class="fw-semibold text-dark">{{ entry.nama_asuransi or '-' }}</div>
                         </div>
-
+                        
                         <div class="mb-2.5 border-bottom pb-1.5">
-                            <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Polisi (Plat)</div>
-                            <div class="fw-semibold text-dark">{{ entry.no_polisi or '-' }}</span></div>
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Polis Asuransi</div>
+                            <div class="fw-semibold text-dark">{{ entry.no_polis or '-' }}</div>
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
-                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Varian Unit</div>
-                            <div class="fw-semibold text-dark">{{ entry.varian or '-' }}</div>
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Polisi</div>
+                            <div class="fw-semibold text-dark">{{ entry.no_polisi or '-' }}</div>
+                        </div>
+
+                        <div class="mb-2.5 border-bottom pb-1.5">
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Merk</div>
+                            <div class="fw-semibold text-dark">{{ entry.merk or '-' }}</div>
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
@@ -59,19 +89,33 @@
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
-                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Lokasi Wilayah</div>
-                            <div class="fw-semibold text-dark">{{ entry.pulau or '-' }} / {{ entry.provinsi or '-' }}
-                            </div>
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Model</div>
+                            <div class="fw-semibold text-dark">{{ entry.eqp_model or '-' }}</div>
+                        </div>
+
+                        <div class="mb-2.5 border-bottom pb-1.5">
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Rangka</div>
+                            <div class="fw-semibold text-dark">{{ entry.sn_equipment or '-' }}</div>
+                        </div>
+
+                        <div class="mb-2.5 border-bottom pb-1.5">
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">No. Mesin</div>
+                            <div class="fw-semibold text-dark">{{ entry.sn_engine or '-' }}</div>
+                        </div>
+
+                        <div class="mb-2.5 border-bottom pb-1.5">
+                            <div class="text-muted text-uppercase fw-semibold font-size-xs">Tahun</div>
+                            <div class="fw-semibold text-dark">{{ entry.year or '-' }}</div>
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
                             <div class="text-muted text-uppercase fw-semibold font-size-xs">Masa Berlaku STNK</div>
-                            <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_stnk or '-' }}</div>
+                            <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_stnk or 'Tidak Aktif' }}</div>
                         </div>
 
                         <div class="mb-2.5 border-bottom pb-1.5">
                             <div class="text-muted text-uppercase fw-semibold font-size-xs">Masa Berlaku Asuransi</div>
-                            <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_asuransi or '-' }}</div>
+                            <div class="fw-semibold text-dark">{{ entry.tanggal_berakhir_asuransi or 'Tidak Aktif' }}</div>
                         </div>
 
                         <div class="mb-3">
@@ -82,10 +126,10 @@
                     </div>
 
                     <div class="d-grid gap-2 mt-auto">
-                        <a href="/edit/{{ entry.cn }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
+                        <a href="/edit/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
                             Edit Data
                         </a>
-                        <a href="/delete/{{ entry.cn }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm">
+                        <a href="/delete/{{ entry.pkey }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm">
                             Hapus Data
                         </a>
                     </div>
@@ -99,7 +143,7 @@
             </div>
         </div>
 
-        <div class="col-md-8 col-lg-9">
+        <div class="col-md-8 col-lg-9 h-100">
             <div class="card shadow border-0 rounded-3 h-100">
                 <div class="card-body p-4 d-flex flex-column bg-white">
 
@@ -126,7 +170,7 @@
                                 <div class="d-flex justify-content-center align-items-center" style="height: 480px;">
 
                                     <img src="{{ url_for('get_image', image_id=img_id) }}" class="d-block img-fluid"
-                                        alt="Dokumen Biner Unit {{ entry.cn }}"
+                                        alt="Dokumen Biner Unit {{ entry.pkey }}"
                                         style="max-height: 100%; object-fit: contain;">
 
                                 </div>
@@ -151,7 +195,7 @@
                     {% else %}
                     <div class="text-center text-muted my-auto p-5">
                         <h5 class="fw-bold text-warning">⚠️ Foto Belum Tersedia</h5>
-                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.cn }}</strong>.
+                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.pkey }}</strong>.
                         </p>
                     </div>
                     {% endif %}
@@ -171,7 +215,165 @@
     </div>
 </div>
 
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const pulauSelect = document.getElementById("pulau");
+        const kotaSelect = document.getElementById("kota");
+        const ptSelect = document.getElementById("pt");
+        const unitSelect = document.getElementById("unit");
+        const cnSelect = document.getElementById("cn");
+
+        if (pulauSelect && kotaSelect && ptSelect && unitSelect && cnSelect) {
+            function updateKotaChoices() {
+                const pulauVal = pulauSelect.value;
+                if (!pulauVal) {
+                    kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
+                    ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    return;
+                }
+
+                const currentSelected = kotaSelect.getAttribute('data-selected') || kotaSelect.value;
+
+                fetch(`/api/get-kota/${encodeURIComponent(pulauVal)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let optionsHtml = '<option value="">-- Pilih Kota --</option>';
+                        data.forEach(item => {
+                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                        });
+                        kotaSelect.innerHTML = optionsHtml;
+                        updatePtChoices();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching kota:', error);
+                    });
+            }
+
+            function updatePtChoices() {
+                const kotaVal = kotaSelect.value;
+                if (!kotaVal) {
+                    ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    return;
+                }
+
+                const currentSelected = ptSelect.getAttribute('data-selected') || ptSelect.value;
+
+                fetch(`/api/get-pt/${encodeURIComponent(kotaVal)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let optionsHtml = '<option value="">-- Pilih PT --</option>';
+                        data.forEach(item => {
+                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                        });
+                        ptSelect.innerHTML = optionsHtml;
+                        updateUnitChoices();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching PT:', error);
+                    });
+            }
+
+            function updateUnitChoices() {
+                const ptVal = ptSelect.value;
+                if (!ptVal) {
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    return;
+                }
+
+                const currentSelected = unitSelect.getAttribute('data-selected') || unitSelect.value;
+
+                fetch(`/api/get-unit/${encodeURIComponent(ptVal)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let optionsHtml = '<option value="">-- Pilih Unit --</option>';
+                        data.forEach(item => {
+                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                        });
+                        unitSelect.innerHTML = optionsHtml;
+                        updateCnChoices();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching Unit:', error);
+                    });
+            }
+
+            function updateCnChoices() {
+                const unitVal = unitSelect.value;
+                if (!unitVal) {
+                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    return;
+                }
+
+                const currentSelected = cnSelect.getAttribute('data-selected') || cnSelect.value;
+
+                fetch(`/api/get-cn/${encodeURIComponent(unitVal)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let optionsHtml = '<option value="">-- Pilih Nomor CN --</option>';
+                        data.forEach(item => {
+                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                        });
+                        cnSelect.innerHTML = optionsHtml;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching CN:', error);
+                    });
+            }
+
+            pulauSelect.addEventListener("change", updateKotaChoices);
+            kotaSelect.addEventListener("change", updatePtChoices);
+            ptSelect.addEventListener("change", updateUnitChoices);
+            unitSelect.addEventListener("change", updateCnChoices);
+            
+            cnSelect.addEventListener("change", function() {
+                if (this.value) {
+                    window.location.href = '/details/' + this.value;
+                }
+            });
+
+            // Run once on load if there's already an active selection
+            if (pulauSelect.value) {
+                updateKotaChoices();
+            }
+        }
+    });
+</script>
+
 <style>
+    body.details-body {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .details-container {
+        height: calc(100vh - 56px - 2rem);
+    }
+
+    /* Customize scrollbar inside unit-attributes */
+    .unit-attributes::-webkit-scrollbar {
+        width: 6px;
+    }
+    .unit-attributes::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    .unit-attributes::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+    .unit-attributes::-webkit-scrollbar-thumb:hover {
+        background: #999;
+    }
+
     .font-size-xs {
         font-size: 0.725rem;
         letter-spacing: 0.5px;

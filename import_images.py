@@ -187,11 +187,11 @@ def import_images(file_path):
 
                 header_row = rows[0]
                 
-                # Find column index for CN/Unit (1-indexed)
+                # Find column index for CN/Unit/PKEY (1-indexed)
                 unit_col_idx = None
                 for col_idx, cell in enumerate(header_row, start=1):
                     val = str(cell.value).strip().lower() if cell.value is not None else ""
-                    if val in ['unit', 'cn', 'unit cn', 'code number', 'code_number', 'unit_cn']:
+                    if val in ['unit', 'cn', 'unit cn', 'code number', 'code_number', 'unit_cn', 'pkey', 'primary_key']:
                         unit_col_idx = col_idx
                         break
                 
@@ -199,7 +199,7 @@ def import_images(file_path):
                     # Fallback matching
                     for col_idx, cell in enumerate(header_row, start=1):
                         val = str(cell.value).strip().lower() if cell.value is not None else ""
-                        if 'unit' in val or 'cn' in val:
+                        if 'unit' in val or 'cn' in val or 'pkey' in val:
                             unit_col_idx = col_idx
                             break
                 
@@ -232,10 +232,10 @@ def import_images(file_path):
                         print(f"Row {row_idx}: Skipped because CN is empty or invalid.")
                         continue
 
-                    # Verify CN exists in database
-                    existing_entry = db.session.query(DataEntry).filter_by(cn=cn_val).first()
+                    # Verify PKEY exists in database
+                    existing_entry = db.session.query(DataEntry).filter_by(pkey=cn_val).first()
                     if not existing_entry:
-                        print(f"Row {row_idx}: CN '{cn_val}' not found in database. Skipping image.")
+                        print(f"Row {row_idx}: PKEY '{cn_val}' not found in database. Skipping image.")
                         continue
 
                     row_images = images_by_row[row_idx]
@@ -251,14 +251,14 @@ def import_images(file_path):
                             filename = f"excel_import_{cn_val}_{row_idx}_{img_idx}.{ext}"
                             
                             new_img = UnitImage(
-                                cn=cn_val,
+                                fkey=cn_val,
                                 filename=filename,
                                 file_data=image_bytes
                             )
                             db.session.add(new_img)
                             
                             log_upload = AuditLog(
-                                cn=cn_val,
+                                fkey=cn_val,
                                 aksi="EDIT",
                                 kolom_diubah="Tambah Foto Unit via Excel",
                                 nilai_lama="-",

@@ -81,34 +81,40 @@ class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
-    cn: Mapped[str] = mapped_column(db.String(50), nullable=False) 
+    pkey: Mapped[str] = mapped_column(db.String(50), nullable=False) 
     aksi: Mapped[str] = mapped_column(db.String(20), nullable=False) 
     kolom_diubah: Mapped[str] = mapped_column(db.Text, nullable=True) 
     nilai_lama: Mapped[str] = mapped_column(db.Text, nullable=True) 
     nilai_baru: Mapped[str] = mapped_column(db.Text, nullable=True) 
-    diubah_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
 class UnitImage(db.Model):
     __tablename__ = 'unit_images'
     
     id = db.mapped_column(db.Integer, primary_key=True, autoincrement=True)
-    cn = db.mapped_column(db.String(50), db.ForeignKey('data_entries.cn'), nullable=False) # Hubungkan dengan CN Utama
+    pkey = db.mapped_column(db.String(50), db.ForeignKey('data_entries.pkey'), nullable=False) # Hubungkan dengan CN Utama
     filename = db.mapped_column(db.String(255), nullable=False)     # Menyimpan nama asli file (misal: depan.jpg)
     file_data = db.mapped_column(db.LargeBinary, nullable=False)    # Menyimpan data biner gambar asli (BLOB/BYTEA)
 
 class DataEntry(db.Model):
     __tablename__ = "data_entries"
     
+    #Primary
     id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, nullable=False)
-    pt: Mapped[str] = mapped_column(nullable=False)
-    nama_asuransi: Mapped[str] = mapped_column(nullable=False)
     pulau: Mapped[str] = mapped_column(nullable=False)
-    provinsi: Mapped[str] = mapped_column(nullable=False)
-    cn: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    kota: Mapped[str] = mapped_column(nullable=False)
+    pt: Mapped[str] = mapped_column(nullable=False)
+    unit: Mapped[str] = mapped_column(nullable=False)
+    kode_unit: Mapped[str] = mapped_column(nullable=False)
+    pkey: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    lokasi_kerja: Mapped[str] = mapped_column(nullable=False)
+
+    #Details
+    nama_asuransi: Mapped[str] = mapped_column(nullable=False)
     no_polis: Mapped[str] = mapped_column(nullable=False)
     no_polisi: Mapped[str] = mapped_column(nullable=True)
-    varian: Mapped[str] = mapped_column(nullable=False)
+    merk: Mapped[str] = mapped_column(nullable=False)
     kategori: Mapped[str] = mapped_column(nullable=False)
     eqp_model: Mapped[str] = mapped_column(nullable=False)
     sn_equipment: Mapped[str] = mapped_column(nullable=False)
@@ -118,7 +124,8 @@ class DataEntry(db.Model):
     tanggal_berakhir_stnk: Mapped[str] = mapped_column(nullable=True)
     tanggal_berakhir_asuransi: Mapped[str] = mapped_column(nullable=True)
     year: Mapped[int] = mapped_column(nullable=False)
-    remaks: Mapped[str] = mapped_column(nullable=True)
+
+    #Payment
     biaya_perpanjang_stnk: Mapped[float] = mapped_column(default=0.0)
     biaya_administrasi_stnk: Mapped[float] = mapped_column(default=0.0)
     biaya_perpanjang_asuransi: Mapped[float] = mapped_column(default=0.0)
@@ -129,6 +136,8 @@ class DataEntry(db.Model):
     total_asuransi: Mapped[float] = mapped_column(default=0.0)
     harus_dibayar_stnk: Mapped[float] = mapped_column(default=0.0)
     harus_dibayar_asuransi: Mapped[float] = mapped_column(default=0.0)
+    
+    #Other
     notes: Mapped[str] = mapped_column(nullable=True)
     tanggal_input: Mapped[str] = mapped_column(nullable=True)
     diinput_oleh: Mapped[str] = mapped_column(nullable=True)
@@ -138,7 +147,7 @@ class ReportEntry(db.Model):
 
     jenis: Mapped[str] = mapped_column(nullable=False)
     id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, primary_key=True, nullable=False)
-    cn: Mapped[str] = mapped_column(nullable=False)
+    pkey: Mapped[str] = mapped_column(nullable=False)
     status_pembayaran: Mapped[str] = mapped_column(nullable=True)
     tanggal_berakhir_baru: Mapped[str] = mapped_column(nullable=True)
     jumlah_dibayar:Mapped[float] = mapped_column(nullable=False) 
@@ -160,34 +169,155 @@ class UserForm(FlaskForm):
     role = SelectField('Role', choices=[('user', 'Staff Operasional'), ('admin', 'Administrator')], validators=[DataRequired()])
     submit = SubmitField('Simpan Pengguna')
 
+PULAU_KOTA_MAPPING = {
+    'SUMATRA': [
+        ('PALEMBANG', 'Palembang'),
+        ('JAMBI', 'Jambi'),
+        ('BANGKA', 'Bangka')
+    ],
+    'NUSA TENGGARA BARAT': [
+        ('LOMBOK', 'Lombok'),
+    ],
+    'JAWA': [
+        ('JAKARTA', 'Jakarta')
+    ],
+    'PAPUA': [
+        ('MERAUKE', 'Merauke')
+    ]
+}
+
+def get_kota_choices(selected_pulau=None):
+    mapping = {k: list(v) for k, v in PULAU_KOTA_MAPPING.items()}
+    try:
+        db_entries = db.session.execute(
+            db.select(DataEntry.pulau, DataEntry.kota).distinct()
+        ).all()
+        for p, k in db_entries:
+            if p and k:
+                p_upper = p.upper().strip()
+                k_upper = k.upper().strip()
+                if p_upper not in mapping:
+                    mapping[p_upper] = []
+                existing_keys = [item[0] for item in mapping[p_upper]]
+                if k_upper not in existing_keys:
+                    mapping[p_upper].append((k_upper, k_upper.title()))
+    except Exception:
+        pass
+
+    if selected_pulau:
+        p_upper = selected_pulau.upper().strip()
+        choices = mapping.get(p_upper, [])
+        return sorted(choices, key=lambda x: x[1])
+    
+    all_choices = []
+    seen = set()
+    for p, choices in mapping.items():
+        for val, label in choices:
+            if val not in seen:
+                all_choices.append((val, label))
+                seen.add(val)
+    return sorted(all_choices, key=lambda x: x[1])
+
+def get_pt_choices(selected_kota=None):
+    if not selected_kota:
+        return []
+    try:
+        kota_upper = selected_kota.upper().strip()
+        db_entries = db.session.execute(
+            db.select(DataEntry.pt).where(db.func.upper(DataEntry.kota) == kota_upper).distinct()
+        ).scalars().all()
+        
+        choices = []
+        seen = set()
+        for pt_val in db_entries:
+            if pt_val:
+                pt_upper = pt_val.upper().strip()
+                if pt_upper not in seen:
+                    choices.append((pt_upper, pt_upper))
+                    seen.add(pt_upper)
+        return sorted(choices, key=lambda x: x[1])
+    except Exception as e:
+        print(f"Error in get_pt_choices: {e}")
+        return []
+
+def get_unit_choices(selected_pt=None):
+    if not selected_pt:
+        return []
+    try:
+        pt_upper = selected_pt.upper().strip()
+        db_entries = db.session.execute(
+            db.select(DataEntry.unit).where(db.func.upper(DataEntry.pt) == pt_upper).distinct()
+        ).scalars().all()
+        
+        choices = []
+        seen = set()
+        for unit_val in db_entries:
+            if unit_val:
+                unit_upper = unit_val.upper().strip()
+                if unit_upper not in seen:
+                    choices.append((unit_upper, unit_upper))
+                    seen.add(unit_upper)
+        return sorted(choices, key=lambda x: x[1])
+    except Exception as e:
+        print(f"Error in get_unit_choices: {e}")
+        return []
+
+def get_cn_choices(selected_unit=None):
+    if not selected_unit:
+        return []
+    try:
+        unit_upper = selected_unit.upper().strip()
+        db_entries = db.session.execute(
+            db.select(DataEntry.pkey, DataEntry.kode_unit).where(db.func.upper(DataEntry.unit) == unit_upper).distinct()
+        ).all()
+        
+        choices = []
+        seen = set()
+        for pkey_val, cn_val in db_entries:
+            if pkey_val and cn_val:
+                pkey_clean = pkey_val.strip()
+                cn_clean = cn_val.strip()
+                if pkey_clean not in seen:
+                    choices.append((pkey_clean, cn_clean))
+                    seen.add(pkey_clean)
+        return sorted(choices, key=lambda x: x[1])
+    except Exception as e:
+        print(f"Error in get_cn_choices: {e}")
+        return []
+
 class DataForm(FlaskForm):
+    #Primary
+    pulau = SelectField('Pulau', choices=[
+        ('', '-- Pilih Pulau --'),
+        ('SUMATRA', 'Sumatra'),
+        ('NUSA TENGGARA BARAT', 'Nusa Tenggara Barat'),
+        ('JAWA', 'Jawa'),
+        ('PAPUA', 'Papua')
+    ], validators=[DataRequired(message="Pulau wajib diisi!")])
+    kota = SelectField('Kota', choices=[], validators=[DataRequired(message="Kota wajib diisi!")])
     pt = StringField('Nama PT', validators=[DataRequired(message="Nama PT wajib diisi!"), Length(max=100)])
+    unit = StringField('Unit PT', validators=[DataRequired(message="Nama Unit PT wajib diisi!"), Length(max=100)])
+    kode_unit = StringField('Kode Unit', validators=[DataRequired(message="Kode Unit wajib diisi!"), Length(max=100)])
+    pkey = StringField('PKEY', validators=[Optional()])
+    lokasi_kerja = StringField('Lokasi Kerja', validators=[DataRequired(message="Lokasi Kerja wajib diisi!"), Length(max=100)])
+
+    #Details
     nama_asuransi = StringField('Nama Asuransi', validators=[DataRequired(message="Nama Asuransi wajib diisi!")])
-    pulau = StringField('Provinsi', validators=[DataRequired()])
-    provinsi = StringField('Provinsi', validators=[DataRequired()])
-    
-    # CN dibatasi panjang karakter idealnya (misal maksimal 20)
-    cn = StringField('CN', validators=[DataRequired(message="Nomor CN tidak boleh kosong!"), Length(min=1, max=20)])
-    
-    no_polis = StringField('No Polis', validators=[Optional()])
-    no_polisi = StringField('No Polisi', validators=[Optional(), Length(max=20)])
-    varian = StringField('Varian', validators=[Optional()])
-    kategori = StringField('Kategori', validators=[Optional()])
-    eqp_model = StringField('Equipment Model', validators=[Optional()])
-    sn_equipment = StringField('S/N Equipment', validators=[Optional()])
-    sn_engine = StringField('S/N Engine', validators=[Optional()])
+    no_polis = StringField('No Polis', validators=[DataRequired(message="No. Polis wajib diisi!"), Length(max=20)])
+    no_polisi = StringField('No Polisi', validators=[DataRequired(message="No. Polisi wajib diisi!"), Length(max=20)])
+    merk = StringField('Merk', validators=[DataRequired(message="Merk wajib diisi!"), Length(max=20)])
+    kategori = StringField('Kategori', validators=[DataRequired(message="Kategori wajib diisi!"), Length(max=20)])
+    eqp_model = StringField('Equipment Model', validators=[DataRequired(message="Model Alat wajib diisi!"), Length(max=20)])
+    sn_equipment = StringField('S/N Equipment', validators=[DataRequired(message="No. Rangka wajib diisi!"), Length(max=20)])
+    sn_engine = StringField('S/N Engine', validators=[DataRequired(message="No. Mesin wajib diisi!"), Length(max=20)])
     
     status_stnk = SelectField('Status STNK', choices=[('OFF', 'OFF'), ('ON', 'ON')], validators=[DataRequired()])
     status_asuransi = SelectField('Status Asuransi', choices=[('OFF', 'OFF'), ('ON', 'ON')], validators=[DataRequired()])
-    
     tanggal_berakhir_stnk = DateField('Tanggal Berakhir STNK', validators=[Optional()])
     tanggal_berakhir_asuransi = DateField('Tanggal Berakhir Asuransi', validators=[Optional()])
     
-    # Tahun diwajibkan angka string
     year = StringField('Tahun Pembuatan', validators=[DataRequired(message="Tahun harus diisi!"), Length(min=4, max=4, message="Tahun harus 4 digit!")])
-    remaks = StringField('Remarks', validators=[Optional()])
     
-    # Bagian nominal uang tetap menggunakan Float / String bergantung setup awal Anda
     biaya_perpanjang_stnk = StringField('Biaya Perpanjang STNK', validators=[Optional()])
     biaya_administrasi_stnk = StringField('Biaya Admin STNK', validators=[Optional()])
     biaya_perpanjang_asuransi = StringField('Biaya Perpanjang Asuransi', validators=[Optional()])
@@ -201,7 +331,19 @@ class ExtendForm(FlaskForm):
         choices=[('STNK', 'STNK'), ('Asuransi', 'Asuransi')]
     )
     cn = StringField('CN', validators=[
-        DataRequired(message="Jumlah dibayar tidak boleh kosong.")])
+        DataRequired(message="CN tidak boleh kosong.")])
+    pulau = SelectField('Pulau', choices=[
+        ('', '-- Pilih Pulau --'),
+        ('SUMATRA', 'Sumatra'),
+        ('NUSA TENGGARA BARAT', 'Nusa Tenggara Barat'),
+        ('JAWA', 'Jawa'),
+        ('PAPUA', 'Papua')
+    ], validators=[DataRequired(message="Pulau wajib diisi!")])
+    kota = SelectField('Kota', choices=[], validators=[DataRequired(message="Kota wajib diisi!")])
+    pt = SelectField('Nama PT', choices=[], validators=[
+        DataRequired(message="Nama PT tidak boleh kosong.")])
+    unit = SelectField('Nama Unit', choices=[], validators=[
+        DataRequired(message="Nama Unit tidak boleh kosong.")])
     tanggal_berakhir_baru = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[Optional()])
     jumlah_dibayar = StringField('Biaya Administrasi', validators=[
         DataRequired(message="Jumlah dibayar tidak boleh kosong.") 
@@ -331,9 +473,9 @@ def dashboard():
     query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_asuransi::date")
     jumlah_asuransi_aktif=db.session.execute(query, {"today": today}).scalar()
 
-    hari_ini = datetime.now().date().strftime('%Y-%m-%d')
-    satu_bulan_lagi = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d')
-    tiga_bulan_lagi = (datetime.now().date() + timedelta(days=90)).strftime('%Y-%m-%d')
+    hari_ini = today.strftime('%Y-%m-%d')
+    satu_bulan_lagi = (today + timedelta(days=30)).strftime('%Y-%m-%d')
+    tiga_bulan_lagi = (today + timedelta(days=90)).strftime('%Y-%m-%d')
 
     stnk_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk < hari_ini).all()
     stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= satu_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi).all()
@@ -368,11 +510,15 @@ def transaksi():
 @app.route('/entry')
 def database():
     form = DataForm()
+    form.kota.choices = [('', '-- Pilih Kota --')]
     return render_template('form.html', form=form, active_page='entry')
 
 @app.route('/perpanjang')
 def perpanjang():
     form = ExtendForm()
+    form.kota.choices = [('', '-- Pilih Kota --')]
+    form.pt.choices = [('', '-- Pilih PT --')]
+    form.unit.choices = [('', '-- Pilih Unit --')]
     return render_template('perpanjang.html', form=form, active_page='perpanjang')
 
 @app.route('/report')
@@ -381,7 +527,7 @@ def report():
     
     query = (
         db.select(DataEntry, ReportEntry)
-        .join(ReportEntry, DataEntry.cn == ReportEntry.cn)
+        .join(ReportEntry, DataEntry.pkey == ReportEntry.pkey)
         .order_by(DataEntry.id.desc())
     )
     
@@ -420,23 +566,25 @@ def report():
     )
 
 @app.route('/details')
-@app.route('/details/<cn>')
-def details(cn=None):
-    all_cn_list = db.session.execute(db.select(DataEntry.cn).order_by(DataEntry.cn)).scalars().all()
+@app.route('/details/<pkey>')
+def details(pkey=None):
+    all_cn_list = db.session.execute(db.select(DataEntry.kode_unit).order_by(DataEntry.kode_unit)).scalars().all()
     
-    if(not cn):        
+    if not pkey:        
         return render_template('details.html', entry=None, all_cn_list=all_cn_list, active_page='details')
     
     entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.cn == cn)
+        db.select(DataEntry).where(DataEntry.pkey == pkey)
     ).scalar_one_or_none()
     
     if not entry:
         flash("Data unit tidak ditemukan!", "danger")
         return redirect(url_for('details'))
         
+    key = entry.pkey
+
     db_images = db.session.execute(
-        db.select(UnitImage.id).where(UnitImage.cn == cn).order_by(UnitImage.id)
+        db.select(UnitImage.id).where(UnitImage.pkey == key).order_by(UnitImage.id)
     ).scalars().all()
         
     return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images, active_page='details')
@@ -445,10 +593,9 @@ def details(cn=None):
 def submit_extend():
     form = ExtendForm()
 
-    all_units = db.session.execute(
-        db.select(DataEntry.cn).order_by(DataEntry.cn)
-    ).scalars().all()
-    form.cn.choices = [(cn, cn) for cn in all_units]
+    form.kota.choices = get_kota_choices(form.pulau.data)
+    form.pt.choices = get_pt_choices(form.kota.data)
+    form.unit.choices = get_unit_choices(form.pt.data)
 
     if form.validate_on_submit():
         def clean_numeric_input(val):
@@ -466,12 +613,20 @@ def submit_extend():
         jenis = form.jenis.data
 
         entry = db.session.execute(
-            db.select(DataEntry).where(DataEntry.cn == cn)
+            db.select(DataEntry).where(
+                db.func.upper(DataEntry.kode_unit) == cn.upper().strip(),
+                db.func.upper(DataEntry.pulau) == form.pulau.data.upper().strip(),
+                db.func.upper(DataEntry.kota) == form.kota.data.upper().strip(),
+                db.func.upper(DataEntry.pt) == form.pt.data.upper().strip(),
+                db.func.upper(DataEntry.unit) == form.unit.data.upper().strip()
+            )
         ).scalar_one_or_none()
 
         if not entry:
             flash("Data unit tidak ditemukan!", "danger")
             return render_template('perpanjang.html', form=form)
+
+        pkey = entry.pkey
 
         try:
             if jenis == "STNK":
@@ -520,13 +675,13 @@ def submit_extend():
 
             if status_pembayaran == "Lunas":
                 query_update_reports = text(
-                    "UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE cn = :cn and jenis = :jenis"
+                    "UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE pkey = :pkey and jenis = :jenis"
                 )
-                db.session.execute(query_update_reports, {"status_pembayaran": status_pembayaran, "cn": cn, "jenis": jenis})
+                db.session.execute(query_update_reports, {"status_pembayaran": status_pembayaran, "pkey": pkey, "jenis": jenis})
 
             new_record = ReportEntry(
                 jenis=jenis,
-                cn=cn,
+                pkey=pkey,
                 status_pembayaran=status_pembayaran,
                 tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
                 jumlah_dibayar=jumlah_dibayar,
@@ -539,12 +694,12 @@ def submit_extend():
 
             # Tambahkan Audit Log
             log_extend = AuditLog(
-                cn=cn,
+                pkey=pkey,
                 aksi="EDIT",
                 kolom_diubah=f"Perpanjang {jenis}",
                 nilai_lama=old_val_str,
                 nilai_baru=f"Bayar: Rp {bayar_formatted} ({status_pembayaran}). {new_val_str}",
-                diubah_oleh=session.get('logged_user', 'System')
+                dilakukan_oleh=session.get('logged_user', 'System')
             )
             db.session.add(log_extend)
 
@@ -563,6 +718,7 @@ def submit_extend():
 @app.route('/submit_data', methods=['POST'])
 def submit_data():
     form = DataForm()
+    form.kota.choices = get_kota_choices(form.pulau.data)
 
     if form.validate_on_submit():
         def clean_numeric_input(val):
@@ -600,15 +756,19 @@ def submit_data():
             return render_template('form.html', form=form)
 
         new_record = DataEntry(
-            pt=form.pt.data.upper().strip(), # Otomatis kapital & hapus spasi berlebih di ujung
+            pulau=form.pulau.data,
+            kota=form.kota.data,
+            pt=form.pt.data.upper().strip(),
+            unit=form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip(),
+            kode_unit=form.kode_unit.data.upper().replace(" ", ""),
+            pkey=form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
+            lokasi_kerja=form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else None,
+
             nama_asuransi=form.nama_asuransi.data.upper().strip(),
-            pulau=form.pulau.data.upper().strip(),
-            provinsi=form.provinsi.data.upper().strip(),
-            cn=form.cn.data.upper().replace(" ", ""), # CN dipaksa huruf besar tanpa spasi sama sekali
             no_polis=form.no_polis.data.upper().strip() if form.no_polis.data else None,
             no_polisi=form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None,
-            varian=form.varian.data.upper().strip() if form.varian.data else None,
-            kategori=form.kategori.data.upper().strip() if form.kategori.data else None,
+            merk=form.merk.data.upper().strip() if form.merk.data else None,
+            kategori=form.kategori.data.upper() if form.kategori.data else None,
             eqp_model=form.eqp_model.data.upper().strip() if form.eqp_model.data else None,
             sn_equipment=form.sn_equipment.data,
             sn_engine=form.sn_engine.data,
@@ -617,7 +777,6 @@ def submit_data():
             tanggal_berakhir_stnk=form.tanggal_berakhir_stnk.data if form.tanggal_berakhir_stnk.data else None,
             tanggal_berakhir_asuransi=form.tanggal_berakhir_asuransi.data if form.tanggal_berakhir_asuransi.data else None,
             year=form.year.data,
-            remaks=form.remaks.data if form.remaks.data else None,
             biaya_perpanjang_stnk=biaya_perpanjang_stnk,
             biaya_administrasi_stnk=biaya_admin_stnk,
             biaya_perpanjang_asuransi=biaya_perpanjang_asuransi,
@@ -645,12 +804,12 @@ def submit_data():
             db.session.add(new_record)
 
             log_tambah = AuditLog(
-                cn=form.cn.data.upper().replace(" ", ""),
+                pkey=new_record.pkey,
                 aksi="TAMBAH",
                 kolom_diubah="Semua Kolom (Unit Baru)",
                 nilai_lama="-",
                 nilai_baru="Unit berhasil didaftarkan ke sistem",
-                diubah_oleh=session['logged_user']
+                dilakukan_oleh=session['logged_user']
             )
             db.session.add(log_tambah)
 
@@ -659,7 +818,7 @@ def submit_data():
                 if file and file.filename != '':
                     binary_data = file.read()
                     new_image = UnitImage(
-                        cn=form.cn.data,
+                        pkey=new_record.pkey,
                         filename=file.filename,
                         file_data=binary_data
                     )
@@ -686,23 +845,23 @@ def submit_data():
 
     return render_template('form.html', form=form)
 
-@app.route('/edit/<cn>', methods=['GET'])
-def edit(cn):
-    # Ambil data lama berdasarkan CN
+@app.route('/edit/<pkey>')
+def edit(pkey):
     entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.cn == cn)
+        db.select(DataEntry).where(DataEntry.pkey == pkey)
     ).scalar_one_or_none()
 
     photo = db.session.execute(
-        db.select(UnitImage).where(UnitImage.cn == cn)
+        db.select(UnitImage).where(UnitImage.pkey == pkey)
     ).scalars().all()
     
     if not entry:
-        flash("Data unit dengan CN tersebut tidak ditemukan.", "danger")
+        flash("Data unit tidak ditemukan.", "danger")
         return redirect(url_for('details'))
         
     form = DataForm(obj=entry)
-    
+    form.kota.choices = get_kota_choices(entry.pulau)
+
     if entry.tanggal_berakhir_stnk:
         try:
             form.tanggal_berakhir_stnk.data = datetime.strptime(str(entry.tanggal_berakhir_stnk), '%Y-%m-%d').date()
@@ -721,31 +880,31 @@ def edit(cn):
     
     return render_template('edit.html', form=form, entry=entry, photo=photo)
 
-@app.route('/delete/<cn>', methods=['GET'])
-def delete(cn):
+@app.route('/delete/<pkey>', methods=['GET'])
+def delete(pkey):
     entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.cn == cn)
+        db.select(DataEntry).where(DataEntry.pkey == pkey)
     ).scalar_one_or_none()
     
     if not entry:
-        flash("Data unit dengan CN tersebut tidak ditemukan.", "danger")
+        flash("Data unit dengan PKEY tersebut tidak ditemukan.", "danger")
         return redirect(url_for('details'))
     
     try:
         related_images = db.session.execute(
-            db.select(UnitImage).where(UnitImage.cn == cn)
+            db.select(UnitImage).where(UnitImage.pkey == pkey)
         ).scalars().all()
         
         for img in related_images:
             db.session.delete(img)
 
         log_hapus = AuditLog(
-            cn=cn,
+            pkey=pkey,
             aksi="HAPUS",
             kolom_diubah="Semua Data Unit",
             nilai_lama=f"PT: {entry.pt}, Plat: {entry.no_polisi}",
             nilai_baru="Data unit permanen dihapus dari sistem",
-            diubah_oleh=session['logged_user']
+            dilakukan_oleh=session['logged_user']
         )
         db.session.add(log_hapus)
 
@@ -758,22 +917,26 @@ def delete(cn):
         
     return redirect(url_for('details'))
 
-@app.route('/update_data/<cn>', methods=['POST'])
-def update_data(cn):
+@app.route('/update_data/<pkey>', methods=['POST'])
+def update_data(pkey):
     entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.cn == cn)
+        db.select(DataEntry).where(DataEntry.pkey == pkey)
     ).scalar_one_or_none()
 
     photo = db.session.execute(
-        db.select(UnitImage).where(UnitImage.cn == cn)
+        db.select(UnitImage).where(UnitImage.pkey == pkey)
     ).scalars().all()
     
     if not entry:
-        flash("Data tidak ditemukan!", "danger")
         return redirect(url_for('details'))
         
     form = DataForm()
-    form.cn.data = cn
+    form.pulau.data = entry.pulau
+    form.kota.choices = get_kota_choices(entry.pulau)
+    form.kota.data = entry.kota
+    form.pt.data = entry.pt
+    form.unit.data = entry.unit
+    form.pkey.data = pkey
     form.status_stnk.data=entry.status_stnk
     form.status_asuransi.data=entry.status_asuransi
     form.tanggal_berakhir_stnk.data=entry.tanggal_berakhir_stnk
@@ -809,16 +972,15 @@ def update_data(cn):
             ('pt', 'Nama PT', form.pt.data.upper().strip() if form.pt.data else None),
             ('nama_asuransi', 'Nama Asuransi', form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None),
             ('pulau', 'Pulau', form.pulau.data.upper().strip() if form.pulau.data else None),
-            ('provinsi', 'Site (Provinsi)', form.provinsi.data.upper().strip() if form.provinsi.data else None),
+            ('kota', 'Site (Kota)', form.kota.data.upper().strip() if form.kota.data else None),
             ('no_polis', 'No. Polis', form.no_polis.data.upper().strip() if form.no_polis.data else None),
             ('no_polisi', 'No. Polisi', form.no_polisi.data.upper().strip() if form.no_polisi.data else None),
-            ('varian', 'Varian', form.varian.data.upper().strip() if form.varian.data else None),
+            ('merk', 'Merk', form.merk.data.upper().strip() if form.merk.data else None),
             ('kategori', 'Kategori', form.kategori.data.upper().strip() if form.kategori.data else None),
             ('eqp_model', 'Equipment Model', form.eqp_model.data.upper().strip() if form.eqp_model.data else None),
             ('sn_equipment', 'SN Equipment', form.sn_equipment.data if form.sn_equipment.data else None),
             ('sn_engine', 'SN Engine', form.sn_engine.data if form.sn_engine.data else None),
             ('year', 'Year', form.year.data if form.year.data else None),
-            ('remaks', 'Remarks', form.remaks.data.strip() if form.remaks.data else None),
             ('status_stnk', 'Status STNK', form.status_stnk.data),
             ('status_asuransi', 'Status Asuransi', form.status_asuransi.data),
             ('tanggal_berakhir_stnk', 'Masa Berlaku STNK', form.tanggal_berakhir_stnk.data),
@@ -835,12 +997,12 @@ def update_data(cn):
             # Normalisasi jika tipe data tanggal atau objek kosong
             if str(old_val) != str(new_val):
                 log_edit = AuditLog(
-                    cn=cn,
+                    pkey=pkey,
                     aksi="EDIT",
                     kolom_diubah=label,
                     nilai_lama=str(old_val) if old_val is not None else "Kosong",
                     nilai_baru=str(new_val) if new_val is not None else "Kosong",
-                    diubah_oleh=session['logged_user']
+                    dilakukan_oleh=session['logged_user']
                 )
                 db.session.add(log_edit)
 
@@ -848,16 +1010,15 @@ def update_data(cn):
         entry.pt = form.pt.data.upper().strip()
         entry.nama_asuransi = form.nama_asuransi.data.upper().strip()
         entry.pulau = form.pulau.data.upper().strip()
-        entry.provinsi = form.provinsi.data.upper().strip()
+        entry.kota = form.kota.data.upper().strip()
         entry.no_polis = form.no_polis.data.upper().strip() if form.no_polis.data else None
         entry.no_polisi = form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None
-        entry.varian = form.varian.data.upper().strip() if form.varian.data else None
+        entry.merk = form.merk.data.upper().strip() if form.merk.data else None
         entry.kategori = form.kategori.data.upper().strip() if form.kategori.data else None
         entry.eqp_model = form.eqp_model.data.upper().strip() if form.eqp_model.data else None
         entry.sn_equipment = form.sn_equipment.data
         entry.sn_engine = form.sn_engine.data
         entry.year = form.year.data
-        entry.remaks = form.remaks.data if form.remaks.data else None
         
         entry.biaya_perpanjang_stnk = biaya_perpanjang_stnk
         entry.biaya_administrasi_stnk = biaya_admin_stnk
@@ -876,7 +1037,7 @@ def update_data(cn):
         # Validasi di fungsi update_data
         uploaded_photos = request.files.getlist('unit_photos')
         existing_photos_count = db.session.execute(
-            db.select(db.func.count(UnitImage.id)).where(UnitImage.cn == cn)
+            db.select(db.func.count(UnitImage.id)).where(UnitImage.pkey == pkey)
         ).scalar()
 
         # Memastikan file yang diunggah benar-benar ada/tidak kosong
@@ -892,19 +1053,19 @@ def update_data(cn):
                 if file and file.filename != '':
                     binary_data = file.read()
                     new_image = UnitImage(
-                        cn=cn, # Tetap arahkan ke parameter CN unit ini
+                        pkey=pkey, # Tetap arahkan ke parameter PKEY unit ini
                         filename=file.filename,
                         file_data=binary_data
                     )
                     db.session.add(new_image)
 
                     log_upload = AuditLog(
-                        cn=cn,
+                        pkey=pkey,
                         aksi="EDIT",
                         kolom_diubah="Foto Unit",
                         nilai_lama="-",
                         nilai_baru=f"Menambahkan foto: {file.filename}",
-                        diubah_oleh=session.get('logged_user', 'System')
+                        dilakukan_oleh=session.get('logged_user', 'System')
                     )
                     db.session.add(log_upload)
 
@@ -916,11 +1077,24 @@ def update_data(cn):
             
     return render_template('edit.html', form=form, entry=entry, photo=photo)
 
-@app.route('/api/get-tagihan/<jenis>/<cn>')
-def get_tagihan(jenis, cn):
-    entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.cn == cn)
-    ).scalar_one_or_none()
+@app.route('/api/get-tagihan/<jenis>/<pkey>')
+def get_tagihan(jenis, pkey):
+    pulau = request.args.get('pulau', '').strip()
+    kota = request.args.get('kota', '').strip()
+    pt = request.args.get('pt', '').strip()
+    unit = request.args.get('unit', '').strip()
+
+    stmt = db.select(DataEntry).where(db.func.upper(DataEntry.kode_unit) == pkey.upper())
+    if pulau:
+        stmt = stmt.where(db.func.upper(DataEntry.pulau) == pulau.upper())
+    if kota:
+        stmt = stmt.where(db.func.upper(DataEntry.kota) == kota.upper())
+    if pt:
+        stmt = stmt.where(db.func.upper(DataEntry.pt) == pt.upper())
+    if unit:
+        stmt = stmt.where(db.func.upper(DataEntry.unit) == unit.upper())
+
+    entry = db.session.execute(stmt).scalar_one_or_none()
     
     if entry:
         # Tentukan kolom mana yang diambil berdasarkan input 'Jenis'
@@ -936,7 +1110,27 @@ def get_tagihan(jenis, cn):
             'total_tagihan': nilai_tagihan
         })
     
-    return jsonify({'success': False, 'message': 'CN tidak ditemukan'}), 404
+    return jsonify({'success': False, 'message': 'PKEY tidak ditemukan'}), 404
+
+@app.route('/api/get-kota/<pulau>')
+def get_kota_api(pulau):
+    choices = get_kota_choices(pulau)
+    return jsonify([{'value': val, 'label': label} for val, label in choices])
+
+@app.route('/api/get-pt/<kota>')
+def get_pt_api(kota):
+    choices = get_pt_choices(kota)
+    return jsonify([{'value': val, 'label': label} for val, label in choices])
+
+@app.route('/api/get-unit/<pt>')
+def get_unit_api(pt):
+    choices = get_unit_choices(pt)
+    return jsonify([{'value': val, 'label': label} for val, label in choices])
+
+@app.route('/api/get-cn/<unit>')
+def get_cn_api(unit):
+    choices = get_cn_choices(unit)
+    return jsonify([{'value': val, 'label': label} for val, label in choices])
 
 @app.route('/get_image/<int:image_id>')
 def get_image(image_id):
@@ -959,16 +1153,16 @@ def delete_image(image_id):
     ).scalar_one_or_none()
     
     if img_record:
-        cn = img_record.cn
+        pkey = img_record.pkey
         filename = img_record.filename
         try:
             log_delete = AuditLog(
-                cn=cn,
+                pkey=pkey,
                 aksi="EDIT",
                 kolom_diubah="Foto Unit",
                 nilai_lama=f"Menghapus foto: {filename}",
                 nilai_baru="Foto dihapus",
-                diubah_oleh=session.get('logged_user', 'System')
+                dilakukan_oleh=session.get('logged_user', 'System')
             )
             db.session.add(log_delete)
             db.session.delete(img_record)
@@ -999,7 +1193,7 @@ def export_excel():
         # 3. Definisi Judul Kolom (Headers)
         headers = [
             'No', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Provinsi)', 'CN Unit', 
-            'No. Polis', 'No. Polisi', 'Varian', 'Kategori', 'Equipment Model', 
+            'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
             'SN Equipment', 'SN Engine', 'Status STNK', 'Masa Berlaku STNK', 
             'Status Asuransi', 'Masa Berlaku Asuransi', 'Year', 'Remarks', 
             'Biaya STNK', 'Admin STNK', 'Pembulatan STNK', 'Total STNK',
@@ -1029,13 +1223,13 @@ def export_excel():
         # 5. Iterasi dan Masukkan Data dari Database
         for idx, entry in enumerate(all_entries, start=1):
             row_data = [
-                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.provinsi, entry.cn,
-                entry.no_polis, entry.no_polisi, entry.varian, entry.kategori, entry.eqp_model,
+                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.provinsi, entry.pkey,
+                entry.no_polis, entry.no_polisi, entry.merk, entry.kategori, entry.eqp_model,
                 entry.sn_equipment, entry.sn_engine, entry.status_stnk, 
                 entry.tanggal_berakhir_stnk.strftime('%Y-%m-%d') if entry.tanggal_berakhir_stnk else '-',
                 entry.status_asuransi,
                 entry.tanggal_berakhir_asuransi.strftime('%Y-%m-%d') if entry.tanggal_berakhir_asuransi else '-',
-                entry.year, entry.remaks,
+                entry.year,
                 entry.biaya_perpanjang_stnk, entry.biaya_administrasi_stnk, entry.pembulatan_stnk, entry.total_stnk,
                 entry.biaya_perpanjang_asuransi, entry.biaya_administrasi_asuransi, entry.pembulatan_asuransi, entry.total_asuransi,
                 entry.diinput_oleh, entry.tanggal_input.strftime('%Y-%m-%d %H:%M') if entry.tanggal_input else '-'
@@ -1101,8 +1295,8 @@ def export_report_excel():
             for entry in all_entries: grouped_data[entry.nama_asuransi or "Tanpa Asuransi"].append(entry)
         elif group_by == 'pulau':
             for entry in all_entries: grouped_data[entry.pulau or "Tanpa Pulau"].append(entry)
-        elif group_by == 'provincs' or group_by == 'provinsi': # Sesuaikan nama kolom Anda
-            for entry in all_entries: grouped_data[entry.provinsi or "Tanpa Site"].append(entry)
+        elif group_by == 'kota':
+            for entry in all_entries: grouped_data[entry.kota or "Tanpa Site"].append(entry)
         else:
             grouped_data['Semua Data'] = all_entries
    
@@ -1119,7 +1313,7 @@ def export_report_excel():
         )
 
         headers = [
-            'No', 'CN Unit', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Provinsi)', 
+            'No', 'CN Unit', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Kota)', 
             'No. Polisi', 'Status STNK', 'Masa Berlaku STNK', 'Status Asuransi', 
             'Masa Berlaku Asuransi', 'Total STNK', 'Total Asuransi', 'Diinput Oleh'
         ]
@@ -1145,7 +1339,7 @@ def export_report_excel():
             
             for idx, entry in enumerate(entries, start=1):
                 row_values = [
-                    idx, entry.cn, entry.pt, entry.nama_asuransi, entry.pulau, entry.provinsi,
+                    idx, entry.pkey, entry.pt, entry.nama_asuransi, entry.pulau, entry.kota,
                     entry.no_polisi, entry.status_stnk,
                     entry.tanggal_berakhir_stnk.strftime('%Y-%m-%d') if entry.tanggal_berakhir_stnk else '-',
                     entry.status_asuransi,
@@ -1162,9 +1356,9 @@ def export_report_excel():
                     cell.border = thin_border
                     cell.font = Font(name="Arial", size=10)
                     
-                    if col_num in [1, 2, 8, 9, 10, 11]: # No, CN, Status, Tanggal
+                    if col_num in [1, 2, 8, 9, 10, 11]: 
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif col_num in [12, 13]: # Total STNK & Asuransi
+                    elif col_num in [12, 13]: 
                         cell.number_format = '"Rp "#,##0.00'
                         cell.alignment = Alignment(horizontal="right", vertical="center")
                     else:
