@@ -135,7 +135,7 @@
                     </div>
                     {% else %}
                     <div class="text-center py-5 text-muted small my-auto">
-                        <p class="mb-0">Silakan tentukan nomor CN pada menu di atas untuk memuat data atribut.</p>
+                        <p class="mb-0">Silakan tentukan kode unit pada menu di atas untuk memuat data atribut.</p>
                     </div>
                     {% endif %}
 
@@ -195,7 +195,7 @@
                     {% else %}
                     <div class="text-center text-muted my-auto p-5">
                         <h5 class="fw-bold text-warning">⚠️ Foto Belum Tersedia</h5>
-                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.pkey }}</strong>.
+                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.kode_unit }}</strong>.
                         </p>
                     </div>
                     {% endif %}
@@ -203,8 +203,7 @@
                     {% else %}
                     <div class="text-center text-muted my-auto p-5">
                         <h5 class="fw-bold text-secondary">Belum Ada Unit yang Dipilih</h5>
-                        <p class="small mb-0">Slideshow gambar arsip unit dari database akan dimuat di sisi kanan ini
-                            setelah Anda memilih salah satu nomor CN pada panel sebelah kiri.</p>
+                        <p class="small mb-0">Slideshow gambar unit akan dimuat setelah Anda memilih kode unit pada panel sebelah kiri.</p>
                     </div>
                     {% endif %}
 
@@ -230,7 +229,7 @@
                     kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
                     ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
                     unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
-                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
@@ -257,7 +256,7 @@
                 if (!kotaVal) {
                     ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
                     unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
-                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
@@ -283,7 +282,7 @@
                 const ptVal = ptSelect.value;
                 if (!ptVal) {
                     unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
-                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
@@ -308,7 +307,7 @@
             function updateCnChoices() {
                 const unitVal = unitSelect.value;
                 if (!unitVal) {
-                    cnSelect.innerHTML = '<option value="">-- Pilih Nomor CN --</option>';
+                    cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
@@ -317,7 +316,7 @@
                 fetch(`/api/get-cn/${encodeURIComponent(unitVal)}`)
                     .then(response => response.json())
                     .then(data => {
-                        let optionsHtml = '<option value="">-- Pilih Nomor CN --</option>';
+                        let optionsHtml = '<option value="">-- Pilih Kode Unit --</option>';
                         data.forEach(item => {
                             const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
                             optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
@@ -329,10 +328,31 @@
                     });
             }
 
-            pulauSelect.addEventListener("change", updateKotaChoices);
-            kotaSelect.addEventListener("change", updatePtChoices);
-            ptSelect.addEventListener("change", updateUnitChoices);
-            unitSelect.addEventListener("change", updateCnChoices);
+            pulauSelect.addEventListener("change", function() {
+                kotaSelect.removeAttribute('data-selected');
+                ptSelect.removeAttribute('data-selected');
+                unitSelect.removeAttribute('data-selected');
+                cnSelect.removeAttribute('data-selected');
+                updateKotaChoices();
+            });
+            
+            kotaSelect.addEventListener("change", function() {
+                ptSelect.removeAttribute('data-selected');
+                unitSelect.removeAttribute('data-selected');
+                cnSelect.removeAttribute('data-selected');
+                updatePtChoices();
+            });
+            
+            ptSelect.addEventListener("change", function() {
+                unitSelect.removeAttribute('data-selected');
+                cnSelect.removeAttribute('data-selected');
+                updateUnitChoices();
+            });
+            
+            unitSelect.addEventListener("change", function() {
+                cnSelect.removeAttribute('data-selected');
+                updateCnChoices();
+            });
             
             cnSelect.addEventListener("change", function() {
                 if (this.value) {

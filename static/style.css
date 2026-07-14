@@ -119,3 +119,9 @@ body {
     opacity: 1;
     transform: scale(1.1);
 }
+
+/* Scrollable table container inside dashboard accordions */
+.dashboard-accordion-scroll {
+    max-height: 350px;
+    overflow-y: auto;
+}
