@@ -228,5 +228,10 @@
     .cursor-pointer {
         cursor: pointer;
     }
+
+    /* Force collapsed/expanded table rows to use display table-row */
+    tr.collapse.show {
+        display: table-row !important;
+    }
 </style>
 {% endblock %}
