@@ -335,14 +335,17 @@ def get_unit_choices(selected_pt=None, selected_kota=None):
         print(f"Error in get_unit_choices: {e}")
         return []
 
-def get_cn_choices(selected_unit=None):
+def get_cn_choices(selected_unit=None, selected_pt=None, selected_kota=None):
     if not selected_unit:
         return []
     try:
         unit_upper = selected_unit.upper().strip()
-        db_entries = db.session.execute(
-            db.select(DataEntry.pkey, DataEntry.kode_unit).where(db.func.upper(DataEntry.unit) == unit_upper).distinct()
-        ).all()
+        query = db.select(DataEntry.pkey, DataEntry.kode_unit).where(db.func.upper(DataEntry.unit) == unit_upper)
+        if selected_pt:
+            query = query.where(db.func.upper(DataEntry.pt) == selected_pt.upper().strip())
+        if selected_kota:
+            query = query.where(db.func.upper(DataEntry.kota) == selected_kota.upper().strip())
+        db_entries = db.session.execute(query.distinct()).all()
         
         choices = []
         seen = set()
@@ -397,6 +400,84 @@ def populate_form_choices(form):
     kategori_entries = db.session.execute(db.select(Kategori).order_by(Kategori.nama)).scalars().all()
     form.kategori.choices = [('', '-- Pilih Kategori --')] + [(k.nama, k.nama) for k in kategori_entries]
 
+def populate_mutasi_choices(form):
+    pulau_entries = db.session.execute(db.select(Pulau).order_by(Pulau.nama)).scalars().all()
+    pulau_choices = [('', '-- Pilih Pulau --')] + [(p.nama, p.nama) for p in pulau_entries]
+    
+    # Populate Source Dropdowns
+    form.pulau_asal.choices = pulau_choices
+    if form.pulau_asal.data:
+        form.kota_asal.choices = [('', '-- Pilih Kota --')] + get_kota_choices(form.pulau_asal.data)
+    else:
+        form.kota_asal.choices = [('', '-- Pilih Kota --')]
+        
+    if form.kota_asal.data:
+        form.pt_asal.choices = [('', '-- Pilih PT --')] + get_pt_choices(form.kota_asal.data)
+    else:
+        form.pt_asal.choices = [('', '-- Pilih PT --')]
+        
+    if form.pt_asal.data:
+        form.unit_asal.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(form.pt_asal.data, form.kota_asal.data)
+    else:
+        form.unit_asal.choices = [('', '-- Pilih Unit PT --')]
+        
+    if form.unit_asal.data:
+        form.cn_asal.choices = [('', '-- Pilih Kode Unit --')] + get_cn_choices(form.unit_asal.data, form.pt_asal.data, form.kota_asal.data)
+    else:
+        form.cn_asal.choices = [('', '-- Pilih Kode Unit --')]
+
+    # Populate Destination Dropdowns
+    form.pulau_tujuan.choices = pulau_choices
+    if form.pulau_tujuan.data:
+        form.kota_tujuan.choices = [('', '-- Pilih Kota --')] + get_kota_choices(form.pulau_tujuan.data)
+    else:
+        form.kota_tujuan.choices = [('', '-- Pilih Kota --')]
+        
+    if form.kota_tujuan.data:
+        form.pt_tujuan.choices = [('', '-- Pilih PT --')] + get_pt_choices(form.kota_tujuan.data)
+    else:
+        form.pt_tujuan.choices = [('', '-- Pilih PT --')]
+        
+    if form.pt_tujuan.data:
+        form.unit_tujuan.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(form.pt_tujuan.data, form.kota_tujuan.data)
+    else:
+        form.unit_tujuan.choices = [('', '-- Pilih Unit PT --')]
+        
+    # Populate Lokasi Kerja Tujuan
+    unit_entries = db.session.execute(db.select(Unit).order_by(Unit.nama)).scalars().all()
+    lokasi_choices = []
+    for u in unit_entries:
+        pt = db.session.get(PT, u.reference)
+        if pt:
+            display_val = f"{pt.nama}-{u.nama}"
+            lokasi_choices.append((display_val, display_val))
+        else:
+            lokasi_choices.append((u.nama, u.nama))
+    form.lokasi_kerja_tujuan.choices = [('', '-- Pilih Unit Lokasi Kerja --')] + sorted(lokasi_choices, key=lambda x: x[0])
+    
+    # Fallback validation choice appending to prevent WTForms choice validation mismatch
+    if form.pulau_asal.data and form.pulau_asal.data not in [c[0] for c in form.pulau_asal.choices]:
+        form.pulau_asal.choices.append((form.pulau_asal.data, form.pulau_asal.data))
+    if form.kota_asal.data and form.kota_asal.data not in [c[0] for c in form.kota_asal.choices]:
+        form.kota_asal.choices.append((form.kota_asal.data, form.kota_asal.data))
+    if form.pt_asal.data and form.pt_asal.data not in [c[0] for c in form.pt_asal.choices]:
+        form.pt_asal.choices.append((form.pt_asal.data, form.pt_asal.data))
+    if form.unit_asal.data and form.unit_asal.data not in [c[0] for c in form.unit_asal.choices]:
+        form.unit_asal.choices.append((form.unit_asal.data, form.unit_asal.data))
+    if form.cn_asal.data and form.cn_asal.data not in [c[0] for c in form.cn_asal.choices]:
+        form.cn_asal.choices.append((form.cn_asal.data, form.cn_asal.data))
+
+    if form.pulau_tujuan.data and form.pulau_tujuan.data not in [c[0] for c in form.pulau_tujuan.choices]:
+        form.pulau_tujuan.choices.append((form.pulau_tujuan.data, form.pulau_tujuan.data))
+    if form.kota_tujuan.data and form.kota_tujuan.data not in [c[0] for c in form.kota_tujuan.choices]:
+        form.kota_tujuan.choices.append((form.kota_tujuan.data, form.kota_tujuan.data))
+    if form.pt_tujuan.data and form.pt_tujuan.data not in [c[0] for c in form.pt_tujuan.choices]:
+        form.pt_tujuan.choices.append((form.pt_tujuan.data, form.pt_tujuan.data))
+    if form.unit_tujuan.data and form.unit_tujuan.data not in [c[0] for c in form.unit_tujuan.choices]:
+        form.unit_tujuan.choices.append((form.unit_tujuan.data, form.unit_tujuan.data))
+    if form.lokasi_kerja_tujuan.data and form.lokasi_kerja_tujuan.data not in [c[0] for c in form.lokasi_kerja_tujuan.choices]:
+        form.lokasi_kerja_tujuan.choices.append((form.lokasi_kerja_tujuan.data, form.lokasi_kerja_tujuan.data))
+
 class DataForm(FlaskForm):
     #Primary
     pulau = SelectField('Pulau', choices=[], validators=[DataRequired(message="Pulau wajib diisi!")])
@@ -449,6 +530,22 @@ class ExtendForm(FlaskForm):
         DataRequired(message="Jumlah dibayar tidak boleh kosong.") 
     ])
     tanggal_bayar = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[DataRequired(message="Tanggal tidak boleh kosong.")])
+
+class MutasiForm(FlaskForm):
+    # Source (Unit to Mutate)
+    pulau_asal = SelectField('Pulau Asal', choices=[], validators=[DataRequired(message="Pulau asal wajib diisi!")])
+    kota_asal = SelectField('Kota Asal', choices=[], validators=[DataRequired(message="Kota asal wajib diisi!")])
+    pt_asal = SelectField('Nama PT Asal', choices=[], validators=[DataRequired(message="Nama PT asal wajib diisi!")])
+    unit_asal = SelectField('Nama Unit Asal', choices=[], validators=[DataRequired(message="Nama Unit asal wajib diisi!")])
+    cn_asal = SelectField('Kode Unit (CN) Asal', choices=[], validators=[DataRequired(message="Kode Unit asal wajib diisi!")])
+
+    # Destination (New Location)
+    pulau_tujuan = SelectField('Pulau Tujuan', choices=[], validators=[DataRequired(message="Pulau tujuan wajib diisi!")])
+    kota_tujuan = SelectField('Kota Tujuan', choices=[], validators=[DataRequired(message="Kota tujuan wajib diisi!")])
+    pt_tujuan = SelectField('Nama PT Tujuan', choices=[], validators=[DataRequired(message="Nama PT tujuan wajib diisi!")])
+    unit_tujuan = SelectField('Nama Unit Tujuan', choices=[], validators=[DataRequired(message="Nama Unit tujuan wajib diisi!")])
+    lokasi_kerja_tujuan = SelectField('Lokasi Kerja Tujuan', choices=[], validators=[DataRequired(message="Lokasi Kerja tujuan wajib diisi!")])
+    kode_unit_tujuan = StringField('Kode Unit (CN) Tujuan', validators=[DataRequired(message="Kode Unit tujuan wajib diisi!"), Length(max=100)])
 
 # ===============================================================================================================
 # ROUTING
@@ -892,6 +989,143 @@ def perpanjang():
     form.unit.choices = [('', '-- Pilih Unit PT --')]
     form.cn.choices = [('', '-- Pilih Kode Unit --')]
     return render_template('perpanjang.html', form=form, active_page='transaksi')
+
+@app.route('/mutasi', methods=['GET', 'POST'])
+def mutasi():
+    if session['role'] not in ['admin', 'user']:
+        return redirect(url_for('dashboard'))
+        
+    form = MutasiForm()
+    
+    # Handle GET request with pre-selected pkey
+    preselected_pkey = request.args.get('pkey', '').strip()
+    preselected_entry = None
+    if preselected_pkey:
+        preselected_entry = db.session.execute(
+            db.select(DataEntry).where(DataEntry.pkey == preselected_pkey)
+        ).scalar_one_or_none()
+        
+    if request.method == 'POST':
+        # Dynamic choices population before validation
+        populate_mutasi_choices(form)
+        
+        if form.validate_on_submit():
+            # Perform Mutasi!
+            pkey_asal = form.cn_asal.data
+            entry = db.session.execute(
+                db.select(DataEntry).where(DataEntry.pkey == pkey_asal)
+            ).scalar_one_or_none()
+            
+            if not entry:
+                flash("Data unit asal tidak ditemukan.", "danger")
+                return redirect(url_for('mutasi'))
+            
+            # Destination values
+            dest_pulau = form.pulau_tujuan.data
+            dest_kota = form.kota_tujuan.data
+            dest_pt = form.pt_tujuan.data.upper().strip()
+            dest_unit = form.unit_tujuan.data.upper().strip()
+            dest_lokasi = form.lokasi_kerja_tujuan.data
+            dest_cn = form.kode_unit_tujuan.data.upper().replace(" ", "")
+            dest_unit_combined = f"{dest_pt}-{dest_unit}"
+            
+            # Construct new pkey: {PULAU}-{KOTA}-{PT}-{UNIT}-{KODE_UNIT}
+            new_pkey = f"{dest_pulau}-{dest_kota}-{dest_pt}-{dest_unit}-{dest_cn}"
+            
+            # Check if a different unit already exists at new_pkey
+            if new_pkey != entry.pkey:
+                existing = db.session.execute(
+                    db.select(DataEntry).where(DataEntry.pkey == new_pkey)
+                ).scalar_one_or_none()
+                if existing:
+                    flash(f"Gagal mutasi: Unit dengan kode {dest_cn} sudah terdaftar di lokasi tujuan ({new_pkey}).", "danger")
+                    return render_template('mutasi.html', form=form, preselected_entry=preselected_entry, active_page='transaksi')
+            
+            try:
+                old_pkey = entry.pkey
+                old_location_str = f"Pulau: {entry.pulau}, Kota: {entry.kota}, PT: {entry.pt}, Unit: {entry.unit}, Lokasi Kerja: {entry.lokasi_kerja}, CN: {entry.kode_unit}"
+                new_location_str = f"Pulau: {dest_pulau}, Kota: {dest_kota}, PT: {dest_pt}, Unit: {dest_unit_combined}, Lokasi Kerja: {dest_lokasi}, CN: {dest_cn}"
+                
+                # Log columns changed
+                changes = []
+                if entry.pulau != dest_pulau:
+                    changes.append(f"Pulau: {entry.pulau} -> {dest_pulau}")
+                if entry.kota != dest_kota:
+                    changes.append(f"Kota: {entry.kota} -> {dest_kota}")
+                if entry.pt != dest_pt:
+                    changes.append(f"PT: {entry.pt} -> {dest_pt}")
+                if entry.unit != dest_unit_combined:
+                    changes.append(f"Unit: {entry.unit} -> {dest_unit_combined}")
+                if entry.lokasi_kerja != dest_lokasi:
+                    changes.append(f"Lokasi Kerja: {entry.lokasi_kerja} -> {dest_lokasi}")
+                if entry.kode_unit != dest_cn:
+                    changes.append(f"Kode Unit: {entry.kode_unit} -> {dest_cn}")
+                
+                if old_pkey != new_pkey:
+                    # 1. Update related images
+                    db.session.execute(
+                        text("UPDATE images SET pkey = :new_pkey WHERE pkey = :old_pkey"),
+                        {"new_pkey": new_pkey, "old_pkey": old_pkey}
+                    )
+                    # 2. Update related report entries
+                    db.session.execute(
+                        text("UPDATE report_entries SET pkey = :new_pkey WHERE pkey = :old_pkey"),
+                        {"new_pkey": new_pkey, "old_pkey": old_pkey}
+                    )
+                    # 3. Update the entry's pkey itself
+                    entry.pkey = new_pkey
+                    
+                # Update other values
+                entry.pulau = dest_pulau
+                entry.kota = dest_kota
+                entry.pt = dest_pt
+                entry.unit = dest_unit_combined
+                entry.lokasi_kerja = dest_lokasi
+                entry.kode_unit = dest_cn
+                
+                # 4. Create Audit Log
+                audit_log = AuditLog(
+                    pkey=new_pkey,
+                    aksi="EDIT",
+                    kolom_diubah=", ".join(changes) if changes else "Lokasi Kerja / Kode Unit",
+                    nilai_lama=old_location_str,
+                    nilai_baru=new_location_str,
+                    dilakukan_oleh=session['logged_user']
+                )
+                db.session.add(audit_log)
+                
+                db.session.commit()
+                flash(f"Sukses melakukan mutasi unit {dest_cn} ke lokasi baru.", "success")
+                return redirect(url_for('details', pkey=new_pkey))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Terjadi kesalahan saat menyimpan mutasi: {e}", "danger")
+        else:
+            flash(f"Gagal memvalidasi form mutasi: {form.errors}", "danger")
+    else:
+        # GET request, populate initial choices
+        populate_mutasi_choices(form)
+        if preselected_entry:
+            # Prefill the source choices and fields
+            form.pulau_asal.data = preselected_entry.pulau
+            form.kota_asal.choices = [('', '-- Pilih Kota --')] + get_kota_choices(preselected_entry.pulau)
+            form.kota_asal.data = preselected_entry.kota
+            form.pt_asal.choices = [('', '-- Pilih PT --')] + get_pt_choices(preselected_entry.kota)
+            form.pt_asal.data = preselected_entry.pt
+            form.unit_asal.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(preselected_entry.pt, preselected_entry.kota)
+            form.unit_asal.data = preselected_entry.unit
+            form.cn_asal.choices = [(preselected_entry.pkey, preselected_entry.kode_unit)]
+            form.cn_asal.data = preselected_entry.pkey
+            # Prefill the destination CN field with the source CN
+            form.kode_unit_tujuan.data = preselected_entry.kode_unit
+            
+    return render_template(
+        'mutasi.html', 
+        form=form, 
+        preselected_entry=preselected_entry, 
+        active_page='transaksi'
+    )
 
 @app.route('/report')
 def report():
@@ -1512,7 +1746,9 @@ def get_unit_api(pt):
 
 @app.route('/api/get-cn/<unit>')
 def get_cn_api(unit):
-    choices = get_cn_choices(unit)
+    pt = request.args.get('pt')
+    kota = request.args.get('kota')
+    choices = get_cn_choices(unit, pt, kota)
     return jsonify([{'value': val, 'label': label} for val, label in choices])
 
 @app.route('/get_image/<int:image_id>')

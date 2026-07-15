@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block title %}Mutasi Lokasi Unit{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+{% block content %}
+
+<div class="card form-card p-3 shadow-sm">
+    <h3 class="text-center mb-4 text-primary">Mutasi Lokasi Unit</h3>
+    <form method="POST" action="{{ url_for('mutasi') }}" id="mutasiForm">
+        {{ form.csrf_token }}
+        
+        <!-- JIKA PKEY PRE-SELECTED -->
+        {% if preselected_entry %}
+            <!-- Info Unit Asal (Source) -->
+            <div class="alert alert-info border-0 shadow-sm rounded-3 p-3 mb-4">
+                <h5 class="fw-bold mb-2 text-primary">📍 Unit Asal (Terpilih)</h5>
+                <div class="row g-2 text-dark small">
+                    <div class="col-sm-6"><strong>Kode Unit (CN):</strong> {{ preselected_entry.kode_unit }}</div>
+                    <div class="col-sm-6"><strong>Pulau:</strong> {{ preselected_entry.pulau }}</div>
+                    <div class="col-sm-6"><strong>Kota/Site:</strong> {{ preselected_entry.kota }}</div>
+                    <div class="col-sm-6"><strong>PT:</strong> {{ preselected_entry.pt }}</div>
+                    <div class="col-sm-6"><strong>Unit PT:</strong> {{ preselected_entry.unit }}</div>
+                    <div class="col-sm-6"><strong>Lokasi Kerja:</strong> {{ preselected_entry.lokasi_kerja }}</div>
+                </div>
+            </div>
+            
+            <!-- Hidden inputs for Source Form Fields -->
+            <input type="hidden" name="pulau_asal" value="{{ preselected_entry.pulau }}">
+            <input type="hidden" name="kota_asal" value="{{ preselected_entry.kota }}">
+            <input type="hidden" name="pt_asal" value="{{ preselected_entry.pt }}">
+            <input type="hidden" name="unit_asal" value="{{ preselected_entry.unit }}">
+            <input type="hidden" name="cn_asal" value="{{ preselected_entry.pkey }}">
+        {% else %}
+            <!-- Dropdown Pemilihan Unit Asal -->
+            <h5 class="fw-bold text-secondary mb-3 border-bottom pb-2">📍 Pilih Unit Asal</h5>
+            <div class="row">
+                <div class="data-input">
+                    <label class="form-label font-weight-bold">Pulau Asal</label>
+                    {{ form.pulau_asal(class="form-select uppercase-input", id="pulau_asal") }}
+                </div>
+                <div class="data-input">
+                    <label class="form-label font-weight-bold">Kota Asal</label>
+                    {{ form.kota_asal(class="form-select uppercase-input", id="kota_asal", **{"data-selected": form.kota_asal.data or ""}) }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="data-input">
+                    <label class="form-label font-weight-bold">PT Asal</label>
+                    {{ form.pt_asal(class="form-select uppercase-input", id="pt_asal", **{"data-selected": form.pt_asal.data or ""}) }}
+                </div>
+                <div class="data-input">
+                    <label class="form-label font-weight-bold">Unit Asal</label>
+                    {{ form.unit_asal(class="form-select uppercase-input", id="unit_asal", **{"data-selected": form.unit_asal.data or ""}) }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="data-input" style="width: 100%;">
+                    <label class="form-label font-weight-bold">Kode Unit (CN) Asal</label>
+                    {{ form.cn_asal(class="form-select uppercase-input fw-bold text-primary", id="cn_asal", **{"data-selected": form.cn_asal.data or ""}) }}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Input Lokasi Baru (Tujuan Mutasi) -->
+        <h5 class="fw-bold text-secondary mb-3 border-bottom pb-2 mt-4">🎯 Lokasi Tujuan Mutasi</h5>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Pulau Tujuan</label>
+                {{ form.pulau_tujuan(class="form-select uppercase-input", id="pulau_tujuan") }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Kota Tujuan</label>
+                {{ form.kota_tujuan(class="form-select uppercase-input", id="kota_tujuan", **{"data-selected": form.kota_tujuan.data or ""}) }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">PT Tujuan</label>
+                {{ form.pt_tujuan(class="form-select uppercase-input", id="pt_tujuan", **{"data-selected": form.pt_tujuan.data or ""}) }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Unit Tujuan</label>
+                {{ form.unit_tujuan(class="form-select uppercase-input", id="unit_tujuan", **{"data-selected": form.unit_tujuan.data or ""}) }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Lokasi Kerja Baru</label>
+                {{ form.lokasi_kerja_tujuan(class="form-select uppercase-input", id="lokasi_kerja_tujuan", **{"data-selected": form.lokasi_kerja_tujuan.data or ""}) }}
+            </div>
+            <div class="data-input">
+                <label class="form-label font-weight-bold">Kode Unit (CN) Baru</label>
+                {{ form.kode_unit_tujuan(class="form-control uppercase-input", id="kode_unit_tujuan", placeholder="CN Baru (cth: XX123)", **{"value": form.kode_unit_tujuan.data or ""}) }}
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-3" id="btnSubmit">🚀 Lakukan Mutasi Unit</button>
+    </form>
+    
+    <div class="mt-3">
+        <a href="/transaksi" class="btn btn-outline-secondary w-100">Batal</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // -------------------------------------------------------------
+    // Cascading Dropdowns Logic for Source (Unit Asal)
+    // -------------------------------------------------------------
+    {% if not preselected_entry %}
+    const pulauAsal = document.getElementById("pulau_asal");
+    const kotaAsal = document.getElementById("kota_asal");
+    const ptAsal = document.getElementById("pt_asal");
+    const unitAsal = document.getElementById("unit_asal");
+    const cnAsal = document.getElementById("cn_asal");
+
+    function updateKotaAsal() {
+        const pVal = pulauAsal.value;
+        if (!pVal) {
+            kotaAsal.innerHTML = '<option value="">-- Pilih Kota --</option>';
+            ptAsal.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitAsal.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            cnAsal.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            return;
+        }
+        const currentSelected = kotaAsal.getAttribute('data-selected') || kotaAsal.value;
+        fetch(`/api/get-kota/${encodeURIComponent(pVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih Kota --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                kotaAsal.innerHTML = options;
+                updatePtAsal();
+            });
+    }
+
+    function updatePtAsal() {
+        const kVal = kotaAsal.value;
+        if (!kVal) {
+            ptAsal.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitAsal.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            cnAsal.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            return;
+        }
+        const currentSelected = ptAsal.getAttribute('data-selected') || ptAsal.value;
+        fetch(`/api/get-pt/${encodeURIComponent(kVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih PT --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                ptAsal.innerHTML = options;
+                updateUnitAsal();
+            });
+    }
+
+    function updateUnitAsal() {
+        const ptVal = ptAsal.value;
+        const kVal = kotaAsal.value;
+        if (!ptVal || !kVal) {
+            unitAsal.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            cnAsal.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            return;
+        }
+        const currentSelected = unitAsal.getAttribute('data-selected') || unitAsal.value;
+        fetch(`/api/get-unit/${encodeURIComponent(ptVal)}?kota=${encodeURIComponent(kVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih Unit PT --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                unitAsal.innerHTML = options;
+                updateCnAsal();
+            });
+    }
+
+    function updateCnAsal() {
+        const ptVal = ptAsal.value;
+        const unitVal = unitAsal.value;
+        const kVal = kotaAsal.value;
+        if (!ptVal || !unitVal || !kVal) {
+            cnAsal.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            return;
+        }
+        const currentSelected = cnAsal.getAttribute('data-selected') || cnAsal.value;
+        const combined = `${ptVal}-${unitVal}`;
+        fetch(`/api/get-cn/${encodeURIComponent(combined)}?pt=${encodeURIComponent(ptVal)}&kota=${encodeURIComponent(kVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih Kode Unit --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                cnAsal.innerHTML = options;
+            });
+    }
+
+    pulauAsal.addEventListener("change", () => {
+        kotaAsal.setAttribute('data-selected', '');
+        ptAsal.setAttribute('data-selected', '');
+        unitAsal.setAttribute('data-selected', '');
+        cnAsal.setAttribute('data-selected', '');
+        updateKotaAsal();
+    });
+    kotaAsal.addEventListener("change", () => {
+        ptAsal.setAttribute('data-selected', '');
+        unitAsal.setAttribute('data-selected', '');
+        cnAsal.setAttribute('data-selected', '');
+        updatePtAsal();
+    });
+    ptAsal.addEventListener("change", () => {
+        unitAsal.setAttribute('data-selected', '');
+        cnAsal.setAttribute('data-selected', '');
+        updateUnitAsal();
+    });
+    unitAsal.addEventListener("change", () => {
+        cnAsal.setAttribute('data-selected', '');
+        updateCnAsal();
+    });
+    cnAsal.addEventListener("change", () => {
+        if (cnAsal.selectedIndex > 0) {
+            const selectedOption = cnAsal.options[cnAsal.selectedIndex];
+            document.getElementById("kode_unit_tujuan").value = selectedOption.text;
+        }
+    });
+
+    if (pulauAsal.value) updateKotaAsal();
+    {% endif %}
+
+    // -------------------------------------------------------------
+    // Cascading Dropdowns Logic for Destination (Tujuan)
+    // -------------------------------------------------------------
+    const pulauTujuan = document.getElementById("pulau_tujuan");
+    const kotaTujuan = document.getElementById("kota_tujuan");
+    const ptTujuan = document.getElementById("pt_tujuan");
+    const unitTujuan = document.getElementById("unit_tujuan");
+    const lokasiKerjaTujuan = document.getElementById("lokasi_kerja_tujuan");
+
+    function updateKotaTujuan() {
+        const pVal = pulauTujuan.value;
+        if (!pVal) {
+            kotaTujuan.innerHTML = '<option value="">-- Pilih Kota --</option>';
+            ptTujuan.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitTujuan.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            return;
+        }
+        const currentSelected = kotaTujuan.getAttribute('data-selected') || kotaTujuan.value;
+        fetch(`/api/get-kota/${encodeURIComponent(pVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih Kota --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                kotaTujuan.innerHTML = options;
+                updatePtTujuan();
+            });
+    }
+
+    function updatePtTujuan() {
+        const kVal = kotaTujuan.value;
+        if (!kVal) {
+            ptTujuan.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitTujuan.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            return;
+        }
+        const currentSelected = ptTujuan.getAttribute('data-selected') || ptTujuan.value;
+        fetch(`/api/get-pt/${encodeURIComponent(kVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih PT --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                ptTujuan.innerHTML = options;
+                updateUnitTujuan();
+            });
+    }
+
+    function updateUnitTujuan() {
+        const ptVal = ptTujuan.value;
+        const kVal = kotaTujuan.value;
+        if (!ptVal || !kVal) {
+            unitTujuan.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            return;
+        }
+        const currentSelected = unitTujuan.getAttribute('data-selected') || unitTujuan.value;
+        fetch(`/api/get-unit/${encodeURIComponent(ptVal)}?kota=${encodeURIComponent(kVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Pilih Unit PT --</option>';
+                data.forEach(item => {
+                    const sel = (item.value === currentSelected) ? 'selected' : '';
+                    options += `<option value="${item.value}" ${sel}>${item.label}</option>`;
+                });
+                unitTujuan.innerHTML = options;
+                autoSelectLokasiKerjaTujuan();
+            });
+    }
+
+    // Auto-select Lokasi Kerja berdasarkan PT-Unit yang dipilih
+    function autoSelectLokasiKerjaTujuan() {
+        const ptVal = ptTujuan.value.trim().toUpperCase();
+        const unitVal = unitTujuan.value.trim().toUpperCase();
+        if (ptVal && unitVal) {
+            const targetVal = `${ptVal}-${unitVal}`;
+            for (let option of lokasiKerjaTujuan.options) {
+                if (option.value.toUpperCase() === targetVal) {
+                    lokasiKerjaTujuan.value = option.value;
+                    lokasiKerjaTujuan.setAttribute('data-selected', option.value);
+                    break;
+                }
+            }
+        }
+    }
+
+    pulauTujuan.addEventListener("change", () => {
+        kotaTujuan.setAttribute('data-selected', '');
+        ptTujuan.setAttribute('data-selected', '');
+        unitTujuan.setAttribute('data-selected', '');
+        updateKotaTujuan();
+    });
+    kotaTujuan.addEventListener("change", () => {
+        ptTujuan.setAttribute('data-selected', '');
+        unitTujuan.setAttribute('data-selected', '');
+        updatePtTujuan();
+    });
+    ptTujuan.addEventListener("change", () => {
+        unitTujuan.setAttribute('data-selected', '');
+        updateUnitTujuan();
+    });
+    unitTujuan.addEventListener("change", () => {
+        autoSelectLokasiKerjaTujuan();
+    });
+
+    if (pulauTujuan.value) updateKotaTujuan();
+});
+</script>
+{% endblock %}
