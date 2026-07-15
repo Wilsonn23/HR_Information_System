@@ -25,15 +25,14 @@
                 {{ form.pt(class="form-select uppercase-input", **{"data-selected": form.pt.data or ""}) }}
             </div>
             <div class="data-input">
-                <label class="form-label font-weight-bold">Nama Unit</label>
+                <label class="form-label font-weight-bold">Nama Unit PT</label>
                 {{ form.unit(class="form-select uppercase-input", **{"data-selected": form.unit.data or ""}) }}
             </div>
         </div>
         <div class="row">
             <div class="data-input">
                 <label for="cn-input" class="form-label font-weight-bold">Kode Unit (CN)</label>
-                {{ form.cn(id="cn-input", class="form-control huruf-angka uppercase-input", placeholder="XX123")
-                }}
+                {{ form.cn(id="cn-input", class="form-select uppercase-input", **{"data-selected": form.cn.data or ""}) }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Jenis</label>
@@ -134,7 +133,7 @@
                 pulau: pulauVal,
                 kota: kotaVal,
                 pt: ptVal,
-                unit: unitVal
+                unit: (ptVal && unitVal) ? `${ptVal}-${unitVal}` : unitVal
             });
 
             fetch(`/api/get-tagihan/${jenisValue}/${cnValue}?${queryParams.toString()}`)
@@ -299,7 +298,8 @@
             if (!pulauVal) {
                 kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
                 ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
-                unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                 aturStatusCnInput();
                 if (typeof window.muatJumlahTagihan === "function") {
                     window.muatJumlahTagihan();
@@ -329,7 +329,8 @@
             const kotaVal = kotaSelect.value;
             if (!kotaVal) {
                 ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
-                unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                 aturStatusCnInput();
                 if (typeof window.muatJumlahTagihan === "function") {
                     window.muatJumlahTagihan();
@@ -358,7 +359,8 @@
         function updateUnitChoices() {
             const ptVal = ptSelect.value;
             if (!ptVal) {
-                unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                 aturStatusCnInput();
                 if (typeof window.muatJumlahTagihan === "function") {
                     window.muatJumlahTagihan();
@@ -371,27 +373,76 @@
             fetch(`/api/get-unit/${encodeURIComponent(ptVal)}`)
                 .then(response => response.json())
                 .then(data => {
-                    let optionsHtml = '<option value="">-- Pilih Unit --</option>';
+                    let optionsHtml = '<option value="">-- Pilih Unit PT --</option>';
                     data.forEach(item => {
                         const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
                         optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
                     });
                     unitSelect.innerHTML = optionsHtml;
-                    aturStatusCnInput();
-                    if (typeof window.muatJumlahTagihan === "function") {
-                        window.muatJumlahTagihan();
-                    }
+                    updateCnChoices();
                 })
                 .catch(error => {
                     console.error('Error fetching Unit:', error);
                 });
         }
 
-        pulauSelect.addEventListener("change", updateKotaChoices);
-        kotaSelect.addEventListener("change", updatePtChoices);
-        ptSelect.addEventListener("change", updateUnitChoices);
-        unitSelect.addEventListener("change", function () {
-            aturStatusCnInput();
+        function updateCnChoices() {
+            const ptVal = ptSelect.value;
+            const unitVal = unitSelect.value;
+            if (!ptVal || !unitVal) {
+                cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+                aturStatusCnInput();
+                if (typeof window.muatJumlahTagihan === "function") {
+                    window.muatJumlahTagihan();
+                }
+                return;
+            }
+
+            const currentSelected = cnInput.getAttribute('data-selected') || cnInput.value;
+            const combinedUnit = `${ptVal}-${unitVal}`;
+
+            fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}`)
+                .then(response => response.json())
+                .then(data => {
+                    let optionsHtml = '<option value="">-- Pilih Kode Unit --</option>';
+                    data.forEach(item => {
+                        const selectedAttr = (item.label === currentSelected) ? 'selected' : '';
+                        optionsHtml += `<option value="${item.label}" ${selectedAttr}>${item.label}</option>`;
+                    });
+                    cnInput.innerHTML = optionsHtml;
+                    aturStatusCnInput();
+                    if (typeof window.muatJumlahTagihan === "function") {
+                        window.muatJumlahTagihan();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching CN:', error);
+                });
+        }
+
+        pulauSelect.addEventListener("change", () => {
+            kotaSelect.setAttribute('data-selected', '');
+            ptSelect.setAttribute('data-selected', '');
+            unitSelect.setAttribute('data-selected', '');
+            cnInput.setAttribute('data-selected', '');
+            updateKotaChoices();
+        });
+        kotaSelect.addEventListener("change", () => {
+            ptSelect.setAttribute('data-selected', '');
+            unitSelect.setAttribute('data-selected', '');
+            cnInput.setAttribute('data-selected', '');
+            updatePtChoices();
+        });
+        ptSelect.addEventListener("change", () => {
+            unitSelect.setAttribute('data-selected', '');
+            cnInput.setAttribute('data-selected', '');
+            updateUnitChoices();
+        });
+        unitSelect.addEventListener("change", () => {
+            cnInput.setAttribute('data-selected', '');
+            updateCnChoices();
+        });
+        cnInput.addEventListener("change", function () {
             if (typeof window.muatJumlahTagihan === "function") {
                 window.muatJumlahTagihan();
             }

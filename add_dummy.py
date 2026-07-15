@@ -6,7 +6,7 @@ Script to populate the PostgreSQL database with random dummy equipment entries f
 from datetime import datetime, timedelta
 import random
 import sys
-from app import app, db, DataEntry, AuditLog
+from app import app, db, DataEntry, AuditLog, Pulau, Kota, PT, Unit, NamaAsuransi, Merk, Kategori
 
 # Define valid option maps to keep data entries valid for forms validation
 PULAU_KOTA_MAPPINGS = [
@@ -21,7 +21,7 @@ PULAU_KOTA_MAPPINGS = [
 PT_LIST = ["BDP", "IJS", "MM", "SALE"]
 
 CATEGORIES = [
-    ("EXCAVATOR", "KOMATSU", "PC200-8", "PC"),
+    ("EXCAVATOR", "KOMATSU", "PC2008", "PC"),
     ("DUMP TRUCK", "HINO", "FM260JD", "DT"),
     ("LIGHT VEHICLE", "TOYOTA", "HILUX 2.4", "LV"),
     ("COMPACTOR", "CAT", "CS11GC", "CP"),
@@ -31,6 +31,66 @@ CATEGORIES = [
 ]
 
 INSURANCE_COMPANIES = ["ZURICH INSURANCE", "TUGU PRATAMA", "ASURANSI SINAR MAS", "ASURANSI ALLIANZ", "ASURANSI ASTRA"]
+
+def populate_master_tables():
+    print("Populating master tables...")
+    # 1. Pulau and Kota
+    for p_name, k_name in PULAU_KOTA_MAPPINGS:
+        p = db.session.execute(db.select(Pulau).where(Pulau.nama == p_name)).scalar_one_or_none()
+        if not p:
+            p = Pulau(nama=p_name, dilakukan_oleh="System Dummy Setup")
+            db.session.add(p)
+            db.session.commit()
+        
+        k = db.session.execute(db.select(Kota).where(Kota.nama == k_name)).scalar_one_or_none()
+        if not k:
+            k = Kota(nama=k_name, reference=p.id, dilakukan_oleh="System Dummy Setup")
+            db.session.add(k)
+            db.session.commit()
+            
+    # 2. PT under all Kotas
+    kotas = db.session.execute(db.select(Kota)).scalars().all()
+    for k in kotas:
+        for pt_name in PT_LIST:
+            pt = db.session.execute(db.select(PT).where(PT.nama == pt_name, PT.reference == k.id)).scalar_one_or_none()
+            if not pt:
+                pt = PT(nama=pt_name, reference=k.id, dilakukan_oleh="System Dummy Setup")
+                db.session.add(pt)
+                db.session.commit()
+                
+    # 3. Unit under all PTs
+    pts = db.session.execute(db.select(PT)).scalars().all()
+    for pt in pts:
+        # Create unit with same name as PT to match f"{pt}-{pt}" structure in old dummy
+        u = db.session.execute(db.select(Unit).where(Unit.nama == pt.nama, Unit.reference == pt.id)).scalar_one_or_none()
+        if not u:
+            u = Unit(nama=pt.nama, reference=pt.id, dilakukan_oleh="System Dummy Setup")
+            db.session.add(u)
+            db.session.commit()
+            
+    # 4. Asuransi
+    for asu_name in INSURANCE_COMPANIES:
+        a = db.session.execute(db.select(NamaAsuransi).where(NamaAsuransi.nama == asu_name)).scalar_one_or_none()
+        if not a:
+            a = NamaAsuransi(nama=asu_name, dilakukan_oleh="System Dummy Setup")
+            db.session.add(a)
+            db.session.commit()
+            
+    # 5. Merk and Kategori from CATEGORIES
+    for cat_name, brand, model, cat_prefix in CATEGORIES:
+        m = db.session.execute(db.select(Merk).where(Merk.nama == brand)).scalar_one_or_none()
+        if not m:
+            m = Merk(nama=brand, dilakukan_oleh="System Dummy Setup")
+            db.session.add(m)
+            db.session.commit()
+            
+        kat = db.session.execute(db.select(Kategori).where(Kategori.nama == cat_name)).scalar_one_or_none()
+        if not kat:
+            kat = Kategori(nama=cat_name, dilakukan_oleh="System Dummy Setup")
+            db.session.add(kat)
+            db.session.commit()
+            
+    print("Master tables populated successfully.")
 
 def generate_random_string(prefix, length=6):
     chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -60,6 +120,8 @@ def create_dummy_data(count=50):
     today = datetime.strptime("2026-07-14", "%Y-%m-%d").date()
     
     with app.app_context():
+        populate_master_tables()
+        
         inserted_count = 0
         skipped_count = 0
         
@@ -117,7 +179,7 @@ def create_dummy_data(count=50):
                 unit=unit,
                 kode_unit=cn_code,
                 pkey=pkey_val,
-                lokasi_kerja=generate_random_string("LOC", 4),
+                lokasi_kerja=unit, # Make it refer to a valid PT-Unit combined name
                 nama_asuransi=random.choice(INSURANCE_COMPANIES),
                 no_polis=generate_random_string("POL", 8),
                 no_polisi=generate_random_string("B", 5),

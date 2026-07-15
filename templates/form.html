@@ -22,11 +22,11 @@
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Nama PT</label>
-                {{ form.pt(class="form-control hanya-huruf uppercase-input", placeholder="IJS") }}
+                {{ form.pt(class="form-select uppercase-input", **{"data-selected": form.pt.data or ""}) }}
             </div>
             <div class="data-input">
-                <label class="form-label font-weight-bold">Nama Unit</label>
-                {{ form.unit(class="form-control hanya-huruf uppercase-input", placeholder="NOVAK") }}
+                <label class="form-label font-weight-bold">Nama Unit PT</label>
+                {{ form.unit(class="form-select uppercase-input", **{"data-selected": form.unit.data or ""}) }}
             </div>
         </div>
         <div class="row">
@@ -36,14 +36,14 @@
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Lokasi Kerja</label>
-                {{ form.lokasi_kerja(class="form-control hanya-huruf uppercase-input", placeholder="MERAUKE") }}
+                {{ form.lokasi_kerja(class="form-select uppercase-input", **{"data-selected": form.lokasi_kerja.data or ""}) }}
             </div>
         </div>
 
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Nama Asuransi</label>
-                {{ form.nama_asuransi(class="form-control hanya-huruf uppercase-input", placeholder="ZURICH") }}
+                {{ form.nama_asuransi(class="form-select uppercase-input") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">No. Polis Asuransi</label>
@@ -63,11 +63,11 @@
         <div class="row">
             <div class="data-input">
                 <label class="form-label font-weight-bold">Merk</label>
-                {{ form.merk(class="form-control hanya-huruf uppercase-input", placeholder="MITSUBISHI") }}
+                {{ form.merk(class="form-select uppercase-input") }}
             </div>
             <div class="data-input">
                 <label class="form-label font-weight-bold">Kategori</label>
-                {{ form.kategori(class="form-control hanya-huruf uppercase-input", placeholder="LIGHT VEHICLE") }}
+                {{ form.kategori(class="form-select uppercase-input") }}
             </div>
         </div>
         <div class="row">
@@ -288,38 +288,102 @@
             });
         }
 
-        // DYNAMIC KOTA DROPDOWN BASED ON PULAU
+        // DYNAMIC CASCADING DROPDOWNS: PULAU -> KOTA -> PT -> UNIT
         const pulauSelect = document.getElementById("pulau");
         const kotaSelect = document.getElementById("kota");
+        const ptSelect = document.getElementById("pt");
+        const unitSelect = document.getElementById("unit");
 
-        if (pulauSelect && kotaSelect) {
-            function updateKotaChoices() {
-                const pulauVal = pulauSelect.value;
-                if (!pulauVal) {
-                    kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
-                    return;
-                }
-
-                const currentSelected = kotaSelect.getAttribute('data-selected') || kotaSelect.value;
-
-                fetch(`/api/get-kota/${encodeURIComponent(pulauVal)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        let optionsHtml = '<option value="">-- Pilih Kota --</option>';
-                        data.forEach(item => {
-                            const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
-                            optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
-                        });
-                        kotaSelect.innerHTML = optionsHtml;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching kota:', error);
-                    });
+        function updateKotaChoices() {
+            const pulauVal = pulauSelect.value;
+            if (!pulauVal) {
+                kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
+                ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                return;
             }
 
-            pulauSelect.addEventListener("change", updateKotaChoices);
+            const currentSelected = kotaSelect.getAttribute('data-selected') || kotaSelect.value;
 
-            // Run once on load if there's already an active selection
+            fetch(`/api/get-kota/${encodeURIComponent(pulauVal)}`)
+                .then(response => response.json())
+                .then(data => {
+                    let optionsHtml = '<option value="">-- Pilih Kota --</option>';
+                    data.forEach(item => {
+                        const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                        optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                    });
+                    kotaSelect.innerHTML = optionsHtml;
+                    updatePtChoices();
+                })
+                .catch(error => console.error('Error fetching kota:', error));
+        }
+
+        function updatePtChoices() {
+            const kotaVal = kotaSelect.value;
+            if (!kotaVal) {
+                ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                return;
+            }
+
+            const currentSelected = ptSelect.getAttribute('data-selected') || ptSelect.value;
+
+            fetch(`/api/get-pt/${encodeURIComponent(kotaVal)}`)
+                .then(response => response.json())
+                .then(data => {
+                    let optionsHtml = '<option value="">-- Pilih PT --</option>';
+                    data.forEach(item => {
+                        const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                        optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                    });
+                    ptSelect.innerHTML = optionsHtml;
+                    updateUnitChoices();
+                })
+                .catch(error => console.error('Error fetching pt:', error));
+        }
+
+        function updateUnitChoices() {
+            const ptVal = ptSelect.value;
+            const kotaVal = kotaSelect.value;
+            if (!ptVal || !kotaVal) {
+                unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+                return;
+            }
+
+            const currentSelected = unitSelect.getAttribute('data-selected') || unitSelect.value;
+
+            fetch(`/api/get-unit/${encodeURIComponent(ptVal)}?kota=${encodeURIComponent(kotaVal)}`)
+                .then(response => response.json())
+                .then(data => {
+                    let optionsHtml = '<option value="">-- Pilih Unit PT --</option>';
+                    data.forEach(item => {
+                        const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
+                        optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
+                    });
+                    unitSelect.innerHTML = optionsHtml;
+                })
+                .catch(error => console.error('Error fetching unit:', error));
+        }
+
+        if (pulauSelect && kotaSelect && ptSelect && unitSelect) {
+            pulauSelect.addEventListener("change", () => {
+                kotaSelect.setAttribute('data-selected', '');
+                ptSelect.setAttribute('data-selected', '');
+                unitSelect.setAttribute('data-selected', '');
+                updateKotaChoices();
+            });
+            kotaSelect.addEventListener("change", () => {
+                ptSelect.setAttribute('data-selected', '');
+                unitSelect.setAttribute('data-selected', '');
+                updatePtChoices();
+            });
+            ptSelect.addEventListener("change", () => {
+                unitSelect.setAttribute('data-selected', '');
+                updateUnitChoices();
+            });
+
+            // Initial load
             if (pulauSelect.value) {
                 updateKotaChoices();
             }

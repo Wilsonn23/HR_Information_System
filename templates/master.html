@@ -5,18 +5,19 @@
 {% block body_class %}dashboard-page bg-light{% endblock %}
 
 {% block content %}
+{% set has_reference = type in ['Kota', 'PT', 'Unit PT'] %}
 <div class="container-fluid px-4 mt-5 pt-3">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
                 <div>
-                    <h3 class="fw-bold text-primary m-0">📁 Master Data Base</h3>
+                    <h3 class="fw-bold text-primary m-0">📁 Master Data {{ type }}</h3>
                 </div>
                 <div class="d-flex gap-2">
-                    <a href="/export/excel" class="btn btn-success fw-bold shadow-sm d-flex align-items-center gap-1">
-                        <span>📊</span> Export Excel
-                    </a>
+                    <button type="button" class="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addDataModal">
+                        <span>➕</span> Tambah {{ type }}
+                    </button>
                 </div>
             </div>
 
@@ -26,34 +27,10 @@
                     <thead class="table-dark position-sticky top-0 z-1">
                         <tr class="align-middle">
                             <th scope="col" class="text-center">No</th>
-                            <th scope="col">Pulau</th>
-                            <th scope="col">Kota</th>
-                            <th scope="col">Nama PT</th>
-                            <th scope="col">Unit</th>
-                            <th scope="col">Kode Unit (CN)</th>
-                            <th scope="col">Nama Asuransi</th>
-                            <th scope="col">No. Polis</th>
-                            <th scope="col">No. Polisi</th>
-                            <th scope="col">Merk</th>
-                            <th scope="col">Kategori</th>
-                            <th scope="col">Equipment Model</th>
-                            <th scope="col">SN Equipment</th>
-                            <th scope="col">SN Engine</th>
-                            <th scope="col" class="text-center">Status STNK</th>
-                            <th scope="col">Tanggal Berakhir STNK</th>
-                            <th scope="col" class="text-center">Status Asuransi</th>
-                            <th scope="col">Tanggal Berakhir Asuransi</th>
-                            <th scope="col" class="text-center">Year</th>
-                            <th scope="col">Remaks</th>
-                            <th scope="col">Biaya Perpanjang STNK</th>
-                            <th scope="col">Biaya Admin STNK</th>
-                            <th scope="col">Pembulatan STNK</th>
-                            <th scope="col" class="bg-primary text-white">Total STNK</th>
-                            <th scope="col">Biaya Perpanjang Asuransi</th>
-                            <th scope="col">Biaya Admin Asuransi</th>
-                            <th scope="col">Pembulatan Asuransi</th>
-                            <th scope="col" class="bg-primary text-white">Total Asuransi</th>
-                            <th scope="col">Notes</th>
+                            <th scope="col">{{ type }}</th>
+                            {% if has_reference %}
+                            <th scope="col">Reference</th>
+                            {% endif %}
                             <th scope="col">Diinput Oleh</th>
                             <th scope="col">Tanggal Input</th>
                         </tr>
@@ -62,72 +39,27 @@
                         {% for entry in entries %}
                         <tr>
                             <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
-                            <td>{{ entry.pulau }}</td>
-                            <td>{{ entry.kota }}</td>
-                            <td>{{ entry.pt }}</td>
-                            <td>{{ entry.unit }}</td>
-                            <td>{{ entry.kode_unit }}</td>
-                            <td>{{ entry.nama_asuransi }}</td>
-                            <td>{{ entry.no_polis or '-' }}</td>
-                            <td class="font-monospace fw-semibold">{{ entry.no_polisi or '-' }}</td>
-                            <td>{{ entry.merk or '-' }}</td>
-                            <td>{{ entry.kategori or '-' }}</td>
-                            <td>{{ entry.eqp_model or '-' }}</td>
-                            <td>{{ entry.sn_equipment or '-' }}</td>
-                            <td>{{ entry.sn_engine or '-' }}</td>
-                            <td class="text-center">
-                                {% if entry.status_stnk == 'ON' %}
-                                <span class="badge bg-success px-2 py-1">ON</span>
-                                {% else %}
-                                <span class="badge bg-danger px-2 py-1">OFF</span>
+                            <td>{{ entry.nama }}</td>
+                            {% if has_reference %}
+                            <td>
+                                {% if entry.parent_nama %}
+                                {{ entry.parent_nama }}
+                                {% elif entry.reference %}
+                                {{ entry.reference }}
                                 {% endif %}
                             </td>
-                            <td class="text-muted">{{ entry.tanggal_berakhir_stnk or '-' }}</td>
-                            <td class="text-center">
-                                {% if entry.status_asuransi == 'ON' %}
-                                <span class="badge bg-success px-2 py-1">ON</span>
-                                {% else %}
-                                <span class="badge bg-danger px-2 py-1">OFF</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-muted">{{ entry.tanggal_berakhir_asuransi or '-' }}</td>
-                            <td class="text-center">{{ entry.year or '-' }}</td>
-                            <td class="text-wrap small text-secondary" style="min-width: 150px;">{{ entry.remaks or '-'
-                                }}</td>
-
-                            <td>Rp {{ "{:,.2f}".format(entry.biaya_perpanjang_stnk).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td>Rp {{ "{:,.2f}".format(entry.biaya_administrasi_stnk).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td>Rp {{ "{:,.2f}".format(entry.pembulatan_stnk).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td class="fw-bold text-primary bg-light-subtle">Rp {{
-                                "{:,.2f}".format(entry.total_stnk).replace(',', 'X').replace('.', ',').replace('X', '.')
-                                }}</td>
-
-                            <td>Rp {{ "{:,.2f}".format(entry.biaya_perpanjang_asuransi).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td>Rp {{ "{:,.2f}".format(entry.biaya_administrasi_asuransi).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td>Rp {{ "{:,.2f}".format(entry.pembulatan_asuransi).replace(',', 'X').replace('.',
-                                ',').replace('X', '.') }}</td>
-                            <td class="fw-bold text-primary bg-light-subtle">Rp {{
-                                "{:,.2f}".format(entry.total_asuransi).replace(',', 'X').replace('.', ',').replace('X',
-                                '.') }}</td>
-                            <td>{{ entry.notes or '-' }}</td>
-                            <td><span class="badge bg-secondary px-2 py-1">{{ entry.diinput_oleh }}</span></td>
+                            {% endif %}
+                            <td><span class="badge bg-secondary px-2 py-1">{{ entry.dilakukan_oleh }}</span></td>
                             <td class="text-muted small">
-                                {% if entry.tanggal_input %}
-                                {{ entry.tanggal_input }}
-                                {% else %}
-                                -
+                                {% if entry.tanggal_aksi %}
+                                {{ entry.tanggal_aksi.strftime('%Y-%m-%d') }}
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="30" class="text-center text-muted py-5">
-                                📁 Belum ada entri data master yang tersimpan di dalam sistem.
+                            <td colspan="{% if has_reference %}5{% else %}4{% endif %}" class="text-center text-muted py-5">
+                                📁 Belum ada data yang tersimpan.
                             </td>
                         </tr>
                         {% endfor %}
@@ -135,6 +67,56 @@
                 </table>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tambah Data -->
+<div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold" id="addDataModalLabel">➕ Tambah {{ type }} Baru</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/master/add/{{ type }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    {% if has_reference %}
+                    <div class="mb-3">
+                        {% if type == 'Kota' %}
+                        <label for="reference" class="form-label fw-bold">Pulau Induk</label>
+                        {% elif type == 'PT' %}
+                        <label for="reference" class="form-label fw-bold">Kota Induk</label>
+                        {% elif type == 'Unit PT' %}
+                        <label for="reference" class="form-label fw-bold">PT Induk</label>
+                        {% else %}
+                        <label for="reference" class="form-label fw-bold">Referensi</label>
+                        {% endif %}
+                        <select class="form-select" id="reference" name="reference" required>
+                            <option value="" disabled selected>-- Pilih Referensi --</option>
+                            {% for ref in references_list %}
+                            <option value="{{ ref.id }}">
+                                {% if type == 'Unit PT' %}
+                                {{ ref.nama }}{% if ref.parent_nama %} - {{ ref.parent_nama }}{% endif %}
+                                {% else %}
+                                {{ ref.nama }}
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="nama" class="form-label fw-bold">Nama {{ type }}</label>
+                        <input type="text" class="form-control text-uppercase" id="nama" name="nama" required placeholder="Masukkan nama {{ type }}...">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3">
+                    <button type="button" class="btn btn-secondary fw-semibold" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">Simpan</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

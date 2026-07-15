@@ -41,8 +41,8 @@
 
                     <div class="mb-1">
                         <label for="unit" class="form-label fw-semibold text-secondary small">Nama Unit:</label>
-                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.unit if entry else '' }}">
-                            <option value="">-- Pilih Unit --</option>
+                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{% if entry %}{% if '-' in entry.unit %}{{ entry.unit.split('-')[-1] }}{% else %}{{ entry.unit }}{% endif %}{% endif %}">
+                            <option value="">-- Pilih Unit PT --</option>
                         </select>
                     </div>
                     
@@ -129,7 +129,7 @@
                         <a href="/edit/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
                             Edit Data
                         </a>
-                        <a href="/delete/{{ entry.pkey }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm">
+                        <a href="/delete/{{ entry.pkey }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm" onclick="return confirm('Hapus Data?');">
                             Hapus Data
                         </a>
                     </div>
@@ -228,7 +228,7 @@
                 if (!pulauVal) {
                     kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
                     ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
-                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
                     cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
@@ -255,7 +255,7 @@
                 const kotaVal = kotaSelect.value;
                 if (!kotaVal) {
                     ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
-                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
                     cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
@@ -280,18 +280,19 @@
 
             function updateUnitChoices() {
                 const ptVal = ptSelect.value;
-                if (!ptVal) {
-                    unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                const kotaVal = kotaSelect.value;
+                if (!ptVal || !kotaVal) {
+                    unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
                     cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
                 const currentSelected = unitSelect.getAttribute('data-selected') || unitSelect.value;
 
-                fetch(`/api/get-unit/${encodeURIComponent(ptVal)}`)
+                fetch(`/api/get-unit/${encodeURIComponent(ptVal)}?kota=${encodeURIComponent(kotaVal)}`)
                     .then(response => response.json())
                     .then(data => {
-                        let optionsHtml = '<option value="">-- Pilih Unit --</option>';
+                        let optionsHtml = '<option value="">-- Pilih Unit PT --</option>';
                         data.forEach(item => {
                             const selectedAttr = (item.value === currentSelected) ? 'selected' : '';
                             optionsHtml += `<option value="${item.value}" ${selectedAttr}>${item.label}</option>`;
@@ -305,15 +306,17 @@
             }
 
             function updateCnChoices() {
+                const ptVal = ptSelect.value;
                 const unitVal = unitSelect.value;
-                if (!unitVal) {
+                if (!ptVal || !unitVal) {
                     cnSelect.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
                     return;
                 }
 
                 const currentSelected = cnSelect.getAttribute('data-selected') || cnSelect.value;
+                const combinedUnit = `${ptVal}-${unitVal}`;
 
-                fetch(`/api/get-cn/${encodeURIComponent(unitVal)}`)
+                fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}`)
                     .then(response => response.json())
                     .then(data => {
                         let optionsHtml = '<option value="">-- Pilih Kode Unit --</option>';
