@@ -108,7 +108,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // -------------------------------------------------------------
     // Cascading Dropdowns Logic for Source (Unit Asal)
     // -------------------------------------------------------------
-    {% if not preselected_entry %}
     const pulauAsal = document.getElementById("pulau_asal");
     const kotaAsal = document.getElementById("kota_asal");
     const ptAsal = document.getElementById("pt_asal");
@@ -116,6 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const cnAsal = document.getElementById("cn_asal");
 
     function updateKotaAsal() {
+        if (!pulauAsal) return;
         const pVal = pulauAsal.value;
         if (!pVal) {
             kotaAsal.innerHTML = '<option value="">-- Pilih Kota --</option>';
@@ -139,6 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function updatePtAsal() {
+        if (!kotaAsal) return;
         const kVal = kotaAsal.value;
         if (!kVal) {
             ptAsal.innerHTML = '<option value="">-- Pilih PT --</option>';
@@ -161,6 +162,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function updateUnitAsal() {
+        if (!ptAsal || !kotaAsal) return;
         const ptVal = ptAsal.value;
         const kVal = kotaAsal.value;
         if (!ptVal || !kVal) {
@@ -183,6 +185,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function updateCnAsal() {
+        if (!ptAsal || !unitAsal || !kotaAsal) return;
         const ptVal = ptAsal.value;
         const unitVal = unitAsal.value;
         const kVal = kotaAsal.value;
@@ -204,37 +207,38 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    pulauAsal.addEventListener("change", () => {
-        kotaAsal.setAttribute('data-selected', '');
-        ptAsal.setAttribute('data-selected', '');
-        unitAsal.setAttribute('data-selected', '');
-        cnAsal.setAttribute('data-selected', '');
-        updateKotaAsal();
-    });
-    kotaAsal.addEventListener("change", () => {
-        ptAsal.setAttribute('data-selected', '');
-        unitAsal.setAttribute('data-selected', '');
-        cnAsal.setAttribute('data-selected', '');
-        updatePtAsal();
-    });
-    ptAsal.addEventListener("change", () => {
-        unitAsal.setAttribute('data-selected', '');
-        cnAsal.setAttribute('data-selected', '');
-        updateUnitAsal();
-    });
-    unitAsal.addEventListener("change", () => {
-        cnAsal.setAttribute('data-selected', '');
-        updateCnAsal();
-    });
-    cnAsal.addEventListener("change", () => {
-        if (cnAsal.selectedIndex > 0) {
-            const selectedOption = cnAsal.options[cnAsal.selectedIndex];
-            document.getElementById("kode_unit_tujuan").value = selectedOption.text;
-        }
-    });
+    if (pulauAsal) {
+        pulauAsal.addEventListener("change", () => {
+            kotaAsal.setAttribute('data-selected', '');
+            ptAsal.setAttribute('data-selected', '');
+            unitAsal.setAttribute('data-selected', '');
+            cnAsal.setAttribute('data-selected', '');
+            updateKotaAsal();
+        });
+        kotaAsal.addEventListener("change", () => {
+            ptAsal.setAttribute('data-selected', '');
+            unitAsal.setAttribute('data-selected', '');
+            cnAsal.setAttribute('data-selected', '');
+            updatePtAsal();
+        });
+        ptAsal.addEventListener("change", () => {
+            unitAsal.setAttribute('data-selected', '');
+            cnAsal.setAttribute('data-selected', '');
+            updateUnitAsal();
+        });
+        unitAsal.addEventListener("change", () => {
+            cnAsal.setAttribute('data-selected', '');
+            updateCnAsal();
+        });
+        cnAsal.addEventListener("change", () => {
+            if (cnAsal.selectedIndex > 0) {
+                const selectedOption = cnAsal.options[cnAsal.selectedIndex];
+                document.getElementById("kode_unit_tujuan").value = selectedOption.text;
+            }
+        });
 
-    if (pulauAsal.value) updateKotaAsal();
-    {% endif %}
+        if (pulauAsal.value) updateKotaAsal();
+    }
 
     // -------------------------------------------------------------
     // Cascading Dropdowns Logic for Destination (Tujuan)
