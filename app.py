@@ -241,6 +241,7 @@ class ReportEntry(db.Model):
     jenis: Mapped[str] = mapped_column(nullable=False)
     id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, primary_key=True, nullable=False)
     pkey: Mapped[str] = mapped_column(nullable=False)
+    tagihan: Mapped[float] = mapped_column(nullable=False)
     status_pembayaran: Mapped[str] = mapped_column(nullable=True)
     tanggal_berakhir_baru: Mapped[str] = mapped_column(nullable=True)
     jumlah_dibayar:Mapped[float] = mapped_column(nullable=False) 
@@ -530,6 +531,8 @@ class ExtendForm(FlaskForm):
         DataRequired(message="Jumlah dibayar tidak boleh kosong.") 
     ])
     tanggal_bayar = DateField('Tanggal Berakhir', format='%Y-%m-%d', validators=[DataRequired(message="Tanggal tidak boleh kosong.")])
+    update_biaya_perpanjang = StringField('Biaya Perpanjang Baru', validators=[Optional()])
+    update_biaya_admin = StringField('Biaya Admin Baru', validators=[Optional()])
 
 class MutasiForm(FlaskForm):
     # Source (Unit to Mutate)
@@ -931,7 +934,8 @@ def dashboard():
     query = text("SELECT COUNT(*) FROM data_entries")
     total_peralatan=db.session.execute(query).scalar()
 
-    today = datetime.now().date()
+    # today = datetime.now().date()
+    today = datetime(2027, 7, 16).date()
     
     query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date")
     jumlah_stnk_aktif=db.session.execute(query, {"today": today}).scalar()
@@ -1249,7 +1253,8 @@ def submit_extend():
                 old_tagihan = entry.harus_dibayar_stnk
                 old_status = entry.status_stnk
                 old_tanggal = entry.tanggal_berakhir_stnk
-                
+                form.tagihan = old_tagihan
+
                 sisa = old_tagihan - jumlah_dibayar
                 if sisa <= 0:
                     sisa = 0.0
@@ -1257,8 +1262,25 @@ def submit_extend():
                     entry.status_stnk = "ON"
                     if form.tanggal_berakhir_baru.data:
                         entry.tanggal_berakhir_stnk = form.tanggal_berakhir_baru.data
+                    # Process optional price update
+                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
+                        new_biaya = clean_numeric_input(form.update_biaya_perpanjang.data) if form.update_biaya_perpanjang.data else entry.biaya_perpanjang_stnk
+                        new_admin = clean_numeric_input(form.update_biaya_admin.data) if form.update_biaya_admin.data else entry.biaya_administrasi_stnk
+                        
+                        total_unrounded = new_biaya + new_admin
+                        total_rounded = float(round(total_unrounded, 0))
+                        pembulatan = round(total_rounded - total_unrounded, 2)
+                        
+                        entry.biaya_perpanjang_stnk = new_biaya
+                        entry.biaya_administrasi_stnk = new_admin
+                        entry.pembulatan_stnk = pembulatan
+                        entry.total_stnk = total_rounded
+                        entry.harus_dibayar_stnk = total_rounded
                 else:
                     status_pembayaran = "Belum Lunas"
+                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
+                        flash("⚠️ Lunaskan tagihan sebelumnya terlebih dahulu!", "danger")
+                        return render_template('perpanjang.html', form=form)
                 
                 entry.harus_dibayar_stnk = sisa
                 
@@ -1269,7 +1291,8 @@ def submit_extend():
                 old_tagihan = entry.harus_dibayar_asuransi
                 old_status = entry.status_asuransi
                 old_tanggal = entry.tanggal_berakhir_asuransi
-                
+                form.tagihan = old_tagihan
+
                 sisa = old_tagihan - jumlah_dibayar
                 if sisa <= 0:
                     sisa = 0.0
@@ -1277,8 +1300,26 @@ def submit_extend():
                     entry.status_asuransi = "ON"
                     if form.tanggal_berakhir_baru.data:
                         entry.tanggal_berakhir_asuransi = form.tanggal_berakhir_baru.data
+                   
+                    # Process optional price update
+                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
+                        new_biaya = clean_numeric_input(form.update_biaya_perpanjang.data) if form.update_biaya_perpanjang.data else entry.biaya_perpanjang_asuransi
+                        new_admin = clean_numeric_input(form.update_biaya_admin.data) if form.update_biaya_admin.data else entry.biaya_administrasi_asuransi
+                        
+                        total_unrounded = new_biaya + new_admin
+                        total_rounded = float(round(total_unrounded, 0))
+                        pembulatan = round(total_rounded - total_unrounded, 2)
+                        
+                        entry.biaya_perpanjang_asuransi = new_biaya
+                        entry.biaya_administrasi_asuransi = new_admin
+                        entry.pembulatan_asuransi = pembulatan
+                        entry.total_asuransi = total_rounded
+                        entry.harus_dibayar_asuransi = total_rounded
                 else:
                     status_pembayaran = "Belum Lunas"
+                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
+                        flash("⚠️ Lunaskan tagihan sebelumnya terlebih dahulu!", "danger")
+                        return render_template('perpanjang.html', form=form)
                 
                 entry.harus_dibayar_asuransi = sisa
                 
@@ -1295,9 +1336,11 @@ def submit_extend():
                 )
                 db.session.execute(query_update_reports, {"status_pembayaran": status_pembayaran, "pkey": pkey, "jenis": jenis})
 
+            tagihan = form.tagihan
             new_record = ReportEntry(
                 jenis=jenis,
                 pkey=pkey,
+                tagihan=tagihan,
                 status_pembayaran=status_pembayaran,
                 tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
                 jumlah_dibayar=jumlah_dibayar,

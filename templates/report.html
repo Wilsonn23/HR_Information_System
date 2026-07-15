@@ -71,10 +71,10 @@
                             <td>{{ entry.no_polis }}</td>
                             <td>
                                 {% if report_entry.jenis == 'STNK' %}
-                                Rp {{ "{:,.2f}".format(entry.total_stnk or 0).replace(",", "X").replace(".",
+                                Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
                                 ",").replace("X", ".") }}
                                 {% elif report_entry.jenis == 'Asuransi' %}
-                                Rp {{ "{:,.2f}".format(entry.total_asuransi or 0).replace(",", "X").replace(".",
+                                Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
                                 ",").replace("X", ".") }}
                                 {% else %}
                                 Rp 0,00
@@ -147,10 +147,10 @@
                                 <td>{{ entry.no_polis }}</td>
                                 <td>
                                     {% if report_entry.jenis == 'STNK' %}
-                                    Rp {{ "{:,.2f}".format(entry.total_stnk or 0).replace(",", "X").replace(".",
+                                    Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
                                     ",").replace("X", ".") }}
                                     {% elif report_entry.jenis == 'Asuransi' %}
-                                    Rp {{ "{:,.2f}".format(entry.total_asuransi or 0).replace(",", "X").replace(".",
+                                    Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
                                     ",").replace("X", ".") }}
                                     {% else %}
                                     Rp 0,00
