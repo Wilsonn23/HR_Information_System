@@ -935,7 +935,7 @@ def dashboard():
     total_peralatan=db.session.execute(query).scalar()
 
     # today = datetime.now().date()
-    today = datetime(2027, 7, 16).date()
+    today = datetime.today().date()
     
     query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date")
     jumlah_stnk_aktif=db.session.execute(query, {"today": today}).scalar()
@@ -2123,36 +2123,60 @@ def export_report_excel():
         return f"Gagal mengekspor laporan: {str(e)}", 500
 
 def check_and_update_expired_units():
-    hari_ini_str = datetime.today().date().strftime('%Y-%m-%d')
+    today = datetime.today().date()
+    hari_ini_str = today.strftime('%Y-%m-%d')
+    threshold_date = (today + timedelta(days=90)).strftime('%Y-%m-%d')
     
     all_entries = db.session.execute(db.select(DataEntry)).scalars().all()
     
     updated = False
     for entry in all_entries:
-        # Check STNK status
+        # Check STNK status and billing
         if entry.tanggal_berakhir_stnk:
-            if entry.tanggal_berakhir_stnk > hari_ini_str:
+            if entry.tanggal_berakhir_stnk <= threshold_date:
+                # Load bill 90 days before expiration if currently 0
+                if entry.harus_dibayar_stnk == 0.0 and entry.total_stnk > 0:
+                    entry.harus_dibayar_stnk = entry.total_stnk
+                    updated = True
+                
+                # Update status based on actual expiration
+                if entry.tanggal_berakhir_stnk > hari_ini_str:
+                    if entry.status_stnk != 'ON':
+                        entry.status_stnk = 'ON'
+                        updated = True
+                else:
+                    if entry.status_stnk != 'OFF':
+                        entry.status_stnk = 'OFF'
+                        updated = True
+            else:
                 if entry.status_stnk != 'ON':
                     entry.status_stnk = 'ON'
-                    updated = True
-            else:
-                if entry.status_stnk != 'OFF':
-                    entry.status_stnk = 'OFF'
                     updated = True
         else:
             if entry.status_stnk != 'OFF':
                 entry.status_stnk = 'OFF'
                 updated = True
                 
-        # Check Asuransi status
+        # Check Asuransi status and billing
         if entry.tanggal_berakhir_asuransi:
-            if entry.tanggal_berakhir_asuransi > hari_ini_str:
+            if entry.tanggal_berakhir_asuransi <= threshold_date:
+                # Load bill 90 days before expiration if currently 0
+                if entry.harus_dibayar_asuransi == 0.0 and entry.total_asuransi > 0:
+                    entry.harus_dibayar_asuransi = entry.total_asuransi
+                    updated = True
+                
+                # Update status based on actual expiration
+                if entry.tanggal_berakhir_asuransi > hari_ini_str:
+                    if entry.status_asuransi != 'ON':
+                        entry.status_asuransi = 'ON'
+                        updated = True
+                else:
+                    if entry.status_asuransi != 'OFF':
+                        entry.status_asuransi = 'OFF'
+                        updated = True
+            else:
                 if entry.status_asuransi != 'ON':
                     entry.status_asuransi = 'ON'
-                    updated = True
-            else:
-                if entry.status_asuransi != 'OFF':
-                    entry.status_asuransi = 'OFF'
                     updated = True
         else:
             if entry.status_asuransi != 'OFF':
