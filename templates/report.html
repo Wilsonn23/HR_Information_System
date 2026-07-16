@@ -20,7 +20,6 @@
                     <option value="?groupby=tahun_bayar" {% if active_filter=='tahun_bayar' %}selected{% endif %}>Tahun Bayar</option>
                     <option value="?groupby=pulau" {% if active_filter=='pulau' %}selected{% endif %}>Pulau</option>
                     <option value="?groupby=kota" {% if active_filter=='kota' %}selected{% endif %}>Kota</option>
-                    <option value="?groupby=status_pembayaran" {% if active_filter=='status_pembayaran'%}selected{%endif %}>Status Pembayaran</option>
                 </select>
             </div>
 
@@ -52,10 +51,7 @@
                             <th>Nama PT</th>
                             <th>Nama Unit PT</th>
                             <th>No Polis</th>
-                            <th>Jumlah Tagihan</th>
                             <th>Jumlah Dibayar</th>
-                            <th>Status Pembayaran</th>
-                            <th>Sisa Tagihan</th>
                             <th>Tanggal Bayar</th>
                             <th>Diinput Oleh</th>
                             <th>Tanggal Input</th>
@@ -69,21 +65,7 @@
                             <td>{{ entry.pt }}</td>
                             <td>{{ entry.unit }}</td>
                             <td>{{ entry.no_polis }}</td>
-                            <td>
-                                {% if report_entry.jenis == 'STNK' %}
-                                Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
-                                ",").replace("X", ".") }}
-                                {% elif report_entry.jenis == 'Asuransi' %}
-                                Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
-                                ",").replace("X", ".") }}
-                                {% else %}
-                                Rp 0,00
-                                {% endif %}
-                            </td>
                             <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
-                                ",").replace("X", ".") }}</td>
-                            <td>{{ report_entry.status_pembayaran }}</td>
-                            <td>Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".",
                                 ",").replace("X", ".") }}</td>
                             <td>{{ report_entry.tanggal_bayar }}</td>
                             <td>{{ report_entry.diinput_oleh }}</td>
@@ -128,10 +110,7 @@
                                 <th>Nama PT</th>
                                 <th>Nama Unit PT</th>
                                 <th>No Polis</th>
-                                <th>Jumlah Tagihan</th>
                                 <th>Jumlah Dibayar</th>
-                                <th>Status Pembayaran</th>
-                                <th>Sisa Tagihan</th>
                                 <th>Tanggal Bayar</th>
                                 <th>Diinput Oleh</th>
                                 <th>Tanggal Input</th>
@@ -145,21 +124,7 @@
                                 <td>{{ entry.pt }}</td>
                                 <td>{{ entry.unit }}</td>
                                 <td>{{ entry.no_polis }}</td>
-                                <td>
-                                    {% if report_entry.jenis == 'STNK' %}
-                                    Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
-                                    ",").replace("X", ".") }}
-                                    {% elif report_entry.jenis == 'Asuransi' %}
-                                    Rp {{ "{:,.2f}".format(report_entry.tagihan or 0).replace(",", "X").replace(".",
-                                    ",").replace("X", ".") }}
-                                    {% else %}
-                                    Rp 0,00
-                                    {% endif %}
-                                </td>
                                 <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
-                                    ",").replace("X", ".") }}</td>
-                                <td>{{ report_entry.status_pembayaran }}</td>
-                                <td>Rp {{ "{:,.2f}".format(report_entry.sisa_tagihan or 0).replace(",", "X").replace(".",
                                     ",").replace("X", ".") }}</td>
                                 <td>{{ report_entry.tanggal_bayar }}</td>
                                 <td>{{ report_entry.diinput_oleh }}</td>

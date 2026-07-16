@@ -49,6 +49,21 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
 }
 
+/* Premium Form Card styling */
+.form-card {
+    max-width: 760px;
+    margin: 2rem auto;
+    border-radius: 16px !important;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+    padding: 2.5rem !important;
+}
+
+.form-card:hover {
+    transform: none !important; /* No floating hover effect on large forms */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+}
+
 /* Modern accordion styling */
 .accordion-item {
     border-radius: 10px !important;

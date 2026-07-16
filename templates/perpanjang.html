@@ -5,81 +5,86 @@
 {% block body_class %}dashboard-page{% endblock %}
 {% block content %}
 
-<div class="card form-card p-3 shadow-sm">
-    <h3 class="text-center mb-4 text-primary">Perpanjang</h3>
+<div class="card form-card shadow">
+    <h3 class="text-center mb-4 fw-bold text-primary"><i class="fas fa-history me-2"></i>Perpanjang Masa Berlaku</h3>
     <form action="{{ url_for('submit_extend') }}" method="POST">
         {{ form.csrf_token }}
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Pulau</label>
+        
+        <h5 class="text-secondary fw-bold border-bottom pb-2 mb-3">
+            <i class="fas fa-map-marker-alt me-1"></i> Lokasi Unit
+        </h5>
+        
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Pulau (Lokasi Kerja)</label>
                 {{ form.pulau(class="form-select uppercase-input") }}
             </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Kota</label>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Kota (Lokasi Kerja)</label>
                 {{ form.kota(class="form-select uppercase-input", **{"data-selected": form.kota.data or ""}) }}
             </div>
         </div>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Nama PT</label>
+        
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Nama PT (Lokasi Kerja)</label>
                 {{ form.pt(class="form-select uppercase-input", **{"data-selected": form.pt.data or ""}) }}
             </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Nama Unit PT</label>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Nama Unit PT (Lokasi Kerja)</label>
                 {{ form.unit(class="form-select uppercase-input", **{"data-selected": form.unit.data or ""}) }}
             </div>
         </div>
-        <div class="row">
-            <div class="data-input">
-                <label for="cn-input" class="form-label font-weight-bold">Kode Unit (CN)</label>
-                {{ form.cn(id="cn-input", class="form-select uppercase-input", **{"data-selected": form.cn.data or ""}) }}
-            </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Jenis</label>
-                {{ form.jenis(id="jenis-input", class="form-control") }}
+        
+        <div class="row g-3 mb-3">
+            <div class="col-md-12">
+                <label for="cn-input" class="form-label fw-semibold text-secondary">Kode Unit (CN)</label>
+                {{ form.cn(id="cn-input", class="form-select uppercase-input fw-bold text-primary", **{"data-selected": form.cn.data or ""}) }}
             </div>
         </div>
-        <div class="row">
-            <div class="data-input">
-                <label for="jumlah-tagihan" class="form-label">Jumlah Tagihan</label>
-                <input type="text" id="jumlah-tagihan" class="form-control bg-light" readonly
-                    placeholder="Akan muncul setelah Kode Unit (CN) diisi">
+
+        <h5 class="text-secondary fw-bold border-bottom pb-2 mt-4 mb-3">
+            <i class="fas fa-coins me-1"></i> Rincian Perpanjang
+        </h5>
+        
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Jenis</label>
+                {{ form.jenis(id="jenis-input", class="form-select") }}
             </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Jumlah Dibayar</label>
-                {{ form.jumlah_dibayar(id="jumlah-dibayar", class="form-control rupiah-input", placeholder="0,00") }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Tanggal Bayar</label>
-                {{ form.tanggal_bayar(id="tanggal-bayar", class="form-control", type="date") }}
-            </div>
-            <div class="data-input" id="wrapper-tanggal-baru" style="display: none;">
-                <label class="form-label font-weight-bold">Tanggal Berakhir Baru</label>
-                {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date") }}
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Jumlah Dibayar</label>
+                <div class="input-group">
+                    <span class="input-group-text">Rp</span>
+                    {{ form.jumlah_dibayar(id="jumlah-dibayar", class="form-control rupiah-input", placeholder="0,00") }}
+                </div>
             </div>
         </div>
         
-        <!-- Update Tarif Baru (Opsional) -->
-        <h5 class="fw-bold text-secondary mt-4 mb-3 border-bottom pb-2">🔄 Update Tarif Baru (Opsional)</h5>
-        <div class="row">
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Biaya Perpanjang Baru</label>
-                {{ form.update_biaya_perpanjang(class="form-control rupiah-input", placeholder="0,00") }}
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Tanggal Bayar</label>
+                {{ form.tanggal_bayar(id="tanggal-bayar", class="form-control", type="date") }}
             </div>
-            <div class="data-input">
-                <label class="form-label font-weight-bold">Biaya Admin Baru</label>
-                {{ form.update_biaya_admin(class="form-control rupiah-input", placeholder="0,00") }}
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Tanggal Berakhir Baru</label>
+                {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date") }}
             </div>
         </div>
-
-        <button type="submit" id="btn-submit" class="btn btn-primary w-100 mt-2">Submit Data</button>
+                
+        <div class="row g-2">
+            <div class="col-sm-6">
+                <button type="submit" id="btn-submit" class="btn btn-primary w-100 py-2.5 fw-semibold shadow-sm">
+                    <i class="fas fa-check-circle me-1"></i> Submit Data
+                </button>
+            </div>
+            <div class="col-sm-6">
+                <a href="/transaksi" class="btn btn-outline-secondary w-100 py-2.5 fw-semibold">
+                    <i class="fas fa-times-circle me-1"></i> Cancel
+                </a>
+            </div>
+        </div>
     </form>
-
-    <div class="mt-3">
-        <a href="/transaksi" class="btn btn-outline-secondary w-100">Cancel</a>
-    </div>
 </div>
 
 <script>
@@ -98,129 +103,6 @@
             this.value = parts.join(',');
             let newLength = this.value.length;
             this.selectionStart = this.selectionEnd = cursorPosition + (newLength - originalLength);
-        });
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
-        const jenisInput = document.getElementById("jenis-input");
-        const cnInput = document.getElementById("cn-input");
-        const tagihanInput = document.getElementById("jumlah-tagihan");
-        const btnSubmit = document.getElementById("btn-submit");
-
-        // Fungsi untuk memformat angka ke format mata uang Rupiah tampilan biasa
-        function formatRupiah(angka) {
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
-        }
-
-        function aturStatusTombolSubmit() {
-            const teksTagihan = tagihanInput.value.trim();
-
-            // Ambil angka murni dari string format rupiah (misal "Rp 0,00" -> 0)
-            let angkaTagihan = teksTagihan.replace(/[^0-9,/]/g, "");
-            angkaTagihan = angkaTagihan.replace(/\./g, "").replace(",", ".");
-            const nilaiNumerik = parseFloat(angkaTagihan) || 0;
-
-            // Jika bernilai 0, mengandung pesan error, atau kosong, maka disable tombol submit
-            if (nilaiNumerik <= 0 || teksTagihan === "" || teksTagihan.includes("Gagal") || teksTagihan.includes("Tidak Valid")) {
-                btnSubmit.disabled = true;
-            } else {
-                btnSubmit.disabled = false;
-            }
-        }
-
-        function muatJumlahTagihan() {
-            const jenisValue = jenisInput.value.trim();
-            const cnValue = cnInput.value.trim();
-            const pulauVal = document.getElementById("pulau") ? document.getElementById("pulau").value.trim() : "";
-            const kotaVal = document.getElementById("kota") ? document.getElementById("kota").value.trim() : "";
-            const ptVal = document.getElementById("pt") ? document.getElementById("pt").value.trim() : "";
-            const unitVal = document.getElementById("unit") ? document.getElementById("unit").value.trim() : "";
-
-            if (jenisValue === "" || cnValue === "") {
-                aturStatusTombolSubmit();
-                tagihanInput.value = "";
-                return;
-            }
-
-            const queryParams = new URLSearchParams({
-                pulau: pulauVal,
-                kota: kotaVal,
-                pt: ptVal,
-                unit: unitVal
-            });
-
-            fetch(`/api/get-tagihan/${jenisValue}/${cnValue}?${queryParams.toString()}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        tagihanInput.value = formatRupiah(data.total_tagihan);
-
-                        if (typeof cekKondisiPelunasan === "function") {
-                            setTimeout(cekKondisiPelunasan, 100);
-                        }
-                    } else {
-                        tagihanInput.value = "CN Tidak Valid";
-                    }
-                    aturStatusTombolSubmit();
-                })
-                .catch(error => {
-                    console.error("Error fetching data:", error);
-                    tagihanInput.value = "Gagal mengambil data";
-                    aturStatusTombolSubmit();
-                });
-        }
-
-        aturStatusTombolSubmit();
-
-        cnInput.addEventListener("change", muatJumlahTagihan);
-
-        jenisInput.addEventListener("change", muatJumlahTagihan);
-
-        window.muatJumlahTagihan = muatJumlahTagihan;
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
-        const tagihanInput = document.getElementById("jumlah-tagihan"); // Input dari AJAX sebelumnya
-        const dibayarInput = document.getElementById("jumlah-dibayar"); // Pastikan ID ini sesuai dengan input Anda
-        const wrapperTanggalBaru = document.getElementById("wrapper-tanggal-baru");
-
-        function dapatkanAngkaMurni(stringRef) {
-            if (!stringRef || stringRef.value.trim() === "") return 0;
-            let bersih = stringRef.value.replace(/[^0-9,/]/g, "");
-            bersih = bersih.replace(/\./g, "").replace(",", ".");
-            return parseFloat(bersih) || 0;
-        }
-
-        function formatRupiahInput(number) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(number);
-        }
-
-        function cekKondisiPelunasan() {
-            const nilaiTagihan = dapatkanAngkaMurni(tagihanInput);
-            const nilaiDibayar = dapatkanAngkaMurni(dibayarInput);
-
-            if (nilaiTagihan > 0 && nilaiDibayar === nilaiTagihan) {
-                wrapperTanggalBaru.style.display = "block";
-            } else {
-                wrapperTanggalBaru.style.display = "none";
-                document.getElementById("tanggal-berakhir-baru").value = "";
-            }
-        }
-
-        dibayarInput.addEventListener("input", cekKondisiPelunasan);
-
-        dibayarInput.addEventListener("change", function () {
-            const nilaiTagihan = dapatkanAngkaMurni(tagihanInput);
-            const nilaiDibayar = dapatkanAngkaMurni(dibayarInput);
-
-            if (nilaiDibayar > nilaiTagihan) {
-                alert("⚠️ Jumlah dibayar tidak boleh melebihi jumlah tagihan!");
-                dibayarInput.value = formatRupiahInput(nilaiTagihan);
-                cekKondisiPelunasan();
-            }
         });
     });
 
@@ -461,7 +343,6 @@
             }
         });
 
-        // Run once on load if there's already an active selection
         aturStatusCnInput();
         if (pulauSelect.value) {
             updateKotaChoices();

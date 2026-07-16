@@ -218,7 +218,7 @@ class DataEntry(db.Model):
     #Details
     nama_asuransi: Mapped[str] = mapped_column(nullable=False)
     no_polis: Mapped[str] = mapped_column(nullable=False)
-    no_polisi: Mapped[str] = mapped_column(nullable=True)
+    no_polisi: Mapped[str] = mapped_column(nullable=False)
     merk: Mapped[str] = mapped_column(nullable=False)
     kategori: Mapped[str] = mapped_column(nullable=False)
     eqp_model: Mapped[str] = mapped_column(nullable=False)
@@ -231,10 +231,6 @@ class DataEntry(db.Model):
     year: Mapped[int] = mapped_column(nullable=False)
 
     #Payment
-    biaya_perpanjang_stnk: Mapped[float] = mapped_column(default=0.0)
-    biaya_administrasi_stnk: Mapped[float] = mapped_column(default=0.0)
-    biaya_perpanjang_asuransi: Mapped[float] = mapped_column(default=0.0)
-    biaya_administrasi_asuransi: Mapped[float] = mapped_column(default=0.0)
     pembulatan_stnk: Mapped[float] = mapped_column(default=0.0)
     pembulatan_asuransi: Mapped[float] = mapped_column(default=0.0)
     total_stnk: Mapped[float] = mapped_column(default=0.0)
@@ -253,11 +249,8 @@ class ReportEntry(db.Model):
     jenis: Mapped[str] = mapped_column(nullable=False)
     id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, primary_key=True, nullable=False)
     pkey: Mapped[str] = mapped_column(nullable=False)
-    tagihan: Mapped[float] = mapped_column(nullable=False)
-    status_pembayaran: Mapped[str] = mapped_column(nullable=True)
     tanggal_berakhir_baru: Mapped[str] = mapped_column(nullable=True)
     jumlah_dibayar:Mapped[float] = mapped_column(nullable=False) 
-    sisa_tagihan:Mapped[float] = mapped_column(nullable=False)
     tanggal_bayar: Mapped[str] = mapped_column(nullable=False)
     tanggal_input: Mapped[str] = mapped_column(nullable=False)
     diinput_oleh: Mapped[str] = mapped_column(nullable=False)
@@ -429,6 +422,9 @@ def populate_form_choices(form):
     kategori_entries = db.session.execute(db.select(Kategori).order_by(Kategori.nama)).scalars().all()
     form.kategori.choices = [('', '-- Pilih Kategori --')] + [(k.nama, k.nama) for k in kategori_entries]
 
+    current_year = datetime.today().year
+    form.year.choices = [('', '-- Pilih Tahun --')] + [(str(y), str(y)) for y in range(current_year + 5, 1979, -1)]
+
 def populate_mutasi_choices(form):
     pulau_entries = db.session.execute(db.select(Pulau).order_by(Pulau.nama)).scalars().all()
     pulau_choices = [('', '-- Pilih Pulau --')] + [(p.nama, p.nama) for p in pulau_entries]
@@ -532,13 +528,8 @@ class DataForm(FlaskForm):
     tanggal_berakhir_stnk = DateField('Tanggal Berakhir STNK', validators=[Optional()])
     tanggal_berakhir_asuransi = DateField('Tanggal Berakhir Asuransi', validators=[Optional()])
     
-    year = StringField('Tahun Pembuatan', validators=[DataRequired(message="Tahun harus diisi!"), Length(min=4, max=4, message="Tahun harus 4 digit!")])
+    year = SelectField('Tahun Pembuatan', choices=[], validators=[DataRequired(message="Tahun harus diisi!")])
     
-    biaya_perpanjang_stnk = StringField('Biaya Perpanjang STNK', validators=[Optional()])
-    biaya_administrasi_stnk = StringField('Biaya Admin STNK', validators=[Optional()])
-    biaya_perpanjang_asuransi = StringField('Biaya Perpanjang Asuransi', validators=[Optional()])
-    biaya_administrasi_asuransi = StringField('Biaya Admin Asuransi', validators=[Optional()])
-
     notes = StringField('Notes', validators=[Optional()])
 
 class ExtendForm(FlaskForm):
@@ -676,8 +667,10 @@ def view_audit_logs():
     
     for log in all_logs:
         if log.pkey:
+            log.unit = log.pkey.split('-')[-3] + '-' + log.pkey.split('-')[-2]
             log.cn = log.pkey.split('-')[-1]
         else:
+            log.unit = '-'
             log.cn = '-'
 
     # 4. Tampilkan ke template baru dengan mengirim parameter active_page='logs'
@@ -840,8 +833,8 @@ def master_lokasi_kerja():
         query = query.where(db.func.upper(LokasiKerja.pt) == pt_filter.upper())
     if unit_filter:
         query = query.where(
-            (db.func.upper(LokasiKerja.unit) == unit_filter.upper()) | 
-            (LokasiKerja.unit.like(f"%{unit_filter}%"))
+            (db.func.upper(LokasiKerja.owner) == unit_filter.upper()) | 
+            (LokasiKerja.owner.like(f"%{unit_filter}%"))
         )
         
     # Apply sorting
@@ -1160,11 +1153,9 @@ def mutasi():
         ).scalar_one_or_none()
         
     if request.method == 'POST':
-        # Dynamic choices population before validation
         populate_mutasi_choices(form)
         
         if form.validate_on_submit():
-            # Perform Mutasi!
             pkey_asal = form.cn_asal.data
             entry = db.session.execute(
                 db.select(DataEntry).where(
@@ -1186,10 +1177,8 @@ def mutasi():
             dest_cn = form.kode_unit_tujuan.data.upper().replace(" ", "")
             dest_unit_combined = f"{dest_unit}"
             
-            # Construct new pkey: {PULAU}-{KOTA}-{PT}-{UNIT}-{KODE_UNIT}
-            new_pkey = f"{dest_pulau}-{dest_kota}-{dest_unit}-{dest_cn}"
+            new_pkey = f"{dest_pulau}-{dest_kota}-{dest_pt}-{dest_unit}-{dest_cn}"
             
-            # Check if a different unit already exists at new_pkey
             if new_pkey != entry.pkey:
                 existing = db.session.execute(
                     db.select(DataEntry).where(DataEntry.pkey == new_pkey)
@@ -1400,6 +1389,18 @@ def submit_extend():
     else:
         form.cn.choices = [('', '-- Pilih Kode Unit --')]
 
+    # Fallback to bypass WTForms strict choice validation errors on cascading fields
+    if form.pulau.data and form.pulau.data not in [c[0] for c in form.pulau.choices]:
+        form.pulau.choices.append((form.pulau.data, form.pulau.data))
+    if form.kota.data and form.kota.data not in [c[0] for c in form.kota.choices]:
+        form.kota.choices.append((form.kota.data, form.kota.data))
+    if form.pt.data and form.pt.data not in [c[0] for c in form.pt.choices]:
+        form.pt.choices.append((form.pt.data, form.pt.data))
+    if form.unit.data and form.unit.data not in [c[0] for c in form.unit.choices]:
+        form.unit.choices.append((form.unit.data, form.unit.data))
+    if form.cn.data and form.cn.data not in [c[0] for c in form.cn.choices]:
+        form.cn.choices.append((form.cn.data, form.cn.data))
+
     if form.validate_on_submit():
         def clean_numeric_input(val):
             if not val:
@@ -1415,7 +1416,6 @@ def submit_extend():
         cn = form.cn.data
         jenis = form.jenis.data
 
-        # 1. Find the LokasiKerja record first
         lokasi_record = db.session.execute(
             db.select(LokasiKerja).where(
                 db.func.upper(LokasiKerja.kode_unit) == cn.upper().strip(),
@@ -1431,7 +1431,6 @@ def submit_extend():
             flash("Data lokasi kerja unit tidak ditemukan!", "danger")
             return render_template('perpanjang.html', form=form)
 
-        # 2. Now find the matching DataEntry using the details from LokasiKerja
         entry = db.session.execute(
             db.select(DataEntry).where(
                 db.func.upper(DataEntry.kode_unit) == lokasi_record.kode_unit.upper(),
@@ -1446,115 +1445,47 @@ def submit_extend():
         pkey = entry.pkey
 
         try:
+            # 1. Update the DataEntry object (asset) with the new expiry date and status
             if jenis == "STNK":
-                old_tagihan = entry.harus_dibayar_stnk
                 old_status = entry.status_stnk
                 old_tanggal = entry.tanggal_berakhir_stnk
-                form.tagihan = old_tagihan
-
-                sisa = old_tagihan - jumlah_dibayar
-                if sisa <= 0:
-                    sisa = 0.0
-                    status_pembayaran = "Lunas"
-                    entry.status_stnk = "ON"
-                    if form.tanggal_berakhir_baru.data:
-                        entry.tanggal_berakhir_stnk = form.tanggal_berakhir_baru.data
-                    # Process optional price update
-                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
-                        new_biaya = clean_numeric_input(form.update_biaya_perpanjang.data) if form.update_biaya_perpanjang.data else entry.biaya_perpanjang_stnk
-                        new_admin = clean_numeric_input(form.update_biaya_admin.data) if form.update_biaya_admin.data else entry.biaya_administrasi_stnk
-                        
-                        total_unrounded = new_biaya + new_admin
-                        total_rounded = float(round(total_unrounded, 0))
-                        pembulatan = round(total_rounded - total_unrounded, 2)
-                        
-                        entry.biaya_perpanjang_stnk = new_biaya
-                        entry.biaya_administrasi_stnk = new_admin
-                        entry.pembulatan_stnk = pembulatan
-                        entry.total_stnk = total_rounded
-                        entry.harus_dibayar_stnk = total_rounded
-                else:
-                    status_pembayaran = "Belum Lunas"
-                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
-                        flash("⚠️ Lunaskan tagihan sebelumnya terlebih dahulu!", "danger")
-                        return render_template('perpanjang.html', form=form)
                 
-                entry.harus_dibayar_stnk = sisa
+                entry.status_stnk = "ON"
+                if form.tanggal_berakhir_baru.data:
+                    entry.tanggal_berakhir_stnk = form.tanggal_berakhir_baru.data
                 
-                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}, Tagihan: Rp {old_tagihan:,.2f}"
-                new_val_str = f"Masa Berlaku Baru: {entry.tanggal_berakhir_stnk or '-'}, Sisa Tagihan: Rp {sisa:,.2f}"
-                
+                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}"
+                new_val_str = f"Status: ON, Masa Berlaku Baru: {entry.tanggal_berakhir_stnk or '-'}"
             else: # Asuransi
-                old_tagihan = entry.harus_dibayar_asuransi
                 old_status = entry.status_asuransi
                 old_tanggal = entry.tanggal_berakhir_asuransi
-                form.tagihan = old_tagihan
-
-                sisa = old_tagihan - jumlah_dibayar
-                if sisa <= 0:
-                    sisa = 0.0
-                    status_pembayaran = "Lunas"
-                    entry.status_asuransi = "ON"
-                    if form.tanggal_berakhir_baru.data:
-                        entry.tanggal_berakhir_asuransi = form.tanggal_berakhir_baru.data
-                   
-                    # Process optional price update
-                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
-                        new_biaya = clean_numeric_input(form.update_biaya_perpanjang.data) if form.update_biaya_perpanjang.data else entry.biaya_perpanjang_asuransi
-                        new_admin = clean_numeric_input(form.update_biaya_admin.data) if form.update_biaya_admin.data else entry.biaya_administrasi_asuransi
-                        
-                        total_unrounded = new_biaya + new_admin
-                        total_rounded = float(round(total_unrounded, 0))
-                        pembulatan = round(total_rounded - total_unrounded, 2)
-                        
-                        entry.biaya_perpanjang_asuransi = new_biaya
-                        entry.biaya_administrasi_asuransi = new_admin
-                        entry.pembulatan_asuransi = pembulatan
-                        entry.total_asuransi = total_rounded
-                        entry.harus_dibayar_asuransi = total_rounded
-                else:
-                    status_pembayaran = "Belum Lunas"
-                    if form.update_biaya_perpanjang.data or form.update_biaya_admin.data:
-                        flash("⚠️ Lunaskan tagihan sebelumnya terlebih dahulu!", "danger")
-                        return render_template('perpanjang.html', form=form)
                 
-                entry.harus_dibayar_asuransi = sisa
+                entry.status_asuransi = "ON"
+                if form.tanggal_berakhir_baru.data:
+                    entry.tanggal_berakhir_asuransi = form.tanggal_berakhir_baru.data
                 
-                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}, Tagihan: Rp {old_tagihan:,.2f}"
-                new_val_str = f"Masa Berlaku Baru: {entry.tanggal_berakhir_asuransi or '-'}, Sisa Tagihan: Rp {sisa:,.2f}"
+                old_val_str = f"Status: {old_status}, Masa Berlaku: {old_tanggal or '-'}"
+                new_val_str = f"Status: ON, Masa Berlaku Baru: {entry.tanggal_berakhir_asuransi or '-'}"
 
-            old_val_str = old_val_str.replace(',', 'X').replace('.', ',').replace('X', '.')
-            new_val_str = new_val_str.replace(',', 'X').replace('.', ',').replace('X', '.')
-            bayar_formatted = f"{jumlah_dibayar:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-
-            if status_pembayaran == "Lunas":
-                query_update_reports = text(
-                    "UPDATE report_entries SET status_pembayaran = :status_pembayaran WHERE pkey = :pkey and jenis = :jenis"
-                )
-                db.session.execute(query_update_reports, {"status_pembayaran": status_pembayaran, "pkey": pkey, "jenis": jenis})
-
-            tagihan = form.tagihan
+            # 2. Add ReportEntry record
             new_record = ReportEntry(
                 jenis=jenis,
                 pkey=pkey,
-                tagihan=tagihan,
-                status_pembayaran=status_pembayaran,
-                tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
                 jumlah_dibayar=jumlah_dibayar,
-                sisa_tagihan=sisa,
                 tanggal_bayar=form.tanggal_bayar.data,
+                tanggal_berakhir_baru=form.tanggal_berakhir_baru.data if form.tanggal_berakhir_baru.data else None,
                 tanggal_input=datetime.today().date(),
                 diinput_oleh=session.get('logged_user', 'System')
             )
             db.session.add(new_record)
 
-            # Tambahkan Audit Log
+            # 3. Add Audit Log
             log_extend = AuditLog(
                 pkey=pkey,
                 aksi="EDIT",
                 kolom_diubah=f"Perpanjang {jenis}",
-                nilai_lama=old_val_str,
-                nilai_baru=f"Bayar: Rp {bayar_formatted} ({status_pembayaran}). {new_val_str}",
+                nilai_lama='-',
+                nilai_baru=f"Bayar: Rp {jumlah_dibayar:,.2f}. {new_val_str}".replace(',', 'X').replace('.', ',').replace('X', '.'),
                 dilakukan_oleh=session.get('logged_user', 'System')
             )
             db.session.add(log_extend)
@@ -1577,40 +1508,6 @@ def submit_data():
     populate_form_choices(form)
 
     if form.validate_on_submit():
-        def clean_numeric_input(val):
-            if not val:
-                return 0.0
-            val_str = str(val).strip()
-            val_str = val_str.replace('.', '').replace(',', '.')
-            try:
-                return round(float(val_str), 2)
-            except ValueError:
-                return 0.0
-
-        biaya_perpanjang_stnk = clean_numeric_input(form.biaya_perpanjang_stnk.data)
-        biaya_admin_stnk = clean_numeric_input(form.biaya_administrasi_stnk.data)
-
-        total_stnk = biaya_perpanjang_stnk + biaya_admin_stnk
-        
-        total_terpembulat_stnk = float(round(total_stnk, 0))
-        
-        pembulatan_otomatis_stnk = round(total_terpembulat_stnk - total_stnk, 2)
-
-        biaya_perpanjang_asuransi = clean_numeric_input(form.biaya_perpanjang_asuransi.data)
-        biaya_admin_asuransi = clean_numeric_input(form.biaya_administrasi_asuransi.data)
-
-        total_asuransi = biaya_perpanjang_asuransi + biaya_admin_asuransi
-        
-        total_terpembulat_asuransi = float(round(total_asuransi, 0))
-        
-        pembulatan_otomatis_asuransi = round(total_terpembulat_asuransi - total_asuransi, 2)
-
-        if (biaya_perpanjang_stnk <= 0 or biaya_admin_stnk <= 0 or 
-            biaya_perpanjang_asuransi <= 0 or biaya_admin_asuransi <= 0):
-            flash("⚠️ Semua rincian biaya (STNK & Asuransi) wajib diisi dan tidak boleh bernilai 0!", "danger")
-
-            return render_template('form.html', form=form)
-
         new_record = DataEntry(
             pulau=form.pulau.data,
             kota=form.kota.data,
@@ -1633,25 +1530,13 @@ def submit_data():
             tanggal_berakhir_stnk=form.tanggal_berakhir_stnk.data if form.tanggal_berakhir_stnk.data else None,
             tanggal_berakhir_asuransi=form.tanggal_berakhir_asuransi.data if form.tanggal_berakhir_asuransi.data else None,
             year=form.year.data,
-            biaya_perpanjang_stnk=biaya_perpanjang_stnk,
-            biaya_administrasi_stnk=biaya_admin_stnk,
-            biaya_perpanjang_asuransi=biaya_perpanjang_asuransi,
-            biaya_administrasi_asuransi=biaya_admin_asuransi,
-            pembulatan_stnk=pembulatan_otomatis_stnk,
-            pembulatan_asuransi=pembulatan_otomatis_asuransi,
-            total_stnk=total_terpembulat_stnk,
-            harus_dibayar_stnk=total_terpembulat_stnk,
-            total_asuransi=total_terpembulat_asuransi,
-            harus_dibayar_asuransi=total_terpembulat_asuransi,
             notes=form.notes.data,
             tanggal_input=datetime.today().date(),
             diinput_oleh=session['logged_user']
         )
 
-        # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (nama)
         loc_nama = form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else ""
         
-        # 1. PT referred from nama (Unit)
         loc_unit = db.session.execute(
             db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
         ).scalars().first()
@@ -1661,11 +1546,9 @@ def submit_data():
         pulau_name = ""
         
         if loc_unit:
-            # 2. Kota referred from PT
             pt_obj = db.session.get(PT, loc_unit.reference)
             if pt_obj:
                 pt_name = pt_obj.nama
-                # 3. Pulau referred from Kota
                 kota_obj = db.session.get(Kota, pt_obj.reference)
                 if kota_obj:
                     kota_name = kota_obj.nama
@@ -1680,14 +1563,12 @@ def submit_data():
         if not pulau_name:
             pulau_name = form.pulau.data.upper().strip()
 
-        # Find Unit for owner
         owner_unit_name = form.unit.data.upper().strip()
         owner_unit = db.session.execute(
             db.select(Unit).where(db.func.upper(Unit.nama) == owner_unit_name.upper())
         ).scalars().first()
         owner_id = owner_unit.id if owner_unit else 1
 
-        # Resolve or create KodeUnit
         cn_val = form.kode_unit.data.upper().replace(" ", "")
         kode_unit_obj = db.session.execute(
             db.select(KodeUnit).where(db.func.upper(KodeUnit.nama) == cn_val.upper())
@@ -1794,10 +1675,7 @@ def edit(pkey):
         except ValueError:
             pass
 
-    form.biaya_perpanjang_stnk.data = f"{entry.biaya_perpanjang_stnk:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.').replace(chr(160), '').replace(' ', '')
-    form.biaya_administrasi_stnk.data = f"{entry.biaya_administrasi_stnk:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-    form.biaya_perpanjang_asuransi.data = f"{entry.biaya_perpanjang_asuransi:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-    form.biaya_administrasi_asuransi.data = f"{entry.biaya_administrasi_asuransi:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
     
     return render_template('edit.html', form=form, entry=entry, photo=photo)
 
@@ -1864,36 +1742,31 @@ def update_data(pkey):
     form.tanggal_berakhir_asuransi.data=entry.tanggal_berakhir_asuransi
 
     if form.validate_on_submit():
-        def clean_numeric_input(val):
-            if not val: return 0.0
-            val_str = str(val).strip().replace('.', '').replace(',', '.')
-            try: return round(float(val_str), 2)
-            except ValueError: return 0.0
-
-        # Kalkulasi hitung ulang biaya baru
-        biaya_perpanjang_stnk = clean_numeric_input(form.biaya_perpanjang_stnk.data)
-        biaya_admin_stnk = clean_numeric_input(form.biaya_administrasi_stnk.data)
-        total_stnk = biaya_perpanjang_stnk + biaya_admin_stnk
-        total_terpembulat_stnk = float(round(total_stnk, 0))
-        pembulatan_otomatis_stnk = round(total_terpembulat_stnk - total_stnk, 2)
-
-        biaya_perpanjang_asuransi = clean_numeric_input(form.biaya_perpanjang_asuransi.data)
-        biaya_admin_asuransi = clean_numeric_input(form.biaya_administrasi_asuransi.data)
-        total_asuransi = biaya_perpanjang_asuransi + biaya_admin_asuransi
-        total_terpembulat_asuransi = float(round(total_asuransi, 0))
-        pembulatan_otomatis_asuransi = round(total_terpembulat_asuransi - total_asuransi, 2)
-
-        if (biaya_perpanjang_stnk <= 0 or biaya_admin_stnk <= 0 or 
-            biaya_perpanjang_asuransi <= 0 or biaya_admin_asuransi <= 0):
-            flash("⚠️ Semua rincian biaya (STNK & Asuransi) wajib diisi dan tidak boleh bernilai 0!", "danger")
-               
-            return render_template('edit.html', form=form, entry=entry, photo=photo)
+        # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (nama)
+        loc_nama = form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else ""
+        
+        loc_unit = db.session.execute(
+            db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+        ).scalars().first()
+        
+        pt_name = ""
+        kota_name = ""
+        pulau_name = ""
+        
+        if loc_unit:
+            pt_obj = db.session.get(PT, loc_unit.reference)
+            if pt_obj:
+                pt_name = pt_obj.nama
+                kota_obj = db.session.get(Kota, pt_obj.reference)
+                if kota_obj:
+                    kota_name = kota_obj.nama
+                    pulau_obj = db.session.get(Pulau, kota_obj.reference)
+                    if pulau_obj:
+                        pulau_name = pulau_obj.nama
 
         fields_to_check = [
-            ('pt', 'Nama PT', form.pt.data.upper().strip() if form.pt.data else None),
+            ('lokasi_kerja', 'Lokasi Kerja', loc_nama if loc_nama else None),
             ('nama_asuransi', 'Nama Asuransi', form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None),
-            ('pulau', 'Pulau', form.pulau.data.upper().strip() if form.pulau.data else None),
-            ('kota', 'Site (Kota)', form.kota.data.upper().strip() if form.kota.data else None),
             ('no_polis', 'No. Polis', form.no_polis.data.upper().strip() if form.no_polis.data else None),
             ('no_polisi', 'No. Polisi', form.no_polisi.data.upper().strip() if form.no_polisi.data else None),
             ('merk', 'Merk', form.merk.data.upper().strip() if form.merk.data else None),
@@ -1906,10 +1779,6 @@ def update_data(pkey):
             ('status_asuransi', 'Status Asuransi', form.status_asuransi.data),
             ('tanggal_berakhir_stnk', 'Masa Berlaku STNK', form.tanggal_berakhir_stnk.data),
             ('tanggal_berakhir_asuransi', 'Masa Berlaku Asuransi', form.tanggal_berakhir_asuransi.data),
-            ('biaya_perpanjang_stnk', 'Biaya STNK', biaya_perpanjang_stnk),
-            ('biaya_administrasi_stnk', 'Biaya Admin STNK', biaya_admin_stnk),
-            ('biaya_perpanjang_asuransi', 'Biaya Asuransi', biaya_perpanjang_asuransi),
-            ('biaya_administrasi_asuransi', 'Biaya Admin Asuransi', biaya_admin_asuransi),
             ('notes', 'Notes', form.notes.data)
         ]
 
@@ -1928,10 +1797,8 @@ def update_data(pkey):
                 db.session.add(log_edit)
 
         # Update properti objek database lama dengan data kiriman dari form edit
-        entry.pt = form.pt.data.upper().strip()
-        entry.nama_asuransi = form.nama_asuransi.data.upper().strip()
-        entry.pulau = form.pulau.data.upper().strip()
-        entry.kota = form.kota.data.upper().strip()
+        entry.lokasi_kerja = loc_nama
+        entry.nama_asuransi = form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None
         entry.no_polis = form.no_polis.data.upper().strip() if form.no_polis.data else None
         entry.no_polisi = form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None
         entry.merk = form.merk.data.upper().strip() if form.merk.data else None
@@ -1941,18 +1808,21 @@ def update_data(pkey):
         entry.sn_engine = form.sn_engine.data
         entry.year = form.year.data
         
-        entry.biaya_perpanjang_stnk = biaya_perpanjang_stnk
-        entry.biaya_administrasi_stnk = biaya_admin_stnk
-        entry.pembulatan_stnk = pembulatan_otomatis_stnk
-        entry.total_stnk = total_terpembulat_stnk
-        entry.harus_dibayar_stnk = total_terpembulat_stnk
-        
-        entry.biaya_perpanjang_asuransi = biaya_perpanjang_asuransi
-        entry.biaya_administrasi_asuransi = biaya_admin_asuransi
-        entry.pembulatan_asuransi = pembulatan_otomatis_asuransi
-        entry.total_asuransi = total_terpembulat_asuransi
-        entry.harus_dibayar_asuransi = total_terpembulat_asuransi
-        
+        # Sync / update the LokasiKerja master record for this unit
+        lok_rec = db.session.execute(
+            db.select(LokasiKerja).where(
+                db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper()
+            )
+        ).scalar_one_or_none()
+        if lok_rec:
+            lok_rec.pulau = pulau_name
+            lok_rec.kota = kota_name
+            lok_rec.pt = pt_name
+            lok_rec.owner = loc_nama
+            lok_rec.nama = loc_nama
+            lok_rec.dilakukan_oleh = session.get('logged_user', 'System')
+            lok_rec.tanggal_aksi = datetime.today()
+
         entry.diinput_oleh = session.get('logged_user', 'System')
 
         # Validasi di fungsi update_data
@@ -2224,8 +2094,6 @@ def export_excel():
             'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
             'SN Equipment', 'SN Engine', 'Status STNK', 'Masa Berlaku STNK', 
             'Status Asuransi', 'Masa Berlaku Asuransi', 'Year', 'Remarks', 
-            'Biaya STNK', 'Admin STNK', 'Pembulatan STNK', 'Total STNK',
-            'Biaya Asuransi', 'Admin Asuransi', 'Pembulatan Asuransi', 'Total Asuransi',
             'Diinput Oleh', 'Tanggal Input'
         ]
         ws.append(headers)
@@ -2259,8 +2127,6 @@ def export_excel():
                 entry.tanggal_berakhir_asuransi if entry.tanggal_berakhir_asuransi else '-',
                 entry.year,
                 entry.notes if entry.notes else '-',
-                entry.biaya_perpanjang_stnk, entry.biaya_administrasi_stnk, entry.pembulatan_stnk, entry.total_stnk,
-                entry.biaya_perpanjang_asuransi, entry.biaya_administrasi_asuransi, entry.pembulatan_asuransi, entry.total_asuransi,
                 entry.diinput_oleh, entry.tanggal_input if entry.tanggal_input else '-'
             ]
             ws.append(row_data)
@@ -2278,7 +2144,7 @@ def export_excel():
                 # Sisi perataan data
                 if col_num in [1, 14, 15, 16, 17, 18]: # No, Status, Tanggal, Tahun
                     cell.alignment = Alignment(horizontal="center", vertical="center")
-                elif 20 <= col_num <= 27: # Biaya & Total
+                elif 20 <= col_num <= 27: # Total
                     cell.number_format = '"Rp "#,##0.00'
                     cell.alignment = Alignment(horizontal="right", vertical="center")
                 else:
