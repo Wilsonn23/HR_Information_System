@@ -146,7 +146,7 @@
                 pulau: pulauVal,
                 kota: kotaVal,
                 pt: ptVal,
-                unit: (ptVal && unitVal) ? `${ptVal}-${unitVal}` : unitVal
+                unit: unitVal
             });
 
             fetch(`/api/get-tagihan/${jenisValue}/${cnValue}?${queryParams.toString()}`)
@@ -412,7 +412,7 @@
             }
 
             const currentSelected = cnInput.getAttribute('data-selected') || cnInput.value;
-            const combinedUnit = `${ptVal}-${unitVal}`;
+            const combinedUnit = unitVal;
 
             fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}`)
                 .then(response => response.json())

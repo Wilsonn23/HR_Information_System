@@ -18,10 +18,9 @@
                         <label for="pulau" class="form-label fw-semibold text-secondary small">Pulau:</label>
                         <select id="pulau" class="form-select form-select-sm shadow-sm mb-1">
                             <option value="">-- Pilih Pulau --</option>
-                            <option value="SUMATRA" {% if entry and entry.pulau == 'SUMATRA' %}selected{% endif %}>Sumatra</option>
-                            <option value="NUSA TENGGARA BARAT" {% if entry and entry.pulau == 'NUSA TENGGARA BARAT' %}selected{% endif %}>Nusa Tenggara Barat</option>
-                            <option value="JAWA" {% if entry and entry.pulau == 'JAWA' %}selected{% endif %}>Jawa</option>
-                            <option value="PAPUA" {% if entry and entry.pulau == 'PAPUA' %}selected{% endif %}>Papua</option>
+                            {% for p in pulau_list %}
+                            <option value="{{ p.nama }}" {% if entry and entry.pulau == p.nama %}selected{% endif %}>{{ p.nama }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
@@ -41,14 +40,14 @@
 
                     <div class="mb-1">
                         <label for="unit" class="form-label fw-semibold text-secondary small">Nama Unit:</label>
-                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{% if entry %}{% if '-' in entry.unit %}{{ entry.unit.split('-')[-1] }}{% else %}{{ entry.unit }}{% endif %}{% endif %}">
+                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.unit if entry else '' }}">
                             <option value="">-- Pilih Unit PT --</option>
                         </select>
                     </div>
                     
                     <div class="mb-1">
                         <label for="cn" class="form-label fw-semibold text-secondary small">Kode Unit (CN):</label>
-                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pkey if entry else '' }}">
+                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.kode_unit if entry else '' }}">
                             <option value="">-- Pilih Kode Unit --</option>
                         </select>
                     </div>
@@ -314,7 +313,7 @@
                 }
 
                 const currentSelected = cnSelect.getAttribute('data-selected') || cnSelect.value;
-                const combinedUnit = `${ptVal}-${unitVal}`;
+                const combinedUnit = unitVal;
 
                 fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}`)
                     .then(response => response.json())

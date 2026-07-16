@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         const currentSelected = cnAsal.getAttribute('data-selected') || cnAsal.value;
-        const combined = `${ptVal}-${unitVal}`;
+        const combined = unitVal;
         fetch(`/api/get-cn/${encodeURIComponent(combined)}?pt=${encodeURIComponent(ptVal)}&kota=${encodeURIComponent(kVal)}`)
             .then(res => res.json())
             .then(data => {
@@ -317,8 +317,8 @@ document.addEventListener("DOMContentLoaded", function () {
     function autoSelectLokasiKerjaTujuan() {
         const ptVal = ptTujuan.value.trim().toUpperCase();
         const unitVal = unitTujuan.value.trim().toUpperCase();
-        if (ptVal && unitVal) {
-            const targetVal = `${ptVal}-${unitVal}`;
+        if (unitVal) {
+            const targetVal = unitVal;
             for (let option of lokasiKerjaTujuan.options) {
                 if (option.value.toUpperCase() === targetVal) {
                     lokasiKerjaTujuan.value = option.value;

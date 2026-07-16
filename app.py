@@ -128,6 +128,18 @@ class Unit(db.Model):
             return pt.nama
         return ""
 
+class LokasiKerja(db.Model):
+    __tablename__ = 'lokasi_kerja'
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    kode_unit: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    owner: Mapped[int] = mapped_column(db.String(50), nullable=False)
+    pulau: Mapped[int] = mapped_column(db.String(50), nullable=False)
+    kota: Mapped[int] = mapped_column(db.String(50), nullable=False)
+    pt: Mapped[int] = mapped_column(db.String(50), nullable=False)
+    nama: Mapped[int] = mapped_column(db.String(50), nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
 class KodeUnit(db.Model):
     __tablename__ = 'kode_unit'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
@@ -341,22 +353,38 @@ def get_cn_choices(selected_unit=None, selected_pt=None, selected_kota=None):
         return []
     try:
         unit_upper = selected_unit.upper().strip()
-        query = db.select(DataEntry.pkey, DataEntry.kode_unit).where(db.func.upper(DataEntry.unit) == unit_upper)
+        
+        # Build list of possible suffixes if unit_upper has hyphens
+        possible_names = [unit_upper]
+        if "-" in unit_upper:
+            parts = unit_upper.split("-")
+            for i in range(1, len(parts)):
+                suffix = "-".join(parts[i:]).strip()
+                if suffix:
+                    possible_names.append(suffix)
+        
+        # Strip PT prefix if present as another possible name just in case
+        if selected_pt and unit_upper.startswith(selected_pt.upper() + "-"):
+            prefix_len = len(selected_pt) + 1
+            stripped_unit = unit_upper[prefix_len:].strip()
+            if stripped_unit not in possible_names:
+                possible_names.append(stripped_unit)
+
+        query = db.select(LokasiKerja.kode_unit).where(
+            (db.func.upper(LokasiKerja.owner).in_(possible_names)) |
+            (db.func.upper(LokasiKerja.nama).in_(possible_names))
+        )
         if selected_pt:
-            query = query.where(db.func.upper(DataEntry.pt) == selected_pt.upper().strip())
+            query = query.where(db.func.upper(LokasiKerja.pt) == selected_pt.upper().strip())
         if selected_kota:
-            query = query.where(db.func.upper(DataEntry.kota) == selected_kota.upper().strip())
-        db_entries = db.session.execute(query.distinct()).all()
+            query = query.where(db.func.upper(LokasiKerja.kota) == selected_kota.upper().strip())
+        db_entries = db.session.execute(query.distinct()).scalars().all()
         
         choices = []
-        seen = set()
-        for pkey_val, cn_val in db_entries:
-            if pkey_val and cn_val:
-                pkey_clean = pkey_val.strip()
+        for cn_val in db_entries:
+            if cn_val:
                 cn_clean = cn_val.strip()
-                if pkey_clean not in seen:
-                    choices.append((pkey_clean, cn_clean))
-                    seen.add(pkey_clean)
+                choices.append((cn_clean, cn_clean))
         return sorted(choices, key=lambda x: x[1])
     except Exception as e:
         print(f"Error in get_cn_choices: {e}")
@@ -386,7 +414,7 @@ def populate_form_choices(form):
     for u in unit_entries:
         pt = db.session.get(PT, u.reference)
         if pt:
-            display_val = f"{pt.nama}-{u.nama}"
+            display_val = f"{u.nama}"
             lokasi_choices.append((display_val, display_val))
         else:
             lokasi_choices.append((u.nama, u.nama))
@@ -450,7 +478,7 @@ def populate_mutasi_choices(form):
     for u in unit_entries:
         pt = db.session.get(PT, u.reference)
         if pt:
-            display_val = f"{pt.nama}-{u.nama}"
+            display_val = f"{u.nama}"
             lokasi_choices.append((display_val, display_val))
         else:
             lokasi_choices.append((u.nama, u.nama))
@@ -646,6 +674,12 @@ def view_audit_logs():
         db.select(AuditLog).order_by(AuditLog.tanggal_aksi.desc())
     ).scalars().all()
     
+    for log in all_logs:
+        if log.pkey:
+            log.cn = log.pkey.split('-')[-1]
+        else:
+            log.cn = '-'
+
     # 4. Tampilkan ke template baru dengan mengirim parameter active_page='logs'
     return render_template('logs.html', logs=all_logs, active_page='logs')
 
@@ -662,6 +696,7 @@ def master_all():
     kota_filter = request.args.get('kota', '').strip()
     pt_filter = request.args.get('pt', '').strip()
     unit_filter = request.args.get('unit', '').strip()
+    lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
     asuransi_filter = request.args.get('nama_asuransi', '').strip()
     merk_filter = request.args.get('merk', '').strip()
     kategori_filter = request.args.get('kategori', '').strip()
@@ -689,6 +724,8 @@ def master_all():
         query = query.where(db.func.upper(DataEntry.kategori) == kategori_filter.upper())
     if model_filter:
         query = query.where(db.func.upper(DataEntry.eqp_model) == model_filter.upper())
+    if lokasi_kerja_filter:
+        query = query.where(db.func.upper(DataEntry.lokasi_kerja) == lokasi_kerja_filter.upper())
         
     # Apply sorting
     if sort_by == 'pulau':
@@ -714,15 +751,26 @@ def master_all():
         
     results = db.session.execute(query).scalars().all()
     
-    # Extract distinct option lists for filters in UI
+    # Extract distinct option lists from the actual master data tables
+    unit_entries = db.session.execute(db.select(Unit).order_by(Unit.nama)).scalars().all()
+    lokasi_choices = []
+    for u in unit_entries:
+        pt_obj = db.session.get(PT, u.reference)
+        if pt_obj:
+            display_val = f"{u.nama}"
+            lokasi_choices.append(display_val)
+        else:
+            lokasi_choices.append(u.nama)
+
     filter_options = {
-        'pulau': db.session.execute(db.select(DataEntry.pulau).distinct().where(DataEntry.pulau != None).order_by(DataEntry.pulau)).scalars().all(),
-        'kota': db.session.execute(db.select(DataEntry.kota).distinct().where(DataEntry.kota != None).order_by(DataEntry.kota)).scalars().all(),
-        'pt': db.session.execute(db.select(DataEntry.pt).distinct().where(DataEntry.pt != None).order_by(DataEntry.pt)).scalars().all(),
-        'unit': db.session.execute(db.select(DataEntry.unit).distinct().where(DataEntry.unit != None).order_by(DataEntry.unit)).scalars().all(),
-        'nama_asuransi': db.session.execute(db.select(DataEntry.nama_asuransi).distinct().where(DataEntry.nama_asuransi != None).order_by(DataEntry.nama_asuransi)).scalars().all(),
-        'merk': db.session.execute(db.select(DataEntry.merk).distinct().where(DataEntry.merk != None).order_by(DataEntry.merk)).scalars().all(),
-        'kategori': db.session.execute(db.select(DataEntry.kategori).distinct().where(DataEntry.kategori != None).order_by(DataEntry.kategori)).scalars().all(),
+        'pulau': db.session.execute(db.select(Pulau.nama).order_by(Pulau.nama)).scalars().all(),
+        'kota': db.session.execute(db.select(Kota.nama).order_by(Kota.nama)).scalars().all(),
+        'pt': db.session.execute(db.select(PT.nama).distinct().order_by(PT.nama)).scalars().all(),
+        'unit': db.session.execute(db.select(Unit.nama).distinct().order_by(Unit.nama)).scalars().all(),
+        'lokasi_kerja': sorted(list(set(lokasi_choices))),
+        'nama_asuransi': db.session.execute(db.select(NamaAsuransi.nama).order_by(NamaAsuransi.nama)).scalars().all(),
+        'merk': db.session.execute(db.select(Merk.nama).order_by(Merk.nama)).scalars().all(),
+        'kategori': db.session.execute(db.select(Kategori.nama).order_by(Kategori.nama)).scalars().all(),
         'eqp_model': db.session.execute(db.select(DataEntry.eqp_model).distinct().where(DataEntry.eqp_model != None).order_by(DataEntry.eqp_model)).scalars().all(),
     }
     
@@ -731,6 +779,7 @@ def master_all():
         'kota': kota_filter,
         'pt': pt_filter,
         'unit': unit_filter,
+        'lokasi_kerja': lokasi_kerja_filter,
         'nama_asuransi': asuransi_filter,
         'merk': merk_filter,
         'kategori': kategori_filter,
@@ -761,6 +810,107 @@ def master_all():
         active_page='master'
     )
 
+@app.route('/master-lokasi-kerja')
+def master_lokasi_kerja():
+    if(session['role'] != 'admin'):
+        return redirect(url_for('dashboard'))
+    
+    # Read group, sort, and filter criteria
+    group_by = request.args.get('groupby', 'ALL').strip()
+    sort_by = request.args.get('sortby', 'id_desc').strip()
+    
+    pulau_filter = request.args.get('pulau', '').strip()
+    kota_filter = request.args.get('kota', '').strip()
+    pt_filter = request.args.get('pt', '').strip()
+    unit_filter = request.args.get('unit', '').strip()
+    lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
+    asuransi_filter = request.args.get('nama_asuransi', '').strip()
+    merk_filter = request.args.get('merk', '').strip()
+    kategori_filter = request.args.get('kategori', '').strip()
+    model_filter = request.args.get('eqp_model', '').strip()
+    
+    query = db.select(LokasiKerja)
+    
+    # Apply filters
+    if pulau_filter:
+        query = query.where(db.func.upper(LokasiKerja.pulau) == pulau_filter.upper())
+    if kota_filter:
+        query = query.where(db.func.upper(LokasiKerja.kota) == kota_filter.upper())
+    if pt_filter:
+        query = query.where(db.func.upper(LokasiKerja.pt) == pt_filter.upper())
+    if unit_filter:
+        query = query.where(
+            (db.func.upper(LokasiKerja.unit) == unit_filter.upper()) | 
+            (LokasiKerja.unit.like(f"%{unit_filter}%"))
+        )
+        
+    # Apply sorting
+    if sort_by == 'pulau':
+        query = query.order_by(LokasiKerja.pulau.asc())
+    elif sort_by == 'kota':
+        query = query.order_by(LokasiKerja.kota.asc())
+    elif sort_by == 'pt':
+        query = query.order_by(LokasiKerja.pt.asc())
+    elif sort_by == 'unit':
+        query = query.order_by(LokasiKerja.unit.asc())
+    elif sort_by == 'lokasi_kerja':
+        query = query.order_by(LokasiKerja.lokasi_kerja.asc())
+    else: # id_desc
+        query = query.order_by(LokasiKerja.id.desc())
+        
+    results = db.session.execute(query).scalars().all()
+    
+    # Extract distinct option lists from the actual master data tables
+    unit_entries = db.session.execute(db.select(Unit).order_by(Unit.nama)).scalars().all()
+    lokasi_choices = []
+    for u in unit_entries:
+        pt_obj = db.session.get(PT, u.reference)
+        if pt_obj:
+            display_val = f"{u.nama}"
+            lokasi_choices.append(display_val)
+        else:
+            lokasi_choices.append(u.nama)
+
+    filter_options = {
+        'pulau': db.session.execute(db.select(Pulau.nama).order_by(Pulau.nama)).scalars().all(),
+        'kota': db.session.execute(db.select(Kota.nama).order_by(Kota.nama)).scalars().all(),
+        'pt': db.session.execute(db.select(PT.nama).distinct().order_by(PT.nama)).scalars().all(),
+        'unit': db.session.execute(db.select(Unit.nama).distinct().order_by(Unit.nama)).scalars().all(),
+        'lokasi_kerja': sorted(list(set(lokasi_choices)))
+    }
+    
+    selected_filters = {
+        'pulau': pulau_filter,
+        'kota': kota_filter,
+        'pt': pt_filter,
+        'unit': unit_filter,
+        'lokasi_kerja': lokasi_kerja_filter
+    }
+    
+    # Group results into accordion sections
+    grouped_data = {}
+    if group_by == 'ALL':
+        grouped_data = {'ALL': results}
+    else:
+        from collections import defaultdict
+        grouped_dict = defaultdict(list)
+        for entry in results:
+            val = getattr(entry, group_by, None)
+            key_name = str(val) if val is not None else "Tidak Ada Data"
+            grouped_dict[key_name].append(entry)
+        # Sort accordion groups alphabetically by their group name
+        grouped_data = {k: grouped_dict[k] for k in sorted(grouped_dict.keys())}
+        
+    return render_template(
+        'master-lokasi-kerja.html', 
+        grouped_data=grouped_data, 
+        filter_options=filter_options, 
+        selected_filters=selected_filters,
+        active_groupby=group_by,
+        active_sortby=sort_by,
+        active_page='master'
+    )
+    
 @app.route('/master-pulau')
 def master_pulau():
     if(session['role'] != 'admin'):
@@ -944,17 +1094,17 @@ def dashboard():
     jumlah_asuransi_aktif=db.session.execute(query, {"today": today}).scalar()
 
     hari_ini = today.strftime('%Y-%m-%d')
-    satu_bulan_lagi = (today + timedelta(days=30)).strftime('%Y-%m-%d')
+    dua_bulan_lagi = (today + timedelta(days=60)).strftime('%Y-%m-%d')
     tiga_bulan_lagi = (today + timedelta(days=90)).strftime('%Y-%m-%d')
 
     stnk_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk < hari_ini).all()
-    stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= satu_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi).all()
-    stnk_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= hari_ini, DataEntry.tanggal_berakhir_stnk <= satu_bulan_lagi).all()
+    stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= dua_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi).all()
+    stnk_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= hari_ini, DataEntry.tanggal_berakhir_stnk <= dua_bulan_lagi).all()
     stnk_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_stnk == None)).all()
     
     asuransi_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi < hari_ini).all()
-    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= satu_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi).all()
-    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= satu_bulan_lagi).all()
+    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= dua_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi).all()
+    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= dua_bulan_lagi).all()
     asuransi_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_asuransi == None)).all()
 
     return render_template(
@@ -1017,7 +1167,10 @@ def mutasi():
             # Perform Mutasi!
             pkey_asal = form.cn_asal.data
             entry = db.session.execute(
-                db.select(DataEntry).where(DataEntry.pkey == pkey_asal)
+                db.select(DataEntry).where(
+                    (db.func.upper(DataEntry.pkey) == pkey_asal.upper().strip()) |
+                    (db.func.upper(DataEntry.kode_unit) == pkey_asal.upper().strip())
+                )
             ).scalar_one_or_none()
             
             if not entry:
@@ -1031,10 +1184,10 @@ def mutasi():
             dest_unit = form.unit_tujuan.data.upper().strip()
             dest_lokasi = form.lokasi_kerja_tujuan.data
             dest_cn = form.kode_unit_tujuan.data.upper().replace(" ", "")
-            dest_unit_combined = f"{dest_pt}-{dest_unit}"
+            dest_unit_combined = f"{dest_unit}"
             
             # Construct new pkey: {PULAU}-{KOTA}-{PT}-{UNIT}-{KODE_UNIT}
-            new_pkey = f"{dest_pulau}-{dest_kota}-{dest_pt}-{dest_unit}-{dest_cn}"
+            new_pkey = f"{dest_pulau}-{dest_kota}-{dest_unit}-{dest_cn}"
             
             # Check if a different unit already exists at new_pkey
             if new_pkey != entry.pkey:
@@ -1086,6 +1239,34 @@ def mutasi():
                 entry.unit = dest_unit_combined
                 entry.lokasi_kerja = dest_lokasi
                 entry.kode_unit = dest_cn
+                
+                # 3.5. Sync / update the LokasiKerja master record for this unit
+                lok_rec = db.session.execute(
+                    db.select(LokasiKerja).where(
+                        db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper()
+                    )
+                ).scalar_one_or_none()
+                if lok_rec:
+                    lok_rec.pulau = dest_pulau
+                    lok_rec.kota = dest_kota
+                    lok_rec.pt = dest_pt
+                    lok_rec.owner = dest_unit
+                    lok_rec.nama = dest_lokasi
+                    lok_rec.kode_unit = dest_cn
+                    lok_rec.dilakukan_oleh = session.get('logged_user', 'System')
+                    lok_rec.tanggal_aksi = datetime.today()
+                else:
+                    new_lok = LokasiKerja(
+                        kode_unit=dest_cn,
+                        owner=dest_unit,
+                        nama=dest_lokasi,
+                        pt=dest_pt,
+                        kota=dest_kota,
+                        pulau=dest_pulau,
+                        dilakukan_oleh=session.get('logged_user', 'System'),
+                        tanggal_aksi=datetime.today()
+                    )
+                    db.session.add(new_lok)
                 
                 # 4. Create Audit Log
                 audit_log = AuditLog(
@@ -1179,12 +1360,16 @@ def report():
 @app.route('/details/<pkey>')
 def details(pkey=None):
     all_cn_list = db.session.execute(db.select(DataEntry.kode_unit).order_by(DataEntry.kode_unit)).scalars().all()
+    pulau_list = db.session.execute(db.select(Pulau).order_by(Pulau.nama)).scalars().all()
     
     if not pkey:        
-        return render_template('details.html', entry=None, all_cn_list=all_cn_list, active_page='details')
+        return render_template('details.html', entry=None, all_cn_list=all_cn_list, pulau_list=pulau_list, active_page='details')
     
     entry = db.session.execute(
-        db.select(DataEntry).where(DataEntry.pkey == pkey)
+        db.select(DataEntry).where(
+            (db.func.upper(DataEntry.pkey) == pkey.upper().strip()) |
+            (db.func.upper(DataEntry.kode_unit) == pkey.upper().strip())
+        )
     ).scalar_one_or_none()
     
     if not entry:
@@ -1192,12 +1377,12 @@ def details(pkey=None):
         return redirect(url_for('details'))
         
     key = entry.pkey
-
+ 
     db_images = db.session.execute(
         db.select(UnitImage.id).where(UnitImage.pkey == key).order_by(UnitImage.id)
     ).scalars().all()
         
-    return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images, active_page='details')
+    return render_template('details.html', all_cn_list=all_cn_list, entry=entry, db_images=db_images, pulau_list=pulau_list, active_page='details')
 
 @app.route('/submit_extend', methods=['POST'])
 def submit_extend():
@@ -1210,8 +1395,7 @@ def submit_extend():
     form.unit.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(form.pt.data, form.kota.data)
     
     if form.pt.data and form.unit.data:
-        unit_combined = form.pt.data + "-" + form.unit.data
-        choices = get_cn_choices(unit_combined)
+        choices = get_cn_choices(form.unit.data, form.pt.data, form.kota.data)
         form.cn.choices = [('', '-- Pilih Kode Unit --')] + [(label, label) for val, label in choices]
     else:
         form.cn.choices = [('', '-- Pilih Kode Unit --')]
@@ -1231,19 +1415,32 @@ def submit_extend():
         cn = form.cn.data
         jenis = form.jenis.data
 
-        unit_combined = form.pt.data.upper().strip() + "-" + form.unit.data.upper().strip()
+        # 1. Find the LokasiKerja record first
+        lokasi_record = db.session.execute(
+            db.select(LokasiKerja).where(
+                db.func.upper(LokasiKerja.kode_unit) == cn.upper().strip(),
+                db.func.upper(LokasiKerja.pulau) == form.pulau.data.upper().strip(),
+                db.func.upper(LokasiKerja.kota) == form.kota.data.upper().strip(),
+                db.func.upper(LokasiKerja.pt) == form.pt.data.upper().strip(),
+                ((db.func.upper(LokasiKerja.owner) == form.unit.data.upper().strip()) |
+                 (db.func.upper(LokasiKerja.nama) == form.unit.data.upper().strip()))
+            )
+        ).scalar_one_or_none()
+
+        if not lokasi_record:
+            flash("Data lokasi kerja unit tidak ditemukan!", "danger")
+            return render_template('perpanjang.html', form=form)
+
+        # 2. Now find the matching DataEntry using the details from LokasiKerja
         entry = db.session.execute(
             db.select(DataEntry).where(
-                db.func.upper(DataEntry.kode_unit) == cn.upper().strip(),
-                db.func.upper(DataEntry.pulau) == form.pulau.data.upper().strip(),
-                db.func.upper(DataEntry.kota) == form.kota.data.upper().strip(),
-                db.func.upper(DataEntry.pt) == form.pt.data.upper().strip(),
-                db.func.upper(DataEntry.unit) == unit_combined
+                db.func.upper(DataEntry.kode_unit) == lokasi_record.kode_unit.upper(),
+                (db.func.upper(DataEntry.unit) == lokasi_record.owner.upper()) | (db.func.upper(DataEntry.unit) == lokasi_record.nama.upper())
             )
         ).scalar_one_or_none()
 
         if not entry:
-            flash("Data unit tidak ditemukan!", "danger")
+            flash("Data master unit tidak ditemukan!", "danger")
             return render_template('perpanjang.html', form=form)
 
         pkey = entry.pkey
@@ -1418,7 +1615,7 @@ def submit_data():
             pulau=form.pulau.data,
             kota=form.kota.data,
             pt=form.pt.data.upper().strip(),
-            unit=form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip(),
+            unit=form.unit.data.upper().strip(),
             kode_unit=form.kode_unit.data.upper().replace(" ", ""),
             pkey=form.pulau.data+"-"+form.kota.data+"-"+form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
             lokasi_kerja=form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else None,
@@ -1451,6 +1648,70 @@ def submit_data():
             diinput_oleh=session['logged_user']
         )
 
+        # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (nama)
+        loc_nama = form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else ""
+        
+        # 1. PT referred from nama (Unit)
+        loc_unit = db.session.execute(
+            db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+        ).scalars().first()
+        
+        pt_name = ""
+        kota_name = ""
+        pulau_name = ""
+        
+        if loc_unit:
+            # 2. Kota referred from PT
+            pt_obj = db.session.get(PT, loc_unit.reference)
+            if pt_obj:
+                pt_name = pt_obj.nama
+                # 3. Pulau referred from Kota
+                kota_obj = db.session.get(Kota, pt_obj.reference)
+                if kota_obj:
+                    kota_name = kota_obj.nama
+                    pulau_obj = db.session.get(Pulau, kota_obj.reference)
+                    if pulau_obj:
+                        pulau_name = pulau_obj.nama
+
+        if not pt_name:
+            pt_name = form.pt.data.upper().strip()
+        if not kota_name:
+            kota_name = form.kota.data.upper().strip()
+        if not pulau_name:
+            pulau_name = form.pulau.data.upper().strip()
+
+        # Find Unit for owner
+        owner_unit_name = form.unit.data.upper().strip()
+        owner_unit = db.session.execute(
+            db.select(Unit).where(db.func.upper(Unit.nama) == owner_unit_name.upper())
+        ).scalars().first()
+        owner_id = owner_unit.id if owner_unit else 1
+
+        # Resolve or create KodeUnit
+        cn_val = form.kode_unit.data.upper().replace(" ", "")
+        kode_unit_obj = db.session.execute(
+            db.select(KodeUnit).where(db.func.upper(KodeUnit.nama) == cn_val.upper())
+        ).scalars().first()
+        
+        if not kode_unit_obj:
+            kode_unit_obj = KodeUnit(
+                nama=cn_val,
+                reference=owner_id,
+                dilakukan_oleh=session['logged_user']
+            )
+            db.session.add(kode_unit_obj)
+            db.session.flush()
+
+        new_work_location_record = LokasiKerja(
+            kode_unit=form.kode_unit.data,
+            owner=form.unit.data,
+            nama=loc_nama if loc_nama else None,
+            pulau=pulau_name,
+            kota=kota_name,
+            pt=pt_name,
+            dilakukan_oleh=session['logged_user']
+        )
+
         uploaded_photos = request.files.getlist('unit_photos')
 
         if len(uploaded_photos) > 10:
@@ -1461,6 +1722,7 @@ def submit_data():
 
         try:
             db.session.add(new_record)
+            db.session.add(new_work_location_record)
 
             log_tambah = AuditLog(
                 pkey=new_record.pkey,
@@ -1743,31 +2005,56 @@ def get_tagihan(jenis, pkey):
     pt = request.args.get('pt', '').strip()
     unit = request.args.get('unit', '').strip()
 
-    stmt = db.select(DataEntry).where(db.func.upper(DataEntry.kode_unit) == pkey.upper())
+    stmt = db.select(LokasiKerja).where(db.func.upper(LokasiKerja.kode_unit) == pkey.upper())
     if pulau:
-        stmt = stmt.where(db.func.upper(DataEntry.pulau) == pulau.upper())
+        stmt = stmt.where(db.func.upper(LokasiKerja.pulau) == pulau.upper())
     if kota:
-        stmt = stmt.where(db.func.upper(DataEntry.kota) == kota.upper())
+        stmt = stmt.where(db.func.upper(LokasiKerja.kota) == kota.upper())
     if pt:
-        stmt = stmt.where(db.func.upper(DataEntry.pt) == pt.upper())
+        stmt = stmt.where(db.func.upper(LokasiKerja.pt) == pt.upper())
     if unit:
-        stmt = stmt.where(db.func.upper(DataEntry.unit) == unit.upper())
+        unit_upper = unit.upper()
+        possible_names = [unit_upper]
+        if "-" in unit_upper:
+            parts = unit_upper.split("-")
+            for i in range(1, len(parts)):
+                suffix = "-".join(parts[i:]).strip()
+                if suffix:
+                    possible_names.append(suffix)
+        if pt and unit_upper.startswith(pt.upper() + "-"):
+            prefix_len = len(pt) + 1
+            stripped_unit = unit_upper[prefix_len:].strip()
+            if stripped_unit not in possible_names:
+                possible_names.append(stripped_unit)
 
-    entry = db.session.execute(stmt).scalar_one_or_none()
+        stmt = stmt.where(
+            (db.func.upper(LokasiKerja.owner).in_(possible_names)) |
+            (db.func.upper(LokasiKerja.nama).in_(possible_names))
+        )
+
+    lok_record = db.session.execute(stmt).scalar_one_or_none()
     
-    if entry:
-        # Tentukan kolom mana yang diambil berdasarkan input 'Jenis'
-        if jenis.upper() == "STNK":
-            nilai_tagihan = float(entry.harus_dibayar_stnk) if entry.harus_dibayar_stnk else 0.0
-        elif jenis.upper() == "ASURANSI":
-            nilai_tagihan = float(entry.harus_dibayar_asuransi) if entry.harus_dibayar_asuransi else 0.0
-        else:
-            nilai_tagihan = 0.0
-            
-        return jsonify({
-            'success': True,
-            'total_tagihan': nilai_tagihan
-        })
+    if lok_record:
+        entry = db.session.execute(
+            db.select(DataEntry).where(
+                db.func.upper(DataEntry.kode_unit) == lok_record.kode_unit.upper(),
+                (db.func.upper(DataEntry.unit) == lok_record.owner.upper()) | (db.func.upper(DataEntry.unit) == lok_record.nama.upper())
+            )
+        ).scalar_one_or_none()
+        
+        if entry:
+            # Tentukan kolom mana yang diambil berdasarkan input 'Jenis'
+            if jenis.upper() == "STNK":
+                nilai_tagihan = float(entry.harus_dibayar_stnk) if entry.harus_dibayar_stnk else 0.0
+            elif jenis.upper() == "ASURANSI":
+                nilai_tagihan = float(entry.harus_dibayar_asuransi) if entry.harus_dibayar_asuransi else 0.0
+            else:
+                nilai_tagihan = 0.0
+                
+            return jsonify({
+                'success': True,
+                'total_tagihan': nilai_tagihan
+            })
     
     return jsonify({'success': False, 'message': 'PKEY tidak ditemukan'}), 404
 
@@ -1845,6 +2132,7 @@ def export_excel():
         kota_filter = request.args.get('kota', '').strip()
         pt_filter = request.args.get('pt', '').strip()
         unit_filter = request.args.get('unit', '').strip()
+        lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
         asuransi_filter = request.args.get('nama_asuransi', '').strip()
         merk_filter = request.args.get('merk', '').strip()
         kategori_filter = request.args.get('kategori', '').strip()
@@ -1891,6 +2179,8 @@ def export_excel():
             query = query.where(db.func.upper(DataEntry.kategori) == kategori_filter.upper())
         if model_filter:
             query = query.where(db.func.upper(DataEntry.eqp_model) == model_filter.upper())
+        if lokasi_kerja_filter:
+            query = query.where(db.func.upper(DataEntry.lokasi_kerja) == lokasi_kerja_filter.upper())
             
         # Apply group filtering
         if groupby and groupval and groupby != 'ALL':

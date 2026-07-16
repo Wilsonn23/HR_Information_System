@@ -101,7 +101,7 @@
                             style="background-color: #ffffff;">
                             <span class="badge rounded-circle me-2"
                                 style="background-color: #ef4444; width: 12px; height: 12px; display: inline-block; padding: 0;"></span>
-                            STNK Kadaluarsa &le; 30 Hari ({{ stnk_warning|length }} Unit)
+                            STNK Kadaluarsa &le; 60 Hari ({{ stnk_warning|length }} Unit)
                         </button>
                     </h2>
                     <div id="collapseStnkWarning" class="accordion-collapse collapse"
@@ -311,7 +311,7 @@
                             style="background-color: #ffffff;">
                             <span class="badge rounded-circle me-2"
                                 style="background-color: #ef4444; width: 12px; height: 12px; display: inline-block; padding: 0;"></span>
-                            Asuransi Kadaluarsa &le; 30 Hari ({{ asuransi_warning|length }} Unit)
+                            Asuransi Kadaluarsa &le; 60 Hari ({{ asuransi_warning|length }} Unit)
                         </button>
                     </h2>
                     <div id="collapseAsuWarning" class="accordion-collapse collapse" aria-labelledby="headingAsuWarning"
@@ -552,7 +552,7 @@
             none: '#3b82f6'      // Blue
         };
 
-        const labels = ['Kadaluarsa', 'Peringatan (<30 hari)', 'Hampir Habis (30-90 hari)', 'Aman (>90 hari)', 'Belum Ada Data'];
+        const labels = ['Kadaluarsa', 'Peringatan (<60 hari)', 'Hampir Habis (60-90 hari)', 'Aman (>90 hari)', 'Belum Ada Data'];
 
         // STNK Chart
         new Chart(document.getElementById('stnkChart'), {

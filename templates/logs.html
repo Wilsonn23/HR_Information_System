@@ -37,10 +37,10 @@
                             <td class="text-muted small">{{ log.tanggal_aksi.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                             <td>
                                 {% if log.aksi != 'HAPUS' %}
-                                <a href="/details/{{ log.fkey }}" class="fw-bold text-decoration-none text-primary">{{
-                                    log.fkey }}</a>
+                                <a href="/details/{{ log.pkey }}" class="fw-bold text-decoration-none text-primary">{{
+                                    log.cn }}</a>
                                 {% else %}
-                                <span class="fw-bold text-secondary">{{ log.fkey }}</span>
+                                <span class="fw-bold text-secondary">{{ log.pkey }}</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -58,7 +58,7 @@
                                 }}{% endif %}
                             </td>
                             <td class="text-success small fw-bold">{{ log.nilai_baru }}</td>
-                            <td><span class="badge bg-secondary px-2 py-1 fs-6">{{ log.diubah_oleh }}</span></td>
+                            <td><span class="badge bg-secondary px-2 py-1 fs-6">{{ log.dilakukan_oleh }}</span></td>
                         </tr>
                         {% else %}
                         <tr>
