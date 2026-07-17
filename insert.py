@@ -86,6 +86,66 @@ def normalize_columns(columns):
 	return mapping
 
 
+def clean_and_parse_date(val):
+	if pd.isna(val) or val is None:
+		return None
+	# If already a datetime or timestamp
+	if hasattr(val, 'strftime'):
+		try:
+			return val.strftime('%Y-%m-%d')
+		except Exception:
+			pass
+	
+	date_str = str(val).strip().upper()
+	if date_str in ('NAN', 'NONE', '', 'X', '-'):
+		return None
+
+	# YYYY-MM-DD pattern
+	if re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
+		return date_str
+
+	month_map = {
+		'JAN': '01', 'JANUARI': '01',
+		'FEB': '02', 'FEBRUARI': '02',
+		'MAR': '03', 'MARET': '03',
+		'APR': '04', 'APRIL': '04',
+		'MEI': '05', 'MAY': '05',
+		'JUN': '06', 'JUNI': '06',
+		'JUL': '07', 'JULI': '07',
+		'AGS': '08', 'AGT': '08', 'AGST': '08', 'AGUSTUS': '08', 'AUG': '08', 'AUGUST': '08',
+		'SEP': '09', 'SEPT': '09', 'SEPTEMBER': '09',
+		'OKT': '10', 'OKTOBER': '10', 'OCT': '10', 'OCTOBER': '10',
+		'NOV': '11', 'NOP': '11', 'NOPEMBER': '11', 'NOVEMBER': '11',
+		'DES': '12', 'DESEMBER': '12', 'DEC': '12', 'DECEMBER': '12'
+	}
+
+	m = re.match(r'^(\d{1,2})[\s\-/\.]*([A-Z]+)[\s\-/\.]*(\d{4})$', date_str)
+	if m:
+		day_str, mon_str, year_str = m.groups()
+		mon_num = month_map.get(mon_str)
+		if mon_num:
+			return f"{year_str}-{mon_num}-{day_str.zfill(2)}"
+
+	m = re.match(r'^(\d{4})[\s\-/\.]*([A-Z]+)[\s\-/\.]*(\d{1,2})$', date_str)
+	if m:
+		year_str, mon_str, day_str = m.groups()
+		mon_num = month_map.get(mon_str)
+		if mon_num:
+			return f"{year_str}-{mon_num}-{day_str.zfill(2)}"
+
+	m = re.match(r'^(\d{1,2})[\s\-/\.]+(\d{1,2})[\s\-/\.]+(\d{4})$', date_str)
+	if m:
+		day_str, mon_str, year_str = m.groups()
+		return f"{year_str}-{mon_str.zfill(2)}-{day_str.zfill(2)}"
+
+	m = re.match(r'^(\d{4})[\s\-/\.]+(\d{1,2})[\s\-/\.]+(\d{1,2})$', date_str)
+	if m:
+		year_str, mon_str, day_str = m.groups()
+		return f"{year_str}-{mon_str.zfill(2)}-{day_str.zfill(2)}"
+
+	return None
+
+
 def map_row_to_entry(row, colmap):
 	data = {}
 	for norm, dest in COMMON_MAP.items():
@@ -94,8 +154,10 @@ def map_row_to_entry(row, colmap):
 			# normalize NaN to None
 			if pd.isna(val):
 				val = None
-			# dates: convert to YYYY-MM-DD strings if pandas Timestamp
-			if hasattr(val, 'strftime'):
+			# dates: convert to YYYY-MM-DD strings
+			if dest in ('tanggal_berakhir_asuransi', 'tanggal_berakhir_stnk'):
+				val = clean_and_parse_date(val)
+			elif hasattr(val, 'strftime'):
 				try:
 					val = val.strftime('%Y-%m-%d')
 				except Exception:

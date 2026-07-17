@@ -33,6 +33,7 @@
                             {% endif %}
                             <th scope="col">Diinput Oleh</th>
                             <th scope="col">Tanggal Input</th>
+                            <th scope="col" class="text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -55,10 +56,18 @@
                                 {{ entry.tanggal_aksi.strftime('%Y-%m-%d') }}
                                 {% endif %}
                             </td>
+                            <td class="text-center">
+                                <form action="/master/delete/{{ type }}/{{ entry.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data master {{ type }} ini?')" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-danger py-1 px-2 d-inline-flex align-items-center gap-1 shadow-sm">
+                                        <span>🗑️</span> Hapus
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{% if has_reference %}5{% else %}4{% endif %}" class="text-center text-muted py-5">
+                            <td colspan="{% if has_reference %}6{% else %}5{% endif %}" class="text-center text-muted py-5">
                                 📁 Belum ada data yang tersimpan.
                             </td>
                         </tr>

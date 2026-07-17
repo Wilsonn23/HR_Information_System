@@ -409,10 +409,13 @@ def get_cn_choices_asset(selected_unit=None, selected_pt=None, selected_kota=Non
             (db.func.upper(DataEntry.unit).in_(possible_names)) |
             (db.func.upper(DataEntry.lokasi_kerja).in_(possible_names))
         )
-        # Exclude already mutated units (notes containing "Dimutasi ke")
+        # Exclude already mutated or deleted units (notes containing "Dimutasi ke" or "Dihapus")
         query = query.where(
             (DataEntry.notes == None) |
-            (~DataEntry.notes.ilike('%Dimutasi ke%'))
+            (
+                (~DataEntry.notes.ilike('%Dimutasi ke%')) &
+                (~DataEntry.notes.ilike('%Dihapus%'))
+            )
         )
         if selected_pt:
             query = query.where(db.func.upper(DataEntry.pt) == selected_pt.upper().strip())
@@ -1115,6 +1118,49 @@ def master_add(type):
         
     return redirect(request.referrer or url_for('master'))
 
+@app.route('/master/delete/<type>/<int:id>', methods=['POST'])
+def master_delete(type, id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('dashboard'))
+    
+    try:
+        if type == 'Pulau':
+            item = db.session.get(Pulau, id)
+        elif type == 'Kota':
+            item = db.session.get(Kota, id)
+        elif type == 'PT':
+            item = db.session.get(PT, id)
+        elif type == 'Unit PT':
+            item = db.session.get(Unit, id)
+        elif type == 'Asuransi':
+            item = db.session.get(NamaAsuransi, id)
+        elif type == 'Merk':
+            item = db.session.get(Merk, id)
+        elif type == 'Kategori':
+            item = db.session.get(Kategori, id)
+        else:
+            flash("⚠️ Tipe master data tidak dikenal!", "danger")
+            return redirect(request.referrer or url_for('master'))
+
+        if not item:
+            flash(f"⚠️ Data {type} tidak ditemukan!", "danger")
+            return redirect(request.referrer or url_for('master'))
+
+        nama_item = getattr(item, 'nama', '')
+        db.session.delete(item)
+        db.session.commit()
+        flash(f"✅ Data {type} '{nama_item}' berhasil dihapus!", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        # Check if it is an IntegrityError (foreign key violation)
+        if "foreign key" in str(e).lower() or "violates foreign key" in str(e).lower():
+            flash(f"⚠️ Gagal menghapus! Data {type} ini masih digunakan oleh data/referensi lain.", "danger")
+        else:
+            flash(f"⚠️ Terjadi kesalahan saat menghapus: {str(e)}", "danger")
+
+    return redirect(request.referrer or url_for('master'))
+
 @app.route('/master')
 def master():
     if(session['role'] != 'admin'):
@@ -1125,23 +1171,26 @@ def master():
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     check_and_update_expired_units()
-    query = text("SELECT COUNT(*) FROM data_entries WHERE (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE (notes IS NULL OR (UPPER(notes) NOT LIKE '%DIMUTASI KE%' AND UPPER(notes) NOT LIKE '%DIHAPUS%'))")
     total_peralatan=db.session.execute(query).scalar()
 
     # today = datetime.now().date()
     today = datetime.today().date()
     
-    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date AND (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date AND (notes IS NULL OR (UPPER(notes) NOT LIKE '%DIMUTASI KE%' AND UPPER(notes) NOT LIKE '%DIHAPUS%'))")
     jumlah_stnk_aktif=db.session.execute(query, {"today": today}).scalar()
 
-    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_asuransi::date AND (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_asuransi::date AND (notes IS NULL OR (UPPER(notes) NOT LIKE '%DIMUTASI KE%' AND UPPER(notes) NOT LIKE '%DIHAPUS%'))")
     jumlah_asuransi_aktif=db.session.execute(query, {"today": today}).scalar()
 
     hari_ini = today.strftime('%Y-%m-%d')
     dua_bulan_lagi = (today + timedelta(days=60)).strftime('%Y-%m-%d')
     tiga_bulan_lagi = (today + timedelta(days=90)).strftime('%Y-%m-%d')
 
-    not_mutated = (DataEntry.notes == None) | (~DataEntry.notes.ilike('%Dimutasi ke%'))
+    not_mutated = (DataEntry.notes == None) | (
+        (~DataEntry.notes.ilike('%Dimutasi ke%')) &
+        (~DataEntry.notes.ilike('%Dihapus%'))
+    )
 
     stnk_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk < hari_ini, not_mutated).all()
     stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= dua_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi, not_mutated).all()
@@ -1227,9 +1276,9 @@ def mutasi():
                 flash("Data unit asal tidak ditemukan.", "danger")
                 return redirect(url_for('mutasi'))
             
-            # Check if the unit is already mutated
-            if entry.notes and "dimutasi ke" in entry.notes.lower():
-                flash("Unit ini sudah pernah dimutasi dan tidak dapat dimutasi kembali.", "danger")
+            # Check if the unit is already mutated or deleted
+            if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+                flash("Unit ini sudah pernah dimutasi atau dihapus dan tidak dapat dimutasi kembali.", "danger")
                 return redirect(url_for('mutasi'))
             
             # Destination values
@@ -1260,14 +1309,16 @@ def mutasi():
                 old_kode_unit = entry.kode_unit
                 
                 if old_pkey != new_pkey:
-                    stmt = text("""
-                        INSERT INTO images (pkey, filename, file_data)
-                        SELECT :new_pkey, filename, file_data
-                        FROM images
-                        WHERE pkey = :old_pkey
-                    """)
-
-                    db.session.execute(stmt, {"new_pkey": new_pkey, "old_pkey": old_pkey})
+                    old_images = db.session.execute(
+                        db.select(UnitImage).where(UnitImage.pkey == old_pkey)
+                    ).scalars().all()
+                    for img in old_images:
+                        new_img = UnitImage(
+                            pkey=new_pkey,
+                            filename=img.filename,
+                            file_data=img.file_data
+                        )
+                        db.session.add(new_img)
                     
                 new_record = DataEntry(
                     pulau=dest_pulau,
@@ -1480,8 +1531,8 @@ def submit_extend():
     form.unit.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(form.pt.data, form.kota.data)
     
     if form.pt.data and form.unit.data:
-        choices = get_cn_choices(form.unit.data, form.pt.data, form.kota.data)
-        form.cn.choices = [('', '-- Pilih Kode Unit --')] + [(label, label) for val, label in choices]
+        choices = get_cn_choices_asset(form.unit.data, form.pt.data, form.kota.data)
+        form.cn.choices = [('', '-- Pilih Kode Unit --')] + [(val, label) for val, label in choices]
     else:
         form.cn.choices = [('', '-- Pilih Kode Unit --')]
 
@@ -1512,30 +1563,44 @@ def submit_extend():
         cn = form.cn.data
         jenis = form.jenis.data
 
-        lokasi_record = db.session.execute(
-            db.select(LokasiKerja).where(
-                db.func.upper(LokasiKerja.kode_unit) == cn.upper().strip(),
-                db.func.upper(LokasiKerja.pulau) == form.pulau.data.upper().strip(),
-                db.func.upper(LokasiKerja.kota) == form.kota.data.upper().strip(),
-                db.func.upper(LokasiKerja.pt) == form.pt.data.upper().strip(),
-                ((db.func.upper(LokasiKerja.owner) == form.unit.data.upper().strip()) |
-                 (db.func.upper(LokasiKerja.nama) == form.unit.data.upper().strip()))
-            )
-        ).scalar_one_or_none()
-
-        if not lokasi_record:
-            flash("Data lokasi kerja unit tidak ditemukan!", "danger")
-            return render_template('perpanjang.html', form=form)
-
+        cn_val = form.cn.data
         entry = db.session.execute(
             db.select(DataEntry).where(
-                db.func.upper(DataEntry.kode_unit) == lokasi_record.kode_unit.upper(),
-                (db.func.upper(DataEntry.unit) == lokasi_record.owner.upper()) | (db.func.upper(DataEntry.unit) == lokasi_record.nama.upper())
+                (db.func.upper(DataEntry.pkey) == cn_val.upper().strip()) |
+                (
+                    (db.func.upper(DataEntry.kode_unit) == cn_val.upper().strip()) &
+                    (db.func.upper(DataEntry.pulau) == form.pulau.data.upper().strip()) &
+                    (db.func.upper(DataEntry.kota) == form.kota.data.upper().strip()) &
+                    (db.func.upper(DataEntry.pt) == form.pt.data.upper().strip()) &
+                    (db.func.upper(DataEntry.unit) == form.unit.data.upper().strip())
+                )
             )
         ).scalar_one_or_none()
 
         if not entry:
             flash("Data master unit tidak ditemukan!", "danger")
+            return render_template('perpanjang.html', form=form)
+
+        lokasi_record = db.session.execute(
+            db.select(LokasiKerja).where(
+                db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper().strip(),
+                db.func.upper(LokasiKerja.pulau) == entry.pulau.upper().strip(),
+                db.func.upper(LokasiKerja.kota) == entry.kota.upper().strip(),
+                db.func.upper(LokasiKerja.pt) == entry.pt.upper().strip(),
+                db.func.upper(LokasiKerja.owner) == entry.unit.upper().strip()
+            )
+        ).scalars().first()
+
+        if not lokasi_record:
+            # Fallback to match by unit code
+            lokasi_record = db.session.execute(
+                db.select(LokasiKerja).where(
+                    db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper().strip()
+                )
+            ).scalars().first()
+
+        if not lokasi_record:
+            flash("Data lokasi kerja unit tidak ditemukan!", "danger")
             return render_template('perpanjang.html', form=form)
 
         pkey = entry.pkey
@@ -1763,8 +1828,8 @@ def edit(pkey):
         flash("Data unit tidak ditemukan.", "danger")
         return redirect(url_for('details'))
         
-    if entry.notes and "dimutasi ke" in entry.notes.lower():
-        flash("Unit ini sudah pernah dimutasi dan tidak dapat diedit kembali.", "danger")
+    if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+        flash("Unit ini sudah pernah dimutasi atau dihapus dan tidak dapat diedit kembali.", "danger")
         return redirect(url_for('details', pkey=pkey))
         
     form = DataForm(obj=entry)
@@ -1795,30 +1860,24 @@ def delete(pkey):
         flash("Data unit dengan PKEY tersebut tidak ditemukan.", "danger")
         return redirect(url_for('details'))
         
-    if entry.notes and "dimutasi ke" in entry.notes.lower():
-        flash("Unit ini sudah pernah dimutasi dan tidak dapat dihapus.", "danger")
+    if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+        flash("Unit ini sudah pernah dimutasi atau dihapus.", "danger")
         return redirect(url_for('details', pkey=pkey))
     
     try:
-        related_images = db.session.execute(
-            db.select(UnitImage).where(UnitImage.pkey == pkey)
-        ).scalars().all()
-        
-        for img in related_images:
-            db.session.delete(img)
+        entry.notes = "Dihapus"
 
         log_hapus = AuditLog(
             pkey=pkey,
             aksi="HAPUS",
-            kolom_diubah="Semua Data Unit",
+            kolom_diubah="Notes Unit (Status Keberadaan)",
             nilai_lama=f"PT: {entry.pt}, Plat: {entry.no_polisi}",
-            nilai_baru="Data unit permanen dihapus dari sistem",
+            nilai_baru="Status unit diubah menjadi Dihapus",
             dilakukan_oleh=session['logged_user']
         )
         db.session.add(log_hapus)
-
-        db.session.delete(entry)
         db.session.commit()
+        flash("✅ Data unit berhasil diubah statusnya menjadi Dihapus (tidak dapat dipilih kembali).", "success")
                 
     except Exception as e:
         db.session.rollback()
@@ -1839,8 +1898,8 @@ def update_data(pkey):
     if not entry:
         return redirect(url_for('details'))
         
-    if entry.notes and "dimutasi ke" in entry.notes.lower():
-        flash("Unit ini sudah pernah dimutasi dan tidak dapat diperbarui.", "danger")
+    if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+        flash("Unit ini sudah pernah dimutasi atau dihapus dan tidak dapat diperbarui.", "danger")
         return redirect(url_for('details', pkey=pkey))
         
     form = DataForm()

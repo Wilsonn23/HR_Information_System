@@ -24,7 +24,7 @@
                     <div class="row g-3">
 
                         <!-- Pulau Filter -->
-                        <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="col-lg-2.5 col-md-4 col-sm-6">
                             <label class="form-label fw-bold text-secondary small">🏝️ Pulau:</label>
                             <select name="pulau" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Pulau --</option>
@@ -35,7 +35,7 @@
                         </div>
 
                         <!-- Kota/Site Filter -->
-                        <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="col-lg-2.5 col-md-4 col-sm-6">
                             <label class="form-label fw-bold text-secondary small">🌆 Kota/Site:</label>
                             <select name="kota" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Kota --</option>
@@ -46,7 +46,7 @@
                         </div>
 
                         <!-- PT Filter -->
-                        <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="col-lg-2.5 col-md-4 col-sm-6">
                             <label class="form-label fw-bold text-secondary small">🏢 Nama PT:</label>
                             <select name="pt" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua PT --</option>
@@ -57,7 +57,7 @@
                         </div>
 
                         <!-- Unit PT Filter -->
-                        <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="col-lg-2.5 col-md-4 col-sm-6">
                             <label class="form-label fw-bold text-secondary small">🏬 Unit PT (Owner):</label>
                             <select name="unit" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Unit PT --</option>
@@ -68,7 +68,7 @@
                         </div>
 
                         <!-- Lokasi Kerja Filter -->
-                        <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="col-lg-2.5 col-md-4 col-sm-6">
                             <label class="form-label fw-bold text-secondary small">📍 Lokasi Kerja:</label>
                             <select name="lokasi_kerja" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Lokasi Kerja --</option>
@@ -76,12 +76,6 @@
                                     <option value="{{ opt }}" {% if selected_filters.lokasi_kerja == opt %}selected{% endif %}>{{ opt }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <a href="{{ url_for('export_excel', groupby=active_groupby, sortby=active_sortby, pulau=selected_filters.pulau, kota=selected_filters.kota, pt=selected_filters.pt, unit=selected_filters.unit, lokasi_kerja=selected_filters.lokasi_kerja, nama_asuransi=selected_filters.nama_asuransi, merk=selected_filters.merk, kategori=selected_filters.kategori, eqp_model=selected_filters.eqp_model) }}" class="btn btn-success fw-bold shadow-sm d-inline-flex align-items-center justify-content-center gap-1 px-3" style="height: 38px; font-size: 0.875rem;">
-                                <span>📊</span> Download Semua Excel
-                            </a>
                         </div>
                     </div>
                 </div>

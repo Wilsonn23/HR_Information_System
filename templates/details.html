@@ -47,7 +47,7 @@
                     
                     <div class="mb-1">
                         <label for="cn" class="form-label fw-semibold text-secondary small">Kode Unit (CN):</label>
-                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.kode_unit if entry else '' }}">
+                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pkey if entry else '' }}">
                             <option value="">-- Pilih Kode Unit --</option>
                         </select>
                     </div>
@@ -128,6 +128,10 @@
                         {% if entry.notes and 'dimutasi ke' in entry.notes.lower() %}
                         <div class="alert alert-warning text-center py-2 px-3 mb-0 fw-semibold small shadow-sm rounded-3">
                             <i class="fas fa-exclamation-triangle me-1"></i> Unit Sudah Dimutasi
+                        </div>
+                        {% elif entry.notes and 'dihapus' in entry.notes.lower() %}
+                        <div class="alert alert-danger text-center py-2 px-3 mb-0 fw-semibold small shadow-sm rounded-3">
+                            <i class="fas fa-trash-alt me-1"></i> Unit Sudah Dihapus
                         </div>
                         {% else %}
                         <a href="/edit/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
