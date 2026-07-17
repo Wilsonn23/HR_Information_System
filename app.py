@@ -216,8 +216,8 @@ class DataEntry(db.Model):
     lokasi_kerja: Mapped[str] = mapped_column(nullable=False)
 
     #Details
-    nama_asuransi: Mapped[str] = mapped_column(nullable=False)
-    no_polis: Mapped[str] = mapped_column(nullable=False)
+    nama_asuransi: Mapped[str] = mapped_column(nullable=True)
+    no_polis: Mapped[str] = mapped_column(nullable=True)
     no_polisi: Mapped[str] = mapped_column(nullable=False)
     merk: Mapped[str] = mapped_column(nullable=False)
     kategori: Mapped[str] = mapped_column(nullable=False)
@@ -383,6 +383,57 @@ def get_cn_choices(selected_unit=None, selected_pt=None, selected_kota=None):
         print(f"Error in get_cn_choices: {e}")
         return []
 
+def get_cn_choices_asset(selected_unit=None, selected_pt=None, selected_kota=None):
+    if not selected_unit:
+        return []
+    try:
+        unit_upper = selected_unit.upper().strip()
+        
+        # Build list of possible suffixes if unit_upper has hyphens
+        possible_names = [unit_upper]
+        if "-" in unit_upper:
+            parts = unit_upper.split("-")
+            for i in range(1, len(parts)):
+                suffix = "-".join(parts[i:]).strip()
+                if suffix:
+                    possible_names.append(suffix)
+        
+        # Strip PT prefix if present as another possible name just in case
+        if selected_pt and unit_upper.startswith(selected_pt.upper() + "-"):
+            prefix_len = len(selected_pt) + 1
+            stripped_unit = unit_upper[prefix_len:].strip()
+            if stripped_unit not in possible_names:
+                possible_names.append(stripped_unit)
+
+        query = db.select(DataEntry.kode_unit, DataEntry.pkey).where(
+            (db.func.upper(DataEntry.unit).in_(possible_names)) |
+            (db.func.upper(DataEntry.lokasi_kerja).in_(possible_names))
+        )
+        # Exclude already mutated units (notes containing "Dimutasi ke")
+        query = query.where(
+            (DataEntry.notes == None) |
+            (~DataEntry.notes.ilike('%Dimutasi ke%'))
+        )
+        if selected_pt:
+            query = query.where(db.func.upper(DataEntry.pt) == selected_pt.upper().strip())
+        if selected_kota:
+            query = query.where(db.func.upper(DataEntry.kota) == selected_kota.upper().strip())
+        
+        db_entries = db.session.execute(query.distinct()).all()
+        
+        choices = []
+        for row in db_entries:
+            cn_val = row[0]
+            pkey_val = row[1]
+            if cn_val:
+                cn_clean = cn_val.strip()
+                choices.append((pkey_val, cn_clean))
+        return sorted(choices, key=lambda x: x[1])
+    except Exception as e:
+        print(f"Error in get_cn_choices_asset: {e}")
+        return []
+
+
 def populate_form_choices(form):
     pulau_entries = db.session.execute(db.select(Pulau).order_by(Pulau.nama)).scalars().all()
     form.pulau.choices = [('', '-- Pilih Pulau --')] + [(p.nama, p.nama) for p in pulau_entries]
@@ -414,7 +465,7 @@ def populate_form_choices(form):
     form.lokasi_kerja.choices = [('', '-- Pilih Unit Lokasi Kerja --')] + sorted(lokasi_choices, key=lambda x: x[0])
 
     asuransi_entries = db.session.execute(db.select(NamaAsuransi).order_by(NamaAsuransi.nama)).scalars().all()
-    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --')] + [(a.nama, a.nama) for a in asuransi_entries]
+    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --'), ('-', '-')] + [(a.nama, a.nama) for a in asuransi_entries]
     
     merk_entries = db.session.execute(db.select(Merk).order_by(Merk.nama)).scalars().all()
     form.merk.choices = [('', '-- Pilih Merk --')] + [(m.nama, m.nama) for m in merk_entries]
@@ -447,7 +498,7 @@ def populate_mutasi_choices(form):
         form.unit_asal.choices = [('', '-- Pilih Unit PT --')]
         
     if form.unit_asal.data:
-        form.cn_asal.choices = [('', '-- Pilih Kode Unit --')] + get_cn_choices(form.unit_asal.data, form.pt_asal.data, form.kota_asal.data)
+        form.cn_asal.choices = [('', '-- Pilih Kode Unit --')] + get_cn_choices_asset(form.unit_asal.data, form.pt_asal.data, form.kota_asal.data)
     else:
         form.cn_asal.choices = [('', '-- Pilih Kode Unit --')]
 
@@ -514,8 +565,8 @@ class DataForm(FlaskForm):
     lokasi_kerja = SelectField('Lokasi Kerja', choices=[], validators=[DataRequired(message="Lokasi Kerja wajib diisi!")])
 
     #Details
-    nama_asuransi = SelectField('Nama Asuransi', choices=[], validators=[DataRequired(message="Nama Asuransi wajib diisi!")])
-    no_polis = StringField('No Polis', validators=[DataRequired(message="No. Polis wajib diisi!"), Length(max=20)])
+    nama_asuransi = SelectField('Nama Asuransi', choices=[], validators=[Optional()])
+    no_polis = StringField('No Polis', validators=[Optional()])
     no_polisi = StringField('No Polisi', validators=[DataRequired(message="No. Polisi wajib diisi!"), Length(max=20)])
     merk = SelectField('Merk', choices=[], validators=[DataRequired(message="Merk wajib diisi!")])
     kategori = SelectField('Kategori', choices=[], validators=[DataRequired(message="Kategori wajib diisi!")])
@@ -1074,31 +1125,33 @@ def master():
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     check_and_update_expired_units()
-    query = text("SELECT COUNT(*) FROM data_entries")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
     total_peralatan=db.session.execute(query).scalar()
 
     # today = datetime.now().date()
     today = datetime.today().date()
     
-    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_stnk::date AND (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
     jumlah_stnk_aktif=db.session.execute(query, {"today": today}).scalar()
 
-    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_asuransi::date")
+    query = text("SELECT COUNT(*) FROM data_entries WHERE :today <= tanggal_berakhir_asuransi::date AND (notes IS NULL OR UPPER(notes) NOT LIKE '%DIMUTASI KE%')")
     jumlah_asuransi_aktif=db.session.execute(query, {"today": today}).scalar()
 
     hari_ini = today.strftime('%Y-%m-%d')
     dua_bulan_lagi = (today + timedelta(days=60)).strftime('%Y-%m-%d')
     tiga_bulan_lagi = (today + timedelta(days=90)).strftime('%Y-%m-%d')
 
-    stnk_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk < hari_ini).all()
-    stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= dua_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi).all()
-    stnk_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= hari_ini, DataEntry.tanggal_berakhir_stnk <= dua_bulan_lagi).all()
-    stnk_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_stnk == None)).all()
+    not_mutated = (DataEntry.notes == None) | (~DataEntry.notes.ilike('%Dimutasi ke%'))
+
+    stnk_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk < hari_ini, not_mutated).all()
+    stnk_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= dua_bulan_lagi, DataEntry.tanggal_berakhir_stnk <= tiga_bulan_lagi, not_mutated).all()
+    stnk_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_stnk >= hari_ini, DataEntry.tanggal_berakhir_stnk <= dua_bulan_lagi, not_mutated).all()
+    stnk_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_stnk == None), not_mutated).all()
     
-    asuransi_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi < hari_ini).all()
-    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= dua_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi).all()
-    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= dua_bulan_lagi).all()
-    asuransi_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_asuransi == None)).all()
+    asuransi_expired = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi < hari_ini, not_mutated).all()
+    asuransi_notice = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= dua_bulan_lagi, DataEntry.tanggal_berakhir_asuransi <= tiga_bulan_lagi, not_mutated).all()
+    asuransi_warning = DataEntry.query.filter(DataEntry.tanggal_berakhir_asuransi >= hari_ini, DataEntry.tanggal_berakhir_asuransi <= dua_bulan_lagi, not_mutated).all()
+    asuransi_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_asuransi == None), not_mutated).all()
 
     return render_template(
         'dashboard.html', 
@@ -1160,12 +1213,23 @@ def mutasi():
             entry = db.session.execute(
                 db.select(DataEntry).where(
                     (db.func.upper(DataEntry.pkey) == pkey_asal.upper().strip()) |
-                    (db.func.upper(DataEntry.kode_unit) == pkey_asal.upper().strip())
+                    (
+                        (db.func.upper(DataEntry.kode_unit) == pkey_asal.upper().strip()) &
+                        (db.func.upper(DataEntry.pulau) == form.pulau_asal.data.upper().strip()) &
+                        (db.func.upper(DataEntry.kota) == form.kota_asal.data.upper().strip()) &
+                        (db.func.upper(DataEntry.pt) == form.pt_asal.data.upper().strip()) &
+                        (db.func.upper(DataEntry.unit) == form.unit_asal.data.upper().strip())
+                    )
                 )
             ).scalar_one_or_none()
             
             if not entry:
                 flash("Data unit asal tidak ditemukan.", "danger")
+                return redirect(url_for('mutasi'))
+            
+            # Check if the unit is already mutated
+            if entry.notes and "dimutasi ke" in entry.notes.lower():
+                flash("Unit ini sudah pernah dimutasi dan tidak dapat dimutasi kembali.", "danger")
                 return redirect(url_for('mutasi'))
             
             # Destination values
@@ -1189,56 +1253,87 @@ def mutasi():
             
             try:
                 old_pkey = entry.pkey
-                old_location_str = f"Pulau: {entry.pulau}, Kota: {entry.kota}, PT: {entry.pt}, Unit: {entry.unit}, Lokasi Kerja: {entry.lokasi_kerja}, CN: {entry.kode_unit}"
-                new_location_str = f"Pulau: {dest_pulau}, Kota: {dest_kota}, PT: {dest_pt}, Unit: {dest_unit_combined}, Lokasi Kerja: {dest_lokasi}, CN: {dest_cn}"
-                
-                # Log columns changed
-                changes = []
-                if entry.pulau != dest_pulau:
-                    changes.append(f"Pulau: {entry.pulau} -> {dest_pulau}")
-                if entry.kota != dest_kota:
-                    changes.append(f"Kota: {entry.kota} -> {dest_kota}")
-                if entry.pt != dest_pt:
-                    changes.append(f"PT: {entry.pt} -> {dest_pt}")
-                if entry.unit != dest_unit_combined:
-                    changes.append(f"Unit: {entry.unit} -> {dest_unit_combined}")
-                if entry.lokasi_kerja != dest_lokasi:
-                    changes.append(f"Lokasi Kerja: {entry.lokasi_kerja} -> {dest_lokasi}")
-                if entry.kode_unit != dest_cn:
-                    changes.append(f"Kode Unit: {entry.kode_unit} -> {dest_cn}")
+                old_pulau = entry.pulau
+                old_kota = entry.kota
+                old_pt = entry.pt
+                old_unit = entry.unit
+                old_kode_unit = entry.kode_unit
                 
                 if old_pkey != new_pkey:
-                    # 1. Update related images
-                    db.session.execute(
-                        text("UPDATE images SET pkey = :new_pkey WHERE pkey = :old_pkey"),
-                        {"new_pkey": new_pkey, "old_pkey": old_pkey}
-                    )
-                    # 2. Update related report entries
-                    db.session.execute(
-                        text("UPDATE report_entries SET pkey = :new_pkey WHERE pkey = :old_pkey"),
-                        {"new_pkey": new_pkey, "old_pkey": old_pkey}
-                    )
-                    # 3. Update the entry's pkey itself
-                    entry.pkey = new_pkey
+                    stmt = text("""
+                        INSERT INTO images (pkey, filename, file_data)
+                        SELECT :new_pkey, filename, file_data
+                        FROM images
+                        WHERE pkey = :old_pkey
+                    """)
+
+                    db.session.execute(stmt, {"new_pkey": new_pkey, "old_pkey": old_pkey})
                     
-                # Update other values
-                entry.pulau = dest_pulau
-                entry.kota = dest_kota
-                entry.pt = dest_pt
-                entry.unit = dest_unit_combined
-                entry.lokasi_kerja = dest_lokasi
-                entry.kode_unit = dest_cn
+                new_record = DataEntry(
+                    pulau=dest_pulau,
+                    kota=dest_kota,
+                    pt=dest_pt,
+                    unit=dest_unit_combined,
+                    kode_unit=dest_cn,
+                    pkey=new_pkey,
+                    lokasi_kerja=dest_lokasi,
+
+                    nama_asuransi=entry.nama_asuransi.upper().strip(),
+                    no_polis=entry.no_polis.upper().strip() if entry.no_polis else None,
+                    no_polisi=entry.no_polisi.upper().replace(" ", "") if entry.no_polisi else None,
+                    merk=entry.merk.upper().strip() if entry.merk else None,
+                    kategori=entry.kategori.upper() if entry.kategori else None,
+                    eqp_model=entry.eqp_model.upper().strip() if entry.eqp_model else None,
+                    sn_equipment=entry.sn_equipment,
+                    sn_engine=entry.sn_engine,
+                    status_stnk=entry.status_stnk,
+                    status_asuransi=entry.status_asuransi,
+                    tanggal_berakhir_stnk=entry.tanggal_berakhir_stnk if entry.tanggal_berakhir_stnk else None,
+                    tanggal_berakhir_asuransi=entry.tanggal_berakhir_asuransi if entry.tanggal_berakhir_asuransi else None,
+                    year=entry.year,
+                    notes=entry.notes,
+                    tanggal_input=datetime.today().date(),
+                    diinput_oleh=session['logged_user']
+                )
+                db.session.add(new_record)
+
+                # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (dest_lokasi)
+                loc_unit = db.session.execute(
+                    db.select(Unit).where(db.func.upper(Unit.nama) == dest_lokasi.upper().strip())
+                ).scalars().first()
                 
-                # 3.5. Sync / update the LokasiKerja master record for this unit
+                loc_pt = ""
+                loc_kota = ""
+                loc_pulau = ""
+                
+                if loc_unit:
+                    pt_obj = db.session.get(PT, loc_unit.reference)
+                    if pt_obj:
+                        loc_pt = pt_obj.nama
+                        kota_obj = db.session.get(Kota, pt_obj.reference)
+                        if kota_obj:
+                            loc_kota = kota_obj.nama
+                            pulau_obj = db.session.get(Pulau, kota_obj.reference)
+                            if pulau_obj:
+                                loc_pulau = pulau_obj.nama
+
+                if not loc_pt:
+                    loc_pt = dest_pt
+                if not loc_kota:
+                    loc_kota = dest_kota
+                if not loc_pulau:
+                    loc_pulau = dest_pulau
+
                 lok_rec = db.session.execute(
                     db.select(LokasiKerja).where(
-                        db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper()
+                        db.func.upper(LokasiKerja.kode_unit) == old_kode_unit.upper().strip(),
+                        db.func.upper(LokasiKerja.owner) == old_unit.upper().strip()
                     )
-                ).scalar_one_or_none()
+                ).scalars().first()
                 if lok_rec:
-                    lok_rec.pulau = dest_pulau
-                    lok_rec.kota = dest_kota
-                    lok_rec.pt = dest_pt
+                    lok_rec.pulau = loc_pulau
+                    lok_rec.kota = loc_kota
+                    lok_rec.pt = loc_pt
                     lok_rec.owner = dest_unit
                     lok_rec.nama = dest_lokasi
                     lok_rec.kode_unit = dest_cn
@@ -1249,25 +1344,26 @@ def mutasi():
                         kode_unit=dest_cn,
                         owner=dest_unit,
                         nama=dest_lokasi,
-                        pt=dest_pt,
-                        kota=dest_kota,
-                        pulau=dest_pulau,
+                        pt=loc_pt,
+                        kota=loc_kota,
+                        pulau=loc_pulau,
                         dilakukan_oleh=session.get('logged_user', 'System'),
                         tanggal_aksi=datetime.today()
                     )
                     db.session.add(new_lok)
                 
-                # 4. Create Audit Log
                 audit_log = AuditLog(
                     pkey=new_pkey,
                     aksi="EDIT",
-                    kolom_diubah=", ".join(changes) if changes else "Lokasi Kerja / Kode Unit",
-                    nilai_lama=old_location_str,
-                    nilai_baru=new_location_str,
+                    kolom_diubah="Mutasi Unit",
+                    nilai_lama=old_pkey,
+                    nilai_baru=new_pkey,
                     dilakukan_oleh=session['logged_user']
                 )
                 db.session.add(audit_log)
-                
+
+                entry.notes = f"Dimutasi ke {dest_unit_combined.upper().strip()} ({dest_cn})"
+
                 db.session.commit()
                 flash(f"Sukses melakukan mutasi unit {dest_cn} ke lokasi baru.", "success")
                 return redirect(url_for('details', pkey=new_pkey))
@@ -1507,6 +1603,12 @@ def submit_data():
     form = DataForm()
     populate_form_choices(form)
 
+    if request.method == 'POST' and request.form.get('status_asuransi') == 'OFF':
+        if not form.nama_asuransi.data:
+            form.nama_asuransi.data = '-'
+        if not form.no_polis.data:
+            form.no_polis.data = '-'
+
     if form.validate_on_submit():
         new_record = DataEntry(
             pulau=form.pulau.data,
@@ -1517,7 +1619,7 @@ def submit_data():
             pkey=form.pulau.data+"-"+form.kota.data+"-"+form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
             lokasi_kerja=form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else None,
 
-            nama_asuransi=form.nama_asuransi.data.upper().strip(),
+            nama_asuransi=form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None,
             no_polis=form.no_polis.data.upper().strip() if form.no_polis.data else None,
             no_polisi=form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None,
             merk=form.merk.data.upper().strip() if form.merk.data else None,
@@ -1661,6 +1763,10 @@ def edit(pkey):
         flash("Data unit tidak ditemukan.", "danger")
         return redirect(url_for('details'))
         
+    if entry.notes and "dimutasi ke" in entry.notes.lower():
+        flash("Unit ini sudah pernah dimutasi dan tidak dapat diedit kembali.", "danger")
+        return redirect(url_for('details', pkey=pkey))
+        
     form = DataForm(obj=entry)
     populate_form_choices(form)
 
@@ -1688,6 +1794,10 @@ def delete(pkey):
     if not entry:
         flash("Data unit dengan PKEY tersebut tidak ditemukan.", "danger")
         return redirect(url_for('details'))
+        
+    if entry.notes and "dimutasi ke" in entry.notes.lower():
+        flash("Unit ini sudah pernah dimutasi dan tidak dapat dihapus.", "danger")
+        return redirect(url_for('details', pkey=pkey))
     
     try:
         related_images = db.session.execute(
@@ -1729,6 +1839,10 @@ def update_data(pkey):
     if not entry:
         return redirect(url_for('details'))
         
+    if entry.notes and "dimutasi ke" in entry.notes.lower():
+        flash("Unit ini sudah pernah dimutasi dan tidak dapat diperbarui.", "danger")
+        return redirect(url_for('details', pkey=pkey))
+        
     form = DataForm()
     form.pulau.data = entry.pulau
     form.kota.data = entry.kota
@@ -1740,6 +1854,14 @@ def update_data(pkey):
     form.status_asuransi.data=entry.status_asuransi
     form.tanggal_berakhir_stnk.data=entry.tanggal_berakhir_stnk
     form.tanggal_berakhir_asuransi.data=entry.tanggal_berakhir_asuransi
+
+    if request.method == 'POST' and request.form.get('status_asuransi') == 'OFF':
+        form.nama_asuransi.validators = [Optional()]
+        form.no_polis.validators = [Optional()]
+        if not form.nama_asuransi.data:
+            form.nama_asuransi.data = '-'
+        if not form.no_polis.data:
+            form.no_polis.data = '-'
 
     if form.validate_on_submit():
         # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (nama)
@@ -1811,9 +1933,13 @@ def update_data(pkey):
         # Sync / update the LokasiKerja master record for this unit
         lok_rec = db.session.execute(
             db.select(LokasiKerja).where(
-                db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper()
+                db.func.upper(LokasiKerja.kode_unit) == entry.kode_unit.upper(),
+                db.func.upper(LokasiKerja.pulau) == entry.pulau.upper().strip(),
+                db.func.upper(LokasiKerja.kota) == entry.kota.upper().strip(),
+                db.func.upper(LokasiKerja.pt) == entry.pt.upper().strip(),
+                db.func.upper(LokasiKerja.owner) == entry.unit.upper().strip()
             )
-        ).scalar_one_or_none()
+        ).scalars().first()
         if lok_rec:
             lok_rec.pulau = pulau_name
             lok_rec.kota = kota_name
@@ -1948,7 +2074,11 @@ def get_unit_api(pt):
 def get_cn_api(unit):
     pt = request.args.get('pt')
     kota = request.args.get('kota')
-    choices = get_cn_choices(unit, pt, kota)
+    source = request.args.get('source')
+    if source == 'asset':
+        choices = get_cn_choices_asset(unit, pt, kota)
+    else:
+        choices = get_cn_choices(unit, pt, kota)
     return jsonify([{'value': val, 'label': label} for val, label in choices])
 
 @app.route('/get_image/<int:image_id>')

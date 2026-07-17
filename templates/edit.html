@@ -75,7 +75,7 @@
         <h5 class="text-secondary fw-bold border-bottom pb-2 mt-4 mb-3">
             <i class="fas fa-file-signature me-1"></i> Asuransi & Surat-Surat
         </h5>
-        <div class="row g-3 mb-3">
+        <div id="asuransi-info-row" class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
                 {{ form.nama_asuransi(class="form-select uppercase-input") }}
@@ -239,6 +239,46 @@
                 updateKotaChoices();
             }
         }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const statusStnk = document.getElementById("status-stnk-select");
+        const statusAsuransi = document.getElementById("status-asuransi-select");
+
+        const tanggalRowWrapper = document.getElementById("tanggal-row-wrapper");
+        const stnkDateRow = document.getElementById("stnk-date-row");
+        const asuransiDateRow = document.getElementById("asuransi-date-row");
+        const asuransiInfoRow = document.getElementById("asuransi-info-row");
+
+        function updateFields() {
+            const isStnkOn = statusStnk.value === "ON";
+            const isAsuransiOn = statusAsuransi.value === "ON";
+
+            if (isStnkOn || isAsuransiOn) {
+                tanggalRowWrapper.style.display = "flex";
+            } else {
+                tanggalRowWrapper.style.display = "none";
+            }
+
+            if (isStnkOn) {
+                stnkDateRow.classList.remove("invisible");
+            } else {
+                stnkDateRow.classList.add("invisible");
+            }
+
+            if (isAsuransiOn) {
+                asuransiDateRow.classList.remove("invisible");
+                asuransiInfoRow.style.display = "flex";
+            } else {
+                asuransiDateRow.classList.add("invisible");
+                asuransiInfoRow.style.display = "none";
+            }
+        }
+
+        statusStnk.addEventListener("change", updateFields);
+        statusAsuransi.addEventListener("change", updateFields);
+
+        updateFields();
     });
 
     document.querySelectorAll('.hanya-huruf').forEach(input => {

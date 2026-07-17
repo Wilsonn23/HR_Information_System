@@ -92,11 +92,11 @@
             <tr>
                 <td class="text-center text-muted small fw-bold">{{ idx }}</td>
                 <td><strong>{{ entry.kode_unit }}</strong></td>
+                <td>{{ entry.owner or '-' }}</td>
                 <td>{{ entry.nama or '-' }}</td>
                 <td>{{ entry.pulau or '-' }}</td>
                 <td>{{ entry.kota or '-' }}</td>
                 <td>{{ entry.pt or '-' }}</td>
-                <td>{{ entry.owner or '-' }}</td>
                 <td><span class="badge bg-secondary px-2 py-1">{{ entry.dilakukan_oleh }}</span></td>
                 <td class="text-muted small">{{ entry.tanggal_input or '-' }}</td>
             </tr>
@@ -129,11 +129,11 @@
                                 <tr class="align-middle">
                                     <th scope="col" class="text-center">No.</th>
                                     <th scope="col">Kode Unit</th>
+                                    <th scope="col">Owner</th>
                                     <th scope="col">Lokasi Kerja</th>
                                     <th scope="col">Pulau</th>
                                     <th scope="col">Kota</th>
                                     <th scope="col">Nama PT</th>
-                                    <th scope="col">Owner</th>
                                     <th scope="col">Diinput Oleh</th>
                                     <th scope="col">Tanggal Input</th>
                                 </tr>
@@ -175,11 +175,11 @@
                                     <tr class="align-middle">
                                         <td><strong>{{ loop.index }}</strong></td>
                                         <td>{{ entry.kode_unit or '-' }}</td>
+                                        <td>{{ entry.owner or '-' }}</td>
                                         <td>{{ entry.nama or '-' }}</td>
                                         <td>{{ entry.pulau or '-' }}</td>
                                         <td>{{ entry.kota or '-' }}</td>
                                         <td>{{ entry.pt or '-' }}</td>
-                                        <td>{{ entry.owner or '-' }}</td>
                                         <td>{{ entry.dilakukan_oleh or '-'}}</td>
                                         <td>{{ entry.tanggal_aksi or '-'}}</td>
                                     </tr>

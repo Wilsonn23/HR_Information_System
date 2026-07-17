@@ -53,6 +53,7 @@
                             <th>No Polis</th>
                             <th>Jumlah Dibayar</th>
                             <th>Tanggal Bayar</th>
+                            <th>Tanggal Berakhir Baru</th>
                             <th>Diinput Oleh</th>
                             <th>Tanggal Input</th>
                         </tr>
@@ -68,6 +69,7 @@
                             <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
                                 ",").replace("X", ".") }}</td>
                             <td>{{ report_entry.tanggal_bayar }}</td>
+                            <td>{{ report_entry.tanggal_berakhir_baru }}</td>
                             <td>{{ report_entry.diinput_oleh }}</td>
                             <td>{{ report_entry.tanggal_input }}</td>
                         </tr>
@@ -112,6 +114,7 @@
                                 <th>No Polis</th>
                                 <th>Jumlah Dibayar</th>
                                 <th>Tanggal Bayar</th>
+                                <th>Tanggal Berakhir Baru</th>
                                 <th>Diinput Oleh</th>
                                 <th>Tanggal Input</th>
                             </tr>
@@ -127,6 +130,7 @@
                                 <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
                                     ",").replace("X", ".") }}</td>
                                 <td>{{ report_entry.tanggal_bayar }}</td>
+                                <td>{{ report_entry.tanggal_berakhir_baru }}</td>
                                 <td>{{ report_entry.diinput_oleh }}</td>
                                 <td>{{ report_entry.tanggal_input }}</td>
                             </tr>

@@ -83,16 +83,6 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
-                {{ form.nama_asuransi(class="form-select uppercase-input") }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi</label>
-                {{ form.no_polis(class="form-control huruf-angka uppercase-input", placeholder="12AB3456") }}
-            </div>
-        </div>
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">No. Polisi</label>
                 {{ form.no_polisi(class="form-control huruf-angka uppercase-input", placeholder="X1234XXX") }}
             </div>
@@ -123,6 +113,16 @@
                     <label class="form-label fw-semibold text-success">Tanggal Berakhir Asuransi</label>
                     {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
                 </div>
+            </div>
+        </div>
+        <div id="asuransi-info-row" class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
+                {{ form.nama_asuransi(class="form-select uppercase-input") }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi</label>
+                {{ form.no_polis(class="form-control huruf-angka uppercase-input", placeholder="12AB3456") }}
             </div>
         </div>
         
@@ -172,69 +172,36 @@
     });
 
     document.addEventListener("DOMContentLoaded", function () {
-        const statusStnkSelect = document.getElementById("status-stnk-select");
-        const stnkDateRow = document.getElementById("stnk-date-row");
-
-        function toggleStnkDate() {
-            const stnkDateElement = document.getElementById("stnk-date-row");
-            if (statusStnkSelect.value === "ON") {
-                stnkDateElement.classList.remove("invisible");
-            } else {
-                stnkDateElement.classList.add("invisible");
-            }
-        }
-
-        statusStnkSelect.addEventListener("change", toggleStnkDate);
-
-        toggleStnkDate();
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
-        const statusAsuransiSelect = document.getElementById("status-asuransi-select");
-        const asuransiDateRow = document.getElementById("asuransi-date-row");
-
-        function toggleAsuransiDate() {
-            const asuransiDateElement = document.getElementById("asuransi-date-row");
-            if (statusAsuransiSelect.value === "ON") {
-                asuransiDateRow.classList.remove("invisible");
-            } else {
-                asuransiDateRow.classList.add("invisible");
-            }
-        }
-
-        statusAsuransiSelect.addEventListener("change", toggleAsuransiDate);
-
-        toggleAsuransiDate();
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
         const statusStnk = document.getElementById("status-stnk-select");
         const statusAsuransi = document.getElementById("status-asuransi-select");
 
         const tanggalRowWrapper = document.getElementById("tanggal-row-wrapper");
-        const stnkDateCol = document.getElementById("stnk-date-col");
-        const asuransiDateCol = document.getElementById("asuransi-date-col");
+        const stnkDateRow = document.getElementById("stnk-date-row");
+        const asuransiDateRow = document.getElementById("asuransi-date-row");
+        const asuransiInfoRow = document.getElementById("asuransi-info-row");
 
         function updateFields() {
             const isStnkOn = statusStnk.value === "ON";
             const isAsuransiOn = statusAsuransi.value === "ON";
 
             if (isStnkOn || isAsuransiOn) {
-                tanggalRowWrapper.style.display = "flex"; // Munculkan baris
+                tanggalRowWrapper.style.display = "flex";
             } else {
-                tanggalRowWrapper.style.display = "none";  // Sembunyikan baris & naikkan Year/Remaks
+                tanggalRowWrapper.style.display = "none";
             }
 
             if (isStnkOn) {
-                stnkDateCol.classList.remove("invisible");
+                stnkDateRow.classList.remove("invisible");
             } else {
-                stnkDateCol.classList.add("invisible");
+                stnkDateRow.classList.add("invisible");
             }
 
             if (isAsuransiOn) {
-                asuransiDateCol.classList.remove("invisible");
+                asuransiDateRow.classList.remove("invisible");
+                asuransiInfoRow.style.display = "flex";
             } else {
-                asuransiDateCol.classList.add("invisible");
+                asuransiDateRow.classList.add("invisible");
+                asuransiInfoRow.style.display = "none";
             }
         }
 
