@@ -20,15 +20,15 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         {% if session.get('role') == 'admin' %}
-                            <li class="nav-item"><a class="nav-link {% if active_page=='master' %}active{% endif %}" href="/master">Master</a></li>
-                            <li class="nav-item"><a class="nav-link {% if active_page=='logs' %}active{% endif %}" href="/logs">Logs</a></li>
-                            <li class="nav-item"><a class="nav-link {% if active_page=='users' %}active{% endif %}" href="/users">Users</a></li>
+                            <li class="nav-item"><a class="nav-link {% if active_page=='master' %}active{% endif %}" href="/master"><i class="fas fa-database me-1"></i>Master</a></li>
+                            <li class="nav-item"><a class="nav-link {% if active_page=='logs' %}active{% endif %}" href="/logs"><i class="fas fa-history me-1"></i>Logs</a></li>
+                            <li class="nav-item"><a class="nav-link {% if active_page=='users' %}active{% endif %}" href="/users"><i class="fas fa-user-cog me-1"></i>Users</a></li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link {% if active_page=='dashboard' %}active{% endif %}" href="/dashboard">Dashboard</a></li>
-                        <li class="nav-item"><a class="nav-link {% if active_page=='transaksi' %}active{% endif %}" href="/transaksi">Transaksi</a></li>
-                        <li class="nav-item"><a class="nav-link {% if active_page=='details' %}active{% endif %}" href="/details">Details</a></li>
-                        <li class="nav-item"><a class="nav-link {% if active_page=='report' %}active{% endif %}" href="/report">Report</a></li>
-                        <li class="nav-item"><a class="nav-link {% if active_page=='logout' %}active{% endif %}" href="/logout">Logout</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='dashboard' %}active{% endif %}" href="/dashboard"><i class="fas fa-home me-1"></i>Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='transaksi' %}active{% endif %}" href="/transaksi"><i class="fas fa-exchange-alt me-1"></i>Transaksi</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='details' %}active{% endif %}" href="/details"><i class="fas fa-info-circle me-1"></i>Details</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='report' %}active{% endif %}" href="/report"><i class="fas fa-chart-bar me-1"></i>Report</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('select_module') }}"><i class="fas fa-cubes me-1"></i>Pilih Modul</a></li>
                     </ul>
                 </div>
             </div>

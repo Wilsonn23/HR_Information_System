@@ -1,16 +1,14 @@
 from app import db, app
 
 with app.app_context():
-    # 1. Get a list of all table objects from the metadata
-    all_tables = db.metadata.tables
-    
-    # 2. Filter out the 'users' table so it doesn't get dropped
-    excluded = {"users", "pulau", "kota", "pt", "unit", "nama_asuransi", "merk", "kategori", "kode_unit"}
+    # 1. Filter out the master tables so they don't get dropped
+    excluded = {"users", "pulau", "kota", "pt", "unit", "nama_asuransi", "merk", "kategori"}
 
-    tables_to_drop = [table for name, table in all_tables.items() if name not in excluded]
+    # 2. Get sorted list of tables to drop (respecting foreign key dependencies)
+    sorted_tables = [table for table in db.metadata.sorted_tables if table.name not in excluded]
 
-    # 3. Drop only the filtered tables
-    db.metadata.drop_all(bind=db.engine, tables=tables_to_drop)
+    # 3. Drop tables in reverse dependency order (child tables first)
+    db.metadata.drop_all(bind=db.engine, tables=reversed(sorted_tables))
     
-    # 4. Recreate only the tables that were dropped (excluding 'users' since it still exists)
-    db.metadata.create_all(bind=db.engine, tables=tables_to_drop)
+    # 4. Recreate tables in dependency order (parent tables first)
+    db.metadata.create_all(bind=db.engine, tables=sorted_tables)

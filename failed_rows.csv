@@ -1,7 +1,0 @@
-No.,Section,Pulau,Kota,PT,UNIT,LOKASI KERJA,CN,No Polisi,Merk,Kategori,Eqp_Model,SN_Equipment,SN_Engine,Year,Status_STNK,Status_Asuransi,Remaks,START_2025,AKHIR_2025,NAMA_2025,NO_POLIS_2025,START_2026,AKHIR_2026,NAMA_2026,NO_POLIS_2026,KETERANGAN_STNK,STNK,CATATAN,Unnamed: 29,Unnamed: 30,Unnamed: 31,Unnamed: 32,Unnamed: 33,Unnamed: 34,Unnamed: 35,Unnamed: 36,Unnamed: 37,CN.1,CN_MASTER,__error,__pkey,__row
-247,DT,Papua,Palembang,BDP,BDP-MRK,BDP-MRK,DT42,PX 9011 XX,MITSUBISHI,DUMP TRUCK,FE84SHDXN(4X2)M/T,MEMFE84ELRK002843 (MHMFE84ELRK002843),4V21-U40252,2024,,,Balaraja,2024-07-24,2027-07-24,RAMAYANA/MTF,15020324000495,,,RAMAYANA/MTF,,ADA,2026-07-07,,,,,,,,,,,DT42,DT 42 BDP,"IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint ""kota_nama_key""
-DETAIL:  Key (nama)=(PALEMBANG) already exists.
-
-[SQL: INSERT INTO kota (nama, reference, dilakukan_oleh, tanggal_aksi) VALUES (%(nama)s, %(reference)s, %(dilakukan_oleh)s, %(tanggal_aksi)s) RETURNING kota.id]
-[parameters: {'nama': 'PALEMBANG', 'reference': 4, 'dilakukan_oleh': 'Import Script', 'tanggal_aksi': datetime.datetime(2026, 7, 17, 14, 1, 59, 784660)}]
-(Background on this error at: https://sqlalche.me/e/20/gkpj)",Papua-Palembang-BDP-MRK-DT42,187

@@ -63,10 +63,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku STNK</th>
                                         </tr>
                                     </thead>
@@ -74,10 +74,10 @@
                                         {% for unit in stnk_expired %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #212529;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
                                         </tr>
                                         {% else %}
@@ -113,10 +113,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku STNK</th>
                                         </tr>
                                     </thead>
@@ -124,10 +124,10 @@
                                         {% for unit in stnk_warning %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #ff0000;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
                                         </tr>
                                         {% else %}
@@ -163,10 +163,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku STNK</th>
                                         </tr>
                                     </thead>
@@ -174,10 +174,10 @@
                                         {% for unit in stnk_notice %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #fd7e14;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
                                         </tr>
                                         {% else %}
@@ -213,10 +213,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku STNK</th>
                                         </tr>
                                     </thead>
@@ -224,10 +224,10 @@
                                         {% for unit in stnk_none %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #3b82f6;" class="fw-bold">{{ unit.tanggal_berakhir_stnk }}</td>
                                         </tr>
                                         {% else %}
@@ -273,10 +273,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku Asuransi</th>
                                         </tr>
                                     </thead>
@@ -284,10 +284,10 @@
                                         {% for unit in asuransi_expired %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #212529;" class="fw-bold">{{unit.tanggal_berakhir_asuransi }}</td>
                                         </tr>
                                         {% else %}
@@ -323,10 +323,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku Asuransi</th>
                                         </tr>
                                     </thead>
@@ -334,10 +334,10 @@
                                         {% for unit in asuransi_warning %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #ef4444;" class="fw-bold">{{unit.tanggal_berakhir_asuransi }}</td>
                                         </tr>
                                         {% else %}
@@ -373,10 +373,10 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
+                                            <th>No. Mesin</th>
                                             <th>Masa Berlaku Asuransi</th>
                                         </tr>
                                     </thead>
@@ -384,10 +384,10 @@
                                         {% for unit in asuransi_notice %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #fd7e14;" class="fw-bold">{{unit.tanggal_berakhir_asuransi }}</td>
                                         </tr>
                                         {% else %}
@@ -423,21 +423,21 @@
                                     <thead>
                                         <tr class="text-muted" style="border-bottom: 2px solid #dee2e6;">
                                             <th style="width: 10%;">No</th>
-                                            <th>Pulau</th>
                                             <th>Kota</th>
                                             <th>PT - Unit</th>
                                             <th>Kode Unit (CN)</th>
-                                            <th>Masa Berlaku STNK</th>
+                                            <th>No. Mesin</th>
+                                            <th>Masa Berlaku Asuransi</th>
                                         </tr>
                                     </thead>
                                     <tbody style="border-top: none;">
                                         {% for unit in asuransi_none %}
                                         <tr style="border-bottom: 1px solid #dee2e6;">
                                             <td class="text-muted">{{ loop.index }}</td>
-                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.pulau }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kota }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.unit }}</td>
                                             <td class="font-weight-bold" style="color: #212529;">{{ unit.kode_unit }}</td>
+                                            <td class="font-weight-bold" style="color: #212529;">{{ unit.sn_engine }}</td>
                                             <td style="color: #3b82f6;" class="fw-bold">{{unit.tanggal_berakhir_asuransi }}</td>
                                         </tr>
                                         {% else %}

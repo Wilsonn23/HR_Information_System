@@ -12,44 +12,69 @@
             <div class="card shadow border-0 rounded-3 h-100">
                 <div class="card-body p-4 d-flex flex-column h-100 overflow-hidden">
 
-                    <h4 class="card-title fw-bold text-primary mb-1">🔎 Detail Unit</h4>
+                    <h4 class="card-title fw-bold text-primary mb-3">🔎 Detail Unit</h4>
 
-                    <div class="mb-1">
-                        <label for="pulau" class="form-label fw-semibold text-secondary small">Pulau:</label>
-                        <select id="pulau" class="form-select form-select-sm shadow-sm mb-1">
-                            <option value="">-- Pilih Pulau --</option>
-                            {% for p in pulau_list %}
-                            <option value="{{ p.nama }}" {% if entry and entry.pulau == p.nama %}selected{% endif %}>{{ p.nama }}</option>
-                            {% endfor %}
+                    <!-- Search Method Toggle Dropdown -->
+                    <div class="mb-2">
+                        <label for="search-method" class="form-label fw-semibold text-secondary small">Metode Pencarian:</label>
+                        <select id="search-method" class="form-select form-select-sm shadow-sm">
+                            <option value="wilayah" selected>Filter Wilayah</option>
+                            <option value="mesin">Nomor Mesin</option>
                         </select>
                     </div>
 
-                    <div class="mb-1">
-                        <label for="kota" class="form-label fw-semibold text-secondary small">Kota:</label>
-                        <select id="kota" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.kota if entry else '' }}">
-                            <option value="">-- Pilih Kota --</option>
-                        </select>
+                    <!-- Direct Nomor Mesin Selector (Typing Search) -->
+                    <div id="search-mesin-container" class="mb-2 search-section">
+                        <label for="search-input" class="form-label fw-semibold text-secondary small">Cari No. Mesin / CN:</label>
+                        <div class="input-group input-group-sm shadow-sm">
+                            <input type="text" id="search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin..." value="{{ entry.sn_engine if entry else '' }}">
+                            <button class="btn btn-primary" type="button" id="btn-search">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="mb-1">
-                        <label for="pt" class="form-label fw-semibold text-secondary small">Nama PT:</label>
-                        <select id="pt" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.pt if entry else '' }}">
-                            <option value="">-- Pilih PT --</option>
-                        </select>
-                    </div>
+                    <!-- Cascading Regional Filters (Wilayah) -->
+                    <div id="search-wilayah-container" class="search-section d-none">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label for="pulau" class="form-label fw-semibold text-secondary small mb-1">Pulau:</label>
+                                <select id="pulau" class="form-select form-select-sm shadow-sm">
+                                    <option value="">-- Pilih Pulau --</option>
+                                    {% for p in pulau_list %}
+                                    <option value="{{ p.nama }}" {% if entry and entry.pulau == p.nama %}selected{% endif %}>{{ p.nama }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="kota" class="form-label fw-semibold text-secondary small mb-1">Kota:</label>
+                                <select id="kota" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.kota if entry else '' }}">
+                                    <option value="">-- Pilih Kota --</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <div class="mb-1">
-                        <label for="unit" class="form-label fw-semibold text-secondary small">Nama Unit:</label>
-                        <select id="unit" class="form-select form-select-sm shadow-sm mb-1" data-selected="{{ entry.unit if entry else '' }}">
-                            <option value="">-- Pilih Unit PT --</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-1">
-                        <label for="cn" class="form-label fw-semibold text-secondary small">Kode Unit (CN):</label>
-                        <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pkey if entry else '' }}">
-                            <option value="">-- Pilih Kode Unit --</option>
-                        </select>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label for="pt" class="form-label fw-semibold text-secondary small mb-1">Nama PT:</label>
+                                <select id="pt" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pt if entry else '' }}">
+                                    <option value="">-- Pilih PT --</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="unit" class="form-label fw-semibold text-secondary small mb-1">Nama Unit:</label>
+                                <select id="unit" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.unit if entry else '' }}">
+                                    <option value="">-- Pilih Unit --</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-1">
+                            <label for="cn" class="form-label fw-semibold text-secondary small mb-1">Kode Unit (CN):</label>
+                            <select id="cn" class="form-select form-select-sm shadow-sm" data-selected="{{ entry.pkey if entry else '' }}">
+                                <option value="">-- Pilih Kode Unit --</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <hr class="text-muted my-2">
@@ -137,9 +162,11 @@
                         <a href="/edit/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
                             Edit Data
                         </a>
+                        {% if session.get('role') == 'admin' %}
                         <a href="/delete/{{ entry.pkey }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm" onclick="return confirm('Hapus Data?');">
                             Hapus Data
                         </a>
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% else %}
@@ -154,65 +181,191 @@
 
         <div class="col-md-8 col-lg-9 h-100">
             <div class="card shadow border-0 rounded-3 h-100">
-                <div class="card-body p-4 d-flex flex-column bg-white">
+                <div class="card-body p-4 d-flex flex-column h-100 overflow-hidden bg-white">
 
                     {% if entry %}
-                    <h4 class="text-dark fw-bold mb-4">🖼️ Visual & Dokumentasi Unit ({{ db_images|length }} Gambar)
-                    </h4>
-
-                    {% if db_images %}
-                    <div id="carouselDbImages"
-                        class="carousel slide shadow-sm border rounded-3 overflow-hidden bg-light my-auto"
-                        data-bs-ride="carousel">
-
-                        <div class="carousel-indicators">
-                            {% for img_id in db_images %}
-                            <button type="button" data-bs-target="#carouselDbImages"
-                                data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}"
-                                aria-current="{% if loop.first %}true{% endif %}"></button>
-                            {% endfor %}
-                        </div>
-
-                        <div class="carousel-inner">
-                            {% for img_id in db_images %}
-                            <div class="carousel-item {% if loop.first %}active{% endif %}" data-bs-interval="3500">
-                                <div class="d-flex justify-content-center align-items-center" style="height: 480px;">
-
-                                    <img src="{{ url_for('get_image', image_id=img_id) }}" class="d-block img-fluid"
-                                        alt="Dokumen Biner Unit {{ entry.pkey }}"
-                                        style="max-height: 100%; object-fit: contain;">
-
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-
-                        <button class="carousel-control-prev" type="button" data-bs-target="#carouselDbImages"
-                            data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon bg-dark rounded-circle p-2"
-                                aria-hidden="true"></span>
-                            <span class="visually-hidden">Previous</span>
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <h4 class="text-dark fw-bold m-0">🖼️ Visual & Dokumentasi Unit</h4>
+                        {% if db_images or docs_by_type.get('STNK') or docs_by_type.get('Asuransi') %}
+                        <button class="btn btn-outline-primary btn-sm px-3 fw-bold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#downloadImagesModal">
+                            <i class="fas fa-download me-1"></i> Download Gambar
                         </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#carouselDbImages"
-                            data-bs-slide="next">
-                            <span class="carousel-control-next-icon bg-dark rounded-circle p-2"
-                                aria-hidden="true"></span>
-                            <span class="visually-hidden">Next</span>
-                        </button>
+                        {% endif %}
                     </div>
 
+                    {% if db_images or all_docs %}
+                    <div class="flex-grow-1 overflow-auto pe-1 unit-attributes">
+                        <!-- Section 1: Identifikasi Aset -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-fingerprint me-1"></i> Identifikasi Aset</h6>
+                            <div class="row g-3">
+                                {% for cat, label, icon in [('no_mesin', 'No. Mesin', 'fingerprint'), ('no_rangka', 'No. Rangka', 'fingerprint'), ('bpkb_1', 'Foto BPKB 1', 'file-invoice'), ('bpkb_2', 'Foto BPKB 2', 'file-invoice')] %}
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="position-relative overflow-hidden rounded-3 shadow-sm border bg-light gallery-item-container" style="height: 140px; cursor: pointer;"
+                                         {% if images_by_category.get(cat) %}
+                                         data-bs-toggle="modal" data-bs-target="#imageLightboxModal"
+                                         data-bs-image-url="{{ url_for('get_image', image_id=images_by_category[cat].id, v=images_by_category[cat].filename) }}"
+                                         data-bs-image-title="{{ label }} ({{ entry.kode_unit }})"
+                                         {% endif %}>
+                                        
+                                        {% if images_by_category.get(cat) %}
+                                            {% set img = images_by_category.get(cat) %}
+                                            <img src="{{ url_for('get_image', image_id=img.id, v=img.filename) }}" 
+                                                 class="w-100 h-100" 
+                                                 style="object-fit: cover;"
+                                                 alt="{{ label }}">
+                                            <!-- Label overlay at bottom -->
+                                            <div class="position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-1 px-2 text-center small fw-semibold">
+                                                {{ label }}
+                                            </div>
+                                            <!-- Hover magnifying glass overlay -->
+                                            <div class="gallery-item-overlay d-flex align-items-center justify-content-center">
+                                                <div class="text-center text-white">
+                                                    <i class="fas fa-search-plus fa-lg mb-1"></i>
+                                                    <div class="font-size-xs fw-bold">{{ label }}</div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-muted p-3 bg-white">
+                                                <i class="fas fa-{{ icon }} fa-lg mb-2 text-secondary opacity-50"></i>
+                                                <span class="small fw-semibold text-secondary">{{ label }}</span>
+                                                <span class="font-size-xs text-muted">Belum diunggah</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Section 2: Visual Tampak Kendaraan -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-car me-1"></i> Visual Tampak Kendaraan</h6>
+                            <div class="row g-3">
+                                {% for cat, label in [('tampak_depan', 'Tampak Depan'), ('tampak_belakang', 'Tampak Belakang'), ('tampak_kiri', 'Tampak Kiri'), ('tampak_kanan', 'Tampak Kanan')] %}
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="position-relative overflow-hidden rounded-3 shadow-sm border bg-light gallery-item-container" style="height: 140px; cursor: pointer;"
+                                         {% if images_by_category.get(cat) %}
+                                         data-bs-toggle="modal" data-bs-target="#imageLightboxModal"
+                                         data-bs-image-url="{{ url_for('get_image', image_id=images_by_category[cat].id, v=images_by_category[cat].filename) }}"
+                                         data-bs-image-title="{{ label }} ({{ entry.kode_unit }})"
+                                         {% endif %}>
+                                        
+                                        {% if images_by_category.get(cat) %}
+                                            {% set img = images_by_category.get(cat) %}
+                                            <img src="{{ url_for('get_image', image_id=img.id, v=img.filename) }}" 
+                                                 class="w-100 h-100" 
+                                                 style="object-fit: cover;"
+                                                 alt="{{ label }}">
+                                            <!-- Label overlay at bottom -->
+                                            <div class="position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-1 px-2 text-center small fw-semibold">
+                                                {{ label }}
+                                            </div>
+                                            <!-- Hover magnifying glass overlay -->
+                                            <div class="gallery-item-overlay d-flex align-items-center justify-content-center">
+                                                <div class="text-center text-white">
+                                                    <i class="fas fa-search-plus fa-lg mb-1"></i>
+                                                    <div class="font-size-xs fw-bold">{{ label }}</div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-muted p-3 bg-white">
+                                                <i class="fas fa-car fa-lg mb-2 text-secondary opacity-50"></i>
+                                                <span class="small fw-semibold text-secondary">{{ label }}</span>
+                                                <span class="font-size-xs text-muted">Belum diunggah</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Section 2.5: Dokumen Surat (STNK / Asuransi) -->
+                        {% if docs_by_type.get('STNK') or docs_by_type.get('Asuransi') %}
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-file-invoice me-1"></i> Dokumen Surat Aktif</h6>
+                            <div class="row g-3">
+                                {% for cat, label in [('STNK', 'Foto STNK Aktif'), ('Asuransi', 'Foto Asuransi Aktif')] %}
+                                {% if docs_by_type.get(cat) %}
+                                <div class="col-md-6 col-sm-6">
+                                    <div class="position-relative overflow-hidden rounded-3 shadow-sm border bg-light gallery-item-container" style="height: 180px; cursor: pointer;"
+                                         data-bs-toggle="modal" data-bs-target="#imageLightboxModal"
+                                         data-bs-image-url="{{ url_for('get_doc', doc_id=docs_by_type[cat].id, v=docs_by_type[cat].filename) }}"
+                                         data-bs-image-title="{{ label }} ({{ entry.kode_unit }})">
+                                        
+                                        {% set doc = docs_by_type.get(cat) %}
+                                        <img src="{{ url_for('get_doc', doc_id=doc.id, v=doc.filename) }}" 
+                                             class="w-100 h-100" 
+                                             style="object-fit: cover;"
+                                             alt="{{ label }}">
+                                        <!-- Label overlay at bottom -->
+                                        <div class="position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-1.5 px-2 text-center small fw-semibold">
+                                            {{ label }}
+                                        </div>
+                                        <!-- Hover magnifying glass overlay -->
+                                        <div class="gallery-item-overlay d-flex align-items-center justify-content-center">
+                                            <div class="text-center text-white">
+                                                <i class="fas fa-search-plus fa-2x mb-1"></i>
+                                                <div class="small fw-bold">{{ label }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Section 3: Lainnya -->
+                        {% if images_by_category.get('lainnya_1') or images_by_category.get('lainnya_2') or images_by_category.get('lainnya_3') or images_by_category.get('lainnya_4') %}
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-images me-1"></i> Foto Lainnya</h6>
+                            <div class="row g-3">
+                                {% for cat, label in [('lainnya_1', 'Lainnya 1'), ('lainnya_2', 'Lainnya 2'), ('lainnya_3', 'Lainnya 3'), ('lainnya_4', 'Lainnya 4')] %}
+                                {% if images_by_category.get(cat) %}
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="position-relative overflow-hidden rounded-3 shadow-sm border bg-light gallery-item-container" style="height: 140px; cursor: pointer;"
+                                         data-bs-toggle="modal" data-bs-target="#imageLightboxModal"
+                                         data-bs-image-url="{{ url_for('get_image', image_id=images_by_category[cat].id, v=images_by_category[cat].filename) }}"
+                                         data-bs-image-title="{{ label }} ({{ entry.kode_unit }})">
+                                        
+                                        {% set img = images_by_category.get(cat) %}
+                                        <img src="{{ url_for('get_image', image_id=img.id, v=img.filename) }}" 
+                                             class="w-100 h-100" 
+                                             style="object-fit: cover;"
+                                             alt="{{ label }}">
+                                        <!-- Label overlay at bottom -->
+                                        <div class="position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-1 px-2 text-center small fw-semibold">
+                                            {{ label }}
+                                        </div>
+                                        <!-- Hover magnifying glass overlay -->
+                                        <div class="gallery-item-overlay d-flex align-items-center justify-content-center">
+                                            <div class="text-center text-white">
+                                                <i class="fas fa-search-plus fa-lg mb-1"></i>
+                                                <div class="font-size-xs fw-bold">{{ label }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
                     {% else %}
-                    <div class="text-center text-muted my-auto p-5">
-                        <h5 class="fw-bold text-warning">⚠️ Foto Belum Tersedia</h5>
-                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.kode_unit }}</strong>.
-                        </p>
+                    <div class="text-center text-muted my-auto p-5 bg-light rounded-3 shadow-sm border">
+                        <h5 class="fw-bold text-warning mb-2"><i class="fas fa-exclamation-circle me-1"></i> Foto Belum Tersedia</h5>
+                        <p class="small mb-0">Belum ada gambar yang diunggah untuk unit <strong>{{ entry.kode_unit }}</strong>.</p>
                     </div>
                     {% endif %}
 
                     {% else %}
-                    <div class="text-center text-muted my-auto p-5">
-                        <h5 class="fw-bold text-secondary">Belum Ada Unit yang Dipilih</h5>
-                        <p class="small mb-0">Slideshow gambar unit akan dimuat setelah Anda memilih kode unit pada panel sebelah kiri.</p>
+                    <div class="text-center text-muted my-auto p-5 bg-light rounded-3 shadow-sm border">
+                        <h5 class="fw-bold text-secondary mb-2"><i class="fas fa-mouse-pointer me-1"></i> Belum Ada Unit yang Dipilih</h5>
+                        <p class="small mb-0">Visualisasi data unit akan dimuat setelah Anda memilih kode unit pada panel sebelah kiri.</p>
                     </div>
                     {% endif %}
 
@@ -369,15 +522,208 @@
             
             cnSelect.addEventListener("change", function() {
                 if (this.value) {
-                    window.location.href = '/details/' + this.value;
+                    window.location.href = '/details/' + this.value + '?search_method=wilayah';
                 }
             });
+
+            // Search method toggle logic
+            const searchMethod = document.getElementById("search-method");
+            const mesinContainer = document.getElementById("search-mesin-container");
+            const wilayahContainer = document.getElementById("search-wilayah-container");
+            
+            function toggleSearchSections() {
+                const method = searchMethod.value;
+                
+                // Hide all sections
+                mesinContainer.classList.add("d-none");
+                wilayahContainer.classList.add("d-none");
+                
+                // Show selected section
+                if (method === "mesin") {
+                    mesinContainer.classList.remove("d-none");
+                } else if (method === "wilayah") {
+                    wilayahContainer.classList.remove("d-none");
+                }
+
+                // Save choice to sessionStorage to persist across page reloads
+                sessionStorage.setItem('details_search_method', method);
+            }
+            
+            if (searchMethod) {
+                // Restore search method from URL query param or sessionStorage if available
+                const urlParams = new URLSearchParams(window.location.search);
+                const savedMethod = urlParams.get('search_method') || sessionStorage.getItem('details_search_method');
+                if (savedMethod) {
+                    searchMethod.value = savedMethod;
+                }
+                
+                searchMethod.addEventListener("change", toggleSearchSections);
+                // Trigger once on page load
+                toggleSearchSections();
+            }
+            
+            // Typing Search No. Mesin / CN listener logic
+            const searchInput = document.getElementById("search-input");
+            const btnSearch = document.getElementById("btn-search");
+            
+            function performSearch() {
+                if (!searchInput) return;
+                const query = searchInput.value.trim();
+                if (query) {
+                    window.location.href = '/details/' + encodeURIComponent(query) + '?search_method=mesin';
+                } else {
+                    alert("Silakan masukkan No. Mesin atau CN terlebih dahulu!");
+                }
+            }
+            
+            if (btnSearch && searchInput) {
+                btnSearch.addEventListener("click", performSearch);
+                searchInput.addEventListener("keypress", function(e) {
+                    if (e.key === "Enter") {
+                        performSearch();
+                    }
+                });
+            }
 
             // Run once on load if there's already an active selection
             if (pulauSelect.value) {
                 updateKotaChoices();
             }
+
+            // Image Lightbox JS handler
+            const lightboxModal = document.getElementById('imageLightboxModal');
+            if (lightboxModal) {
+                lightboxModal.addEventListener('show.bs.modal', function(event) {
+                    const triggerElement = event.relatedTarget;
+                    const imageUrl = triggerElement.getAttribute('data-bs-image-url');
+                    const imageTitle = triggerElement.getAttribute('data-bs-image-title');
+                    
+                    const modalImage = lightboxModal.querySelector('#lightboxImage');
+                    const modalTitle = lightboxModal.querySelector('#imageLightboxModalLabel');
+                    
+                    modalImage.src = imageUrl;
+                    modalTitle.textContent = imageTitle;
+                });
+            }
         }
+    });
+</script>
+
+<!-- Lightbox Modal -->
+<div class="modal fade" id="imageLightboxModal" tabindex="-1" aria-labelledby="imageLightboxModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow bg-transparent">
+            <div class="modal-header border-0 bg-dark text-white rounded-top py-2">
+                <h6 class="modal-title fw-bold" id="imageLightboxModalLabel">Detail Gambar</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark rounded-bottom d-flex align-items-center justify-content-center" style="min-height: 300px;">
+                <img src="" id="lightboxImage" class="img-fluid" style="max-height: 80vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if entry %}
+<!-- Download Images Modal -->
+<div class="modal fade" id="downloadImagesModal" tabindex="-1" aria-labelledby="downloadImagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ url_for('download_images', pkey=entry.pkey) }}" method="POST">
+                <!-- CSRF Token -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header bg-primary text-white py-2.5">
+                    <h6 class="modal-title fw-bold" id="downloadImagesModalLabel"><i class="fas fa-download me-2"></i>Pilih Gambar untuk Diunduh</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <p class="small text-muted mb-3">Silakan pilih kategori gambar unit yang ingin Anda unduh dalam format ZIP.</p>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="select-all-downloads" checked>
+                        <label class="form-check-label fw-bold text-dark small" for="select-all-downloads">
+                            Pilih Semua
+                        </label>
+                    </div>
+                    <hr class="my-2 text-muted">
+                    
+                    <div class="download-options-list">
+                        {% for cat, label in [('no_mesin', 'No. Mesin'), ('no_rangka', 'No. Rangka'), ('bpkb_1', 'Foto BPKB 1'), ('bpkb_2', 'Foto BPKB 2'), ('tampak_depan', 'Tampak Depan'), ('tampak_belakang', 'Tampak Belakang'), ('tampak_kiri', 'Tampak Kiri'), ('tampak_kanan', 'Tampak Kanan'), ('lainnya_1', 'Foto Lainnya 1'), ('lainnya_2', 'Foto Lainnya 2'), ('lainnya_3', 'Foto Lainnya 3'), ('lainnya_4', 'Foto Lainnya 4')] %}
+                        {% if images_by_category.get(cat) %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input download-item-check" type="checkbox" name="categories" value="{{ cat }}" id="check-{{ cat }}" checked>
+                            <label class="form-check-label text-secondary small" for="check-{{ cat }}">
+                                {{ label }}
+                            </label>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Documents STNK / Asuransi -->
+                        {% for doc_type, label in [('STNK', 'Foto STNK Aktif'), ('Asuransi', 'Foto Asuransi Aktif')] %}
+                        {% if docs_by_type.get(doc_type) %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input download-item-check" type="checkbox" name="documents" value="{{ doc_type }}" id="check-doc-{{ doc_type }}" checked>
+                            <label class="form-check-label text-secondary small" for="check-doc-{{ doc_type }}">
+                                {{ label }}
+                            </label>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0 py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-3" id="btn-submit-download">
+                        <i class="fas fa-file-archive me-1"></i> Download (.zip)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Select All checkboxes toggle logic in download modal
+        const selectAllCheckbox = document.getElementById("select-all-downloads");
+        const itemCheckboxes = document.querySelectorAll(".download-item-check");
+        const btnSubmitDownload = document.getElementById("btn-submit-download");
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener("change", function() {
+                itemCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateDownloadButtonState();
+            });
+        }
+
+        itemCheckboxes.forEach(cb => {
+            cb.addEventListener("change", function() {
+                if (!this.checked) {
+                    selectAllCheckbox.checked = false;
+                } else {
+                    const allChecked = Array.from(itemCheckboxes).every(c => c.checked);
+                    selectAllCheckbox.checked = allChecked;
+                }
+                updateDownloadButtonState();
+            });
+        });
+
+        function updateDownloadButtonState() {
+            if (btnSubmitDownload) {
+                const anyChecked = Array.from(itemCheckboxes).some(c => c.checked);
+                btnSubmitDownload.disabled = !anyChecked;
+            }
+        }
+
+        document.querySelectorAll('.uppercase-input').forEach(input => {
+            input.addEventListener('input', function () {
+                this.value = this.value.toUpperCase();
+            });
+        });
     });
 </script>
 
@@ -418,6 +764,37 @@
 
     .mb-2 {
         margin-bottom: 0.65rem;
+    }
+
+    /* Visual Gallery & Lightbox Styles */
+    .gallery-item-container {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .gallery-item-container img {
+        transition: transform 0.3s ease;
+    }
+
+    .gallery-item-container:hover img {
+        transform: scale(1.04);
+    }
+
+    .gallery-item-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(33, 37, 41, 0.45);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+
+    .gallery-item-container:hover .gallery-item-overlay {
+        opacity: 1;
     }
 </style>
 {% endblock %}

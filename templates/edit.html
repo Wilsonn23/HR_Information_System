@@ -25,7 +25,7 @@
         {% endif %}
 
         <h5 class="text-secondary fw-bold border-bottom pb-2 mb-3">
-            <i class="fas fa-map-marker-alt me-1"></i> Informasi Lokasi
+            <i class="fas fa-map-marker-alt me-1"></i> Informasi Lokasi 
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
@@ -33,8 +33,8 @@
                 {{ form.kode_unit(class="form-control huruf-angka uppercase-input fw-bold text-primary", placeholder="XX123", readonly=true) }}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Lokasi Kerja</label>
-                {{ form.lokasi_kerja(class="form-select uppercase-input") }}
+                <label class="form-label fw-semibold text-secondary">Lokasi Kerja <span class="text-danger">*</span></label>
+                {{ form.lokasi_kerja(class="form-select uppercase-input", required=True) }}
             </div>
         </div>
 
@@ -43,113 +43,216 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Merk</label>
-                {{ form.merk(class="form-select uppercase-input") }}
+                <label class="form-label fw-semibold text-secondary">Merk <span class="text-danger">*</span></label>
+                {{ form.merk(class="form-select uppercase-input", required=True) }}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Kategori</label>
-                {{ form.kategori(class="form-select uppercase-input") }}
-            </div>
-        </div>
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Equipment Model</label>
-                {{ form.eqp_model(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">S/N Equipment</label>
-                {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
+                <label class="form-label fw-semibold text-secondary">Kategori <span class="text-danger">*</span></label>
+                {{ form.kategori(class="form-select uppercase-input", required=True) }}
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">S/N Engine</label>
-                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", placeholder="XXX123") }}
+                <label class="form-label fw-semibold text-secondary">Equipment Model <span class="text-danger">*</span></label>
+                {{ form.eqp_model(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Year</label>
-                {{ form.year(class="form-select") }}
+                <label class="form-label fw-semibold text-secondary">S/N Equipment <span class="text-danger">*</span></label>
+                {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">S/N Engine <span class="text-danger">*</span></label>
+                {{ form.sn_engine(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Year <span class="text-danger">*</span></label>
+                {{ form.year(class="form-select", required=True) }}
             </div>
         </div>
 
         <h5 class="text-secondary fw-bold border-bottom pb-2 mt-4 mb-3">
             <i class="fas fa-file-signature me-1"></i> Asuransi & Surat-Surat
         </h5>
-        <div id="asuransi-info-row" class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
-                {{ form.nama_asuransi(class="form-select uppercase-input") }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi</label>
-                {{ form.no_polis(class="form-control huruf-angka uppercase-input", placeholder="12AB3456") }}
-            </div>
-        </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polisi</label>
-                {{ form.no_polisi(class="form-control huruf-angka uppercase-input", placeholder="X1234XXX") }}
+                <label class="form-label fw-semibold text-secondary">No. Polisi <span class="text-danger">*</span></label>
+                {{ form.no_polisi(class="form-control huruf-angka uppercase-input", required=True, placeholder="X1234XXX") }}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Notes</label>
+                <label class="form-label fw-semibold text-secondary">Notes <span class="text-muted">(Opsional)</span></label>
                 {{ form.notes(class="form-control", placeholder="Kosongkan jika tidak ada") }}
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Status STNK</label>
-                {{ form.status_stnk(class="form-select", id="status-stnk-select") }}
+                <label class="form-label fw-semibold text-secondary">Status STNK <span class="text-danger">*</span></label>
+                {{ form.status_stnk(class="form-select", required=True, id="status-stnk-select") }}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Status Asuransi</label>
-                {{ form.status_asuransi(class="form-select", id="status-asuransi-select") }}
+                <label class="form-label fw-semibold text-secondary">Status Asuransi <span class="text-danger">*</span></label>
+                {{ form.status_asuransi(class="form-select", required=True, id="status-asuransi-select") }}
             </div>
         </div>
         <div id="tanggal-row-wrapper" class="row g-3 mb-3" style="display:none">
             <div class="col-md-6">
                 <div id="stnk-date-row">
-                    <label class="form-label fw-semibold text-success">Tanggal Berakhir STNK</label>
+                    <label class="form-label fw-semibold text-success">Tanggal Berakhir STNK <span class="text-danger">*</span></label>
                     {{ form.tanggal_berakhir_stnk(id="tanggal-berakhir-stnk", class="form-control", type="date") }}
                 </div>
             </div>
             <div class="col-md-6">
                 <div id="asuransi-date-row">
-                    <label class="form-label fw-semibold text-success">Tanggal Berakhir Asuransi</label>
+                    <label class="form-label fw-semibold text-success">Tanggal Berakhir Asuransi <span class="text-danger">*</span></label>
                     {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
                 </div>
+            </div>
+        </div>
+        <div id="asuransi-info-row" class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Nama Asuransi <span class="text-danger">*</span></label>
+                {{ form.nama_asuransi(class="form-select uppercase-input", id="nama_asuransi") }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi <span class="text-danger">*</span></label>
+                {{ form.no_polis(class="form-control huruf-angka uppercase-input", id="no_polis", placeholder="12AB3456") }}
             </div>
         </div>
 
         <h5 class="text-secondary border-bottom pb-2 mt-4 mb-3 fw-bold">
             <i class="fas fa-camera me-1"></i> Perbarui / Tambah Foto Unit
         </h5>
+        <div class="form-text text-muted small mb-3">Format yang didukung: .png, .jpg, .jpeg. (Maksimal ukuran file: 20 MB per file)</div>
 
-        {% if photo is iterable and photo|length > 0 %}
-        <div class="mb-4">
-            <label class="form-label fw-semibold text-secondary">Foto Saat Ini (Klik tanda silang untuk menghapus):</label>
-            <div class="d-flex flex-wrap gap-3">
-                {% for img in photo %}
-                <div class="position-relative existing-photo-card shadow-sm" id="photo-card-{{ img.id }}">
-                    <img src="{{ url_for('get_image', image_id=img.id) }}" alt="{{ img.filename }}"
-                        class="img-thumbnail" style="width: 120px; height: 120px; object-fit: cover;">
-                    <button type="button"
-                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn d-flex align-items-center justify-content-center"
-                        data-photo-id="{{ img.id }}" style="padding: 0; width: 22px; height: 22px; font-size: 14px; line-height: 1;">
-                        &times;
-                    </button>
+        <!-- Group 1: Identifikasi Aset & BPKB -->
+        <div class="card mb-3 border-0 bg-light shadow-sm">
+            <div class="card-body">
+                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-fingerprint me-1"></i> Identifikasi Aset </h6>
+                <div class="row g-3">
+                    {% for cat, label, is_required in [('no_mesin', 'No. Mesin', True), ('no_rangka', 'No. Rangka', True), ('bpkb_1', 'Foto BPKB 1', True), ('bpkb_2', 'Foto BPKB 2', True)] %}
+                    {% set has_img = photo_by_category.get(cat) is not none %}
+                    {% set img_id = photo_by_category[cat].id if has_img else 0 %}
+                    <div class="col-md-3 col-sm-6" id="photo-card-{% if has_img %}{{ img_id }}{% else %}{{ cat }}{% endif %}">
+                        <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} {% if is_required %}<span class="text-danger">*</span>{% endif %}</label>
+                        <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
+                            
+                            <div class="upload-placeholder text-center {% if has_img %}d-none{% endif %}">
+                                <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
+                                <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
+                                <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
+                            </div>
+                            
+                            <div class="upload-preview {% if not has_img %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1" {% if has_img %}data-has-default="true"{% endif %}>
+                                <img src="{% if has_img %}{{ url_for('get_image', image_id=img_id, v=photo_by_category[cat].filename) }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                {% if has_img %}
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn d-flex align-items-center justify-content-center" data-photo-id="{{ img_id }}" style="padding: 0; width: 20px; height: 20px; font-size: 12px; line-height: 1; z-index: 10;">
+                                    &times;
+                                </button>
+                                {% endif %}
+                                <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
+                            </div>
+                            <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Group 2: Tampak Fisik -->
+        <div class="card mb-3 border-0 bg-light shadow-sm">
+            <div class="card-body">
+                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-car me-1"></i> Visual Tampak Kendaraan </h6>
+                <div class="row g-3">
+                    {% for cat in ['tampak_depan', 'tampak_belakang', 'tampak_kiri', 'tampak_kanan'] %}
+                    {% set label = cat.replace('tampak_', 'Tampak ')|title %}
+                    {% set has_img = photo_by_category.get(cat) is not none %}
+                    {% set img_id = photo_by_category[cat].id if has_img else 0 %}
+                    <div class="col-md-3 col-sm-6" id="photo-card-{% if has_img %}{{ img_id }}{% else %}{{ cat }}{% endif %}">
+                        <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} <span class="text-danger">*</span></label>
+                        <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
+                            
+                            <div class="upload-placeholder text-center {% if has_img %}d-none{% endif %}">
+                                <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
+                                <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
+                                <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
+                            </div>
+                            
+                            <div class="upload-preview {% if not has_img %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1" {% if has_img %}data-has-default="true"{% endif %}>
+                                <img src="{% if has_img %}{{ url_for('get_image', image_id=img_id, v=photo_by_category[cat].filename) }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                {% if has_img %}
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn d-flex align-items-center justify-content-center" data-photo-id="{{ img_id }}" style="padding: 0; width: 20px; height: 20px; font-size: 12px; line-height: 1; z-index: 10;">
+                                    &times;
+                                </button>
+                                {% endif %}
+                                <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
+                            </div>
+                            <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Group 3: Lainnya -->
+        <div class="card mb-3 border-0 bg-light shadow-sm">
+            <div class="card-body">
+                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-images me-1"></i> Foto Lainnya (Opsional)</h6>
+                <div class="row g-3">
+                    {% for cat in ['lainnya_1', 'lainnya_2', 'lainnya_3', 'lainnya_4'] %}
+                    {% set label = cat.replace('_', ' ')|title %}
+                    {% set has_img = photo_by_category.get(cat) is not none %}
+                    {% set img_id = photo_by_category[cat].id if has_img else 0 %}
+                    <div class="col-md-3 col-sm-6" id="photo-card-{% if has_img %}{{ img_id }}{% else %}{{ cat }}{% endif %}">
+                        <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }}</label>
+                        <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
+                            
+                            <div class="upload-placeholder text-center {% if has_img %}d-none{% endif %}">
+                                <i class="fas fa-image text-primary fa-lg mb-1"></i>
+                                <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
+                                <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
+                            </div>
+                            
+                            <div class="upload-preview {% if not has_img %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1" {% if has_img %}data-has-default="true"{% endif %}>
+                                <img src="{% if has_img %}{{ url_for('get_image', image_id=img_id, v=photo_by_category[cat].filename) }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                {% if has_img %}
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn d-flex align-items-center justify-content-center" data-photo-id="{{ img_id }}" style="padding: 0; width: 20px; height: 20px; font-size: 12px; line-height: 1; z-index: 10;">
+                                    &times;
+                                </button>
+                                {% endif %}
+                                <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
+                            </div>
+                            <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Group 4: Legacy / Foto Lainnya -->
+        {% if legacy_images %}
+        <div class="card mb-3 border-0 bg-light shadow-sm">
+            <div class="card-body">
+                <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-history me-1"></i> Foto Lainnya (Legacy)</h6>
+                <div class="d-flex flex-wrap gap-3">
+                    {% for img in legacy_images %}
+                    <div class="position-relative existing-photo-card shadow-sm" id="photo-card-{{ img.id }}">
+                        <img src="{{ url_for('get_image', image_id=img.id, v=img.filename) }}" alt="{{ img.filename }}"
+                            class="img-thumbnail" style="width: 100px; height: 100px; object-fit: cover;">
+                        <button type="button"
+                            class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle delete-photo-btn d-flex align-items-center justify-content-center"
+                            data-photo-id="{{ img.id }}" style="padding: 0; width: 22px; height: 22px; font-size: 14px; line-height: 1;">
+                            &times;
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         {% endif %}
-
-        <div class="row g-3 mb-4">
-            <div class="col-12">
-                <label class="form-label fw-semibold text-secondary">Unggah Foto Unit Tambahan (Maksimal 10 Foto, Saat Ini Ada
-                    <span id="photo-count" class="badge bg-secondary">{% if photo is iterable %}{{ photo|length }}{% else %}{{ photo }}{% endif %}</span> Foto)</label>
-                <input type="file" name="unit_photos" class="form-control shadow-sm" accept="image/*" multiple>
-            </div>
-        </div>
 
         <div class="row g-2">
             <div class="col-sm-6">
@@ -262,16 +365,42 @@
 
             if (isStnkOn) {
                 stnkDateRow.classList.remove("invisible");
+                const dateInput = document.getElementById("tanggal-berakhir-stnk");
+                if (dateInput) dateInput.setAttribute("required", "required");
             } else {
                 stnkDateRow.classList.add("invisible");
+                const dateInput = document.getElementById("tanggal-berakhir-stnk");
+                if (dateInput) dateInput.removeAttribute("required");
             }
 
             if (isAsuransiOn) {
                 asuransiDateRow.classList.remove("invisible");
                 asuransiInfoRow.style.display = "flex";
+                const dateInput = document.getElementById("tanggal-berakhir-asuransi");
+                if (dateInput) dateInput.setAttribute("required", "required");
+                const nameInput = document.getElementById("nama_asuransi");
+                if (nameInput) {
+                    nameInput.setAttribute("required", "required");
+                    if (nameInput.value === "-") {
+                        nameInput.value = "";
+                    }
+                }
+                const polisInput = document.getElementById("no_polis");
+                if (polisInput) {
+                    polisInput.setAttribute("required", "required");
+                    if (polisInput.value === "-") {
+                        polisInput.value = "";
+                    }
+                }
             } else {
                 asuransiDateRow.classList.add("invisible");
                 asuransiInfoRow.style.display = "none";
+                const dateInput = document.getElementById("tanggal-berakhir-asuransi");
+                if (dateInput) dateInput.removeAttribute("required");
+                const nameInput = document.getElementById("nama_asuransi");
+                if (nameInput) nameInput.removeAttribute("required");
+                const polisInput = document.getElementById("no_polis");
+                if (polisInput) polisInput.removeAttribute("required");
             }
         }
 
@@ -299,19 +428,53 @@
         });
     });
 
-    const photoInput = document.querySelector('input[type="file"][multiple]');
-    if (photoInput) {
-        photoInput.addEventListener('change', function () {
-            if (this.files.length > 10) {
-                alert("Maksimal foto yang bisa dipilih adalah 10 foto!");
-                this.value = ""; // Reset input jika melebihi batas
+    // Trigger file input click when custom upload wrapper is clicked
+    document.querySelectorAll('.custom-file-upload').forEach(wrapper => {
+        wrapper.addEventListener('click', function(e) {
+            if (e.target.closest('.delete-photo-btn')) return;
+            const input = this.querySelector('.custom-file-input-raw');
+            if (input) input.click();
+        });
+    });
+
+    // Handle file input changes to show image preview and filename
+    document.querySelectorAll('.custom-file-input-raw').forEach(input => {
+        input.addEventListener('change', function() {
+            const wrapper = this.closest('.custom-file-upload');
+            if (!wrapper) return;
+            
+            const placeholder = wrapper.querySelector('.upload-placeholder');
+            const preview = wrapper.querySelector('.upload-preview');
+            const previewImg = preview ? preview.querySelector('img') : null;
+            const filenameText = wrapper.querySelector('.file-name-text');
+
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                if (filenameText) filenameText.textContent = file.name;
+
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        if (previewImg) previewImg.src = e.target.result;
+                        if (placeholder) placeholder.classList.add('d-none');
+                        if (preview) preview.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            } else {
+                if (filenameText) filenameText.textContent = 'Belum ada file';
+                if (preview && !preview.dataset.hasDefault) {
+                    if (placeholder) placeholder.classList.remove('d-none');
+                    if (preview) preview.classList.add('d-none');
+                }
             }
         });
-    }
+    });
 
     // Dynamic deletion of photos
     document.querySelectorAll('.delete-photo-btn').forEach(button => {
-        button.addEventListener('click', function () {
+        button.addEventListener('click', function (e) {
+            e.stopPropagation();
             const photoId = this.getAttribute('data-photo-id');
             const photoCard = document.getElementById(`photo-card-${photoId}`);
 
@@ -326,20 +489,23 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Smoothly fade out and remove the photo card
-                            photoCard.style.opacity = '0';
-                            photoCard.style.transform = 'scale(0.8)';
-                            setTimeout(() => {
-                                photoCard.remove();
-                                // Update photo count in UI dynamically
-                                const countEl = document.getElementById('photo-count');
-                                if (countEl) {
-                                    let currentCount = parseInt(countEl.textContent) || 0;
-                                    if (currentCount > 0) {
-                                        countEl.textContent = currentCount - 1;
-                                    }
+                            if (photoCard) {
+                                const preview = photoCard.querySelector('.upload-preview');
+                                const placeholder = photoCard.querySelector('.upload-placeholder');
+                                if (preview && placeholder) {
+                                    preview.classList.add('d-none');
+                                    preview.removeAttribute('data-has-default');
+                                    placeholder.classList.remove('d-none');
+                                    const input = photoCard.querySelector('.custom-file-input-raw');
+                                    if (input) input.value = ''; // Reset file input
+                                } else {
+                                    photoCard.style.opacity = '0';
+                                    photoCard.style.transform = 'scale(0.8)';
+                                    setTimeout(() => {
+                                        photoCard.remove();
+                                    }, 300);
                                 }
-                            }, 300);
+                            }
                         } else {
                             alert("Gagal menghapus gambar: " + data.message);
                         }
@@ -351,5 +517,60 @@
             }
         });
     });
+
+    // Form validation on submit for required file uploads (edit mode)
+    const editForm = document.querySelector('form');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            let valid = true;
+            
+            // Validate required fields: must either have a default image OR a new file selected
+            const requiredCats = ['no_mesin', 'no_rangka', 'bpkb_1', 'bpkb_2', 'tampak_depan', 'tampak_belakang', 'tampak_kiri', 'tampak_kanan'];
+            requiredCats.forEach(cat => {
+                const input = document.querySelector(`input[name="photo_${cat}"]`);
+                if (input) {
+                    const wrapper = input.closest('.custom-file-upload');
+                    if (wrapper) {
+                        wrapper.style.borderColor = ''; // reset error style
+                    }
+                    
+                    const preview = wrapper ? wrapper.querySelector('.upload-preview') : null;
+                    const hasDefault = preview && !preview.classList.contains('d-none');
+                    const hasFile = input.files && input.files.length > 0;
+                    
+                    if (!hasDefault && !hasFile) {
+                        valid = false;
+                        if (wrapper) {
+                            wrapper.style.setProperty('border-color', '#dc3545', 'important'); // bootstrap danger red
+                        }
+                    }
+                }
+            });
+
+            if (!valid) {
+                e.preventDefault();
+                alert("Mohon lengkapi seluruh foto wajib (No. Mesin, No. Rangka, Foto BPKB 1, Foto BPKB 2, Tampak Depan, Tampak Belakang, Tampak Kiri, dan Tampak Kanan)!");
+                
+                // Scroll to the first missing item
+                const firstInvalid = document.querySelector('.custom-file-upload[style*="border-color"]');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+    }
 </script>
+
+<style>
+    .custom-file-upload:hover {
+        border-color: #3b82f6 !important;
+        background-color: #f8fafc !important;
+        transform: translateY(-1px);
+    }
+    
+    .font-size-xs {
+        font-size: 0.725rem;
+        letter-spacing: 0.5px;
+    }
+</style>
 {% endblock %}

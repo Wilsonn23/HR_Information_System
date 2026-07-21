@@ -7,32 +7,57 @@
 
 <div class="card form-card shadow">
     <h3 class="text-center mb-4 fw-bold text-primary"><i class="fas fa-history me-2"></i>Perpanjang Masa Berlaku</h3>
-    <form action="{{ url_for('submit_extend') }}" method="POST">
+    <form action="{{ url_for('submit_extend') }}" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
         
         <h5 class="text-secondary fw-bold border-bottom pb-2 mb-3">
             <i class="fas fa-map-marker-alt me-1"></i> Lokasi Unit
         </h5>
         
+        <!-- Toggle Search Method -->
         <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Pulau (Lokasi Kerja)</label>
-                {{ form.pulau(class="form-select uppercase-input") }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Kota (Lokasi Kerja)</label>
-                {{ form.kota(class="form-select uppercase-input", **{"data-selected": form.kota.data or ""}) }}
+            <div class="col-md-12">
+                <label for="search-method-select" class="form-label fw-semibold text-secondary small">Metode Pencarian:</label>
+                <select id="search-method-select" class="form-select shadow-sm">
+                    <option value="wilayah" selected>Filter Wilayah</option>
+                    <option value="mesin">Nomor Mesin</option>
+                </select>
             </div>
         </div>
-        
         <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama PT (Lokasi Kerja)</label>
-                {{ form.pt(class="form-select uppercase-input", **{"data-selected": form.pt.data or ""}) }}
+            <div class="col-md-12 d-none" id="search-mesin-wrapper">
+                <label for="engine-search-input" class="form-label fw-semibold text-secondary small">Cari Nomor Mesin:</label>
+                <div class="input-group">
+                    <input type="text" id="engine-search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin...">
+                    <button type="button" id="btn-search-engine" class="btn btn-warning fw-bold text-dark shadow-sm">
+                        <i class="fas fa-search me-1"></i> Cari
+                    </button>
+                </div>
+                <div id="engine-search-feedback" class="form-text text-danger d-none mt-1">Nomor Mesin tidak ditemukan!</div>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Unit PT (Lokasi Kerja)</label>
-                {{ form.unit(class="form-select uppercase-input", **{"data-selected": form.unit.data or ""}) }}
+        </div>
+
+        <div id="wilayah-filters-wrapper">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-secondary">Pulau (Lokasi Kerja)</label>
+                    {{ form.pulau(class="form-select uppercase-input") }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-secondary">Kota (Lokasi Kerja)</label>
+                    {{ form.kota(class="form-select uppercase-input", **{"data-selected": form.kota.data or ""}) }}
+                </div>
+            </div>
+            
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-secondary">Nama PT (Lokasi Kerja)</label>
+                    {{ form.pt(class="form-select uppercase-input", **{"data-selected": form.pt.data or ""}) }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-secondary">Nama Unit PT (Lokasi Kerja)</label>
+                    {{ form.unit(class="form-select uppercase-input", **{"data-selected": form.unit.data or ""}) }}
+                </div>
             </div>
         </div>
         
@@ -61,14 +86,26 @@
             </div>
         </div>
         
-        <div class="row g-3 mb-3">
+        <div id="asuransi-extend-fields" class="row g-3 mb-3" style="display: none;">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Tanggal Bayar</label>
-                {{ form.tanggal_bayar(id="tanggal-bayar", class="form-control", type="date") }}
+                <label class="form-label fw-semibold text-secondary">Nama Asuransi <span class="text-danger">*</span></label>
+                {{ form.nama_asuransi(class="form-select uppercase-input", id="nama_asuransi") }}
             </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi <span class="text-danger">*</span></label>
+                {{ form.no_polis(class="form-control huruf-angka uppercase-input", id="no_polis", placeholder="12AB3456") }}
+            </div>
+        </div>
+        
+        <div class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Tanggal Berakhir Baru</label>
                 {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date") }}
+            </div>
+            <div class="col-md-6">
+                <label id="upload-label" class="form-label fw-semibold text-secondary">Upload Foto STNK <span class="text-danger">*</span></label>
+                <input type="file" name="photo_bukti" id="photo-bukti-input" class="form-control shadow-sm" accept="image/*" required>
+                <div class="form-text text-muted small mt-1"><i class="fas fa-info-circle me-1"></i>Maksimal ukuran file: 20 MB</div>
             </div>
         </div>
                 
@@ -107,30 +144,48 @@
     });
 
     document.addEventListener("DOMContentLoaded", function () {
-        const inputTanggalBayar = document.getElementById("tanggal-bayar")
-        const inputTanggalBaru = document.getElementById("tanggal-berakhir-baru")
+        const inputTanggalBaru = document.getElementById("tanggal-berakhir-baru");
         const hariIni = new Date().toISOString().split('T')[0];
 
-        inputTanggalBayar.setAttribute("max", hariIni);
-        inputTanggalBaru.setAttribute("min", hariIni);
+        if (inputTanggalBaru) {
+            inputTanggalBaru.setAttribute("min", hariIni);
+            inputTanggalBaru.addEventListener("blur", function () {
+                const tanggalPilihan = this.value;
+                if (tanggalPilihan && tanggalPilihan < hariIni) {
+                    alert("⚠️ Maaf, tanggal berakhir baru tidak boleh sebelum hari ini!");
+                    this.value = "";
+                }
+            });
+        }
 
-        inputTanggalBayar.addEventListener("blur", function () {
-            const tanggalPilihan = this.value;
-
-            if (tanggalPilihan && tanggalPilihan > hariIni) {
-                alert("⚠️ Maaf, tanggal bayar tidak boleh lebih dari hari ini!");
-                this.value = "";
+        // Dynamic upload label toggle based on STNK or Asuransi jenis selection
+        const jenisSelect = document.getElementById("jenis-input");
+        const uploadLabel = document.getElementById("upload-label");
+        const asuransiExtendFields = document.getElementById("asuransi-extend-fields");
+        const namaAsuransi = document.getElementById("nama_asuransi");
+        const noPolis = document.getElementById("no_polis");
+        
+        function updateUploadLabel() {
+            if (jenisSelect && uploadLabel) {
+                const val = jenisSelect.value;
+                if (val === "STNK") {
+                    uploadLabel.innerHTML = 'Upload Foto STNK <span class="text-danger">*</span>';
+                    if (asuransiExtendFields) asuransiExtendFields.style.display = "none";
+                    if (namaAsuransi) namaAsuransi.removeAttribute("required");
+                    if (noPolis) noPolis.removeAttribute("required");
+                } else {
+                    uploadLabel.innerHTML = 'Upload Foto Asuransi <span class="text-danger">*</span>';
+                    if (asuransiExtendFields) asuransiExtendFields.style.display = "flex";
+                    if (namaAsuransi) namaAsuransi.setAttribute("required", "required");
+                    if (noPolis) noPolis.setAttribute("required", "required");
+                }
             }
-        });
-
-        inputTanggalBaru.addEventListener("blur", function () {
-            const tanggalPilihan = this.value;
-
-            if (tanggalPilihan && tanggalPilihan < hariIni) {
-                alert("⚠️ Maaf, tanggal berakhir baru tidak boleh sebelum hari ini!");
-                this.value = "";
-            }
-        });
+        }
+        
+        if (jenisSelect) {
+            jenisSelect.addEventListener("change", updateUploadLabel);
+            updateUploadLabel();
+        }
     });
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -289,7 +344,7 @@
             const currentSelected = cnInput.getAttribute('data-selected') || cnInput.value;
             const combinedUnit = unitVal;
 
-            fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}?pt=${encodeURIComponent(ptVal)}&kota=${encodeURIComponent(kotaVal)}&source=asset`)
+            fetch(`/api/get-cn/${encodeURIComponent(combinedUnit)}?pt=${encodeURIComponent(ptVal)}&kota=${encodeURIComponent(kotaVal)}&source=lokasi_kerja`)
                 .then(response => response.json())
                 .then(data => {
                     let optionsHtml = '<option value="">-- Pilih Kode Unit --</option>';
@@ -303,6 +358,114 @@
                 .catch(error => {
                     console.error('Error fetching CN:', error);
                 });
+        }
+
+        // Engine lookup logic
+        const searchMethodSelect = document.getElementById("search-method-select");
+        const searchMesinWrapper = document.getElementById("search-mesin-wrapper");
+        const engineSearchInput = document.getElementById("engine-search-input");
+        const btnSearchEngine = document.getElementById("btn-search-engine");
+        const engineSearchFeedback = document.getElementById("engine-search-feedback");
+        const wilayahFiltersWrapper = document.getElementById("wilayah-filters-wrapper");
+
+        let enginesData = [];
+
+        // Fetch all engines once
+        fetch("/api/get-all-engines")
+            .then(res => res.json())
+            .then(data => {
+                enginesData = data;
+            })
+            .catch(err => console.error("Error loading engines:", err));
+
+        const originalPulauHtml = pulauSelect.innerHTML;
+
+        function setCnInputReadOnly(isReadOnly) {
+            if (isReadOnly) {
+                cnInput.style.pointerEvents = "none";
+                cnInput.style.backgroundColor = "#e9ecef";
+                cnInput.style.color = "#495057";
+            } else {
+                cnInput.style.pointerEvents = "auto";
+                cnInput.style.backgroundColor = "";
+                cnInput.style.color = "";
+            }
+        }
+
+        searchMethodSelect.addEventListener("change", function() {
+            // Reset search input and feedback
+            engineSearchInput.value = "";
+            engineSearchFeedback.classList.add("d-none");
+            
+            // Reset cascading select elements
+            pulauSelect.innerHTML = '<option value="">-- Pilih Pulau --</option>';
+            kotaSelect.innerHTML = '<option value="">-- Pilih Kota --</option>';
+            ptSelect.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitSelect.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            aturStatusCnInput();
+
+            if (this.value === "mesin") {
+                searchMesinWrapper.classList.remove("d-none");
+                wilayahFiltersWrapper.classList.add("d-none");
+                setCnInputReadOnly(true);
+            } else {
+                searchMesinWrapper.classList.add("d-none");
+                wilayahFiltersWrapper.classList.remove("d-none");
+                setCnInputReadOnly(false);
+                // Restore original cascading filters
+                pulauSelect.innerHTML = originalPulauHtml;
+                updateKotaChoices();
+            }
+        });
+
+        function performEngineSearch() {
+            const query = engineSearchInput.value.trim().toUpperCase();
+            if (!query) {
+                engineSearchFeedback.textContent = "Silakan masukkan Nomor Mesin terlebih dahulu!";
+                engineSearchFeedback.classList.remove("d-none");
+                return;
+            }
+
+            const item = enginesData.find(e => e.sn_engine.toUpperCase() === query);
+            if (item) {
+                engineSearchFeedback.classList.add("d-none");
+
+                pulauSelect.innerHTML = `<option value="${item.pulau}">${item.pulau}</option>`;
+                pulauSelect.value = item.pulau;
+
+                kotaSelect.innerHTML = `<option value="${item.kota}">${item.kota}</option>`;
+                kotaSelect.value = item.kota;
+
+                ptSelect.innerHTML = `<option value="${item.pt}">${item.pt}</option>`;
+                ptSelect.value = item.pt;
+
+                unitSelect.innerHTML = `<option value="${item.unit}">${item.unit}</option>`;
+                unitSelect.value = item.unit;
+
+                cnInput.innerHTML = `<option value="${item.pkey}">${item.kode_unit}</option>`;
+                cnInput.value = item.pkey;
+                cnInput.disabled = false;
+                
+                setCnInputReadOnly(true);
+
+                if (typeof window.muatJumlahTagihan === "function") {
+                    window.muatJumlahTagihan();
+                }
+            } else {
+                engineSearchFeedback.textContent = "Nomor Mesin tidak ditemukan!";
+                engineSearchFeedback.classList.remove("d-none");
+            }
+        }
+
+        if (btnSearchEngine && engineSearchInput) {
+            btnSearchEngine.addEventListener("click", performEngineSearch);
+            engineSearchInput.addEventListener("keypress", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    performEngineSearch();
+                }
+            });
         }
 
         pulauSelect.addEventListener("change", () => {

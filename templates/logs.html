@@ -71,6 +71,39 @@
                 </table>
             </div>
 
+            {% if total_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-grow-1 flex-wrap gap-2">
+                <div class="small text-muted">
+                    Menampilkan {{ logs|length }} dari total {{ total_count }} log aktivitas.
+                </div>
+                <nav aria-label="Navigasi Halaman Log">
+                    <ul class="pagination pagination-sm m-0">
+                        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=page-1) }}" tabindex="-1">Sebelumnya</a>
+                        </li>
+                        
+                        {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                        <li class="page-item disabled"><span class="page-link bg-light border-0">...</span></li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=page+1) }}">Berikutnya</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% else %}
+            <div class="small text-muted mt-2">
+                Menampilkan {{ logs|length }} log aktivitas.
+            </div>
+            {% endif %}
+
         </div>
     </div>
 </div>

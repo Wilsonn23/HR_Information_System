@@ -36,26 +36,53 @@
             <h5 class="fw-bold text-secondary mb-3 border-bottom pb-2">
                 <i class="fas fa-map-marker-alt me-1"></i> Pilih Unit Asal
             </h5>
+
+            <!-- Toggle Search Method -->
             <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold text-secondary">Pulau Asal</label>
-                    {{ form.pulau_asal(class="form-select uppercase-input", id="pulau_asal") }}
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold text-secondary">Kota Asal</label>
-                    {{ form.kota_asal(class="form-select uppercase-input", id="kota_asal", **{"data-selected": form.kota_asal.data or ""}) }}
+                <div class="col-md-12">
+                    <label for="search-method-select" class="form-label fw-semibold text-secondary small">Metode Pencarian:</label>
+                    <select id="search-method-select" class="form-select shadow-sm">
+                        <option value="wilayah" selected>Filter Wilayah</option>
+                        <option value="mesin">Nomor Mesin</option>
+                    </select>
                 </div>
             </div>
             <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold text-secondary">PT Asal</label>
-                    {{ form.pt_asal(class="form-select uppercase-input", id="pt_asal", **{"data-selected": form.pt_asal.data or ""}) }}
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold text-secondary">Unit Asal</label>
-                    {{ form.unit_asal(class="form-select uppercase-input", id="unit_asal", **{"data-selected": form.unit_asal.data or ""}) }}
+                <div class="col-md-12 d-none" id="search-mesin-wrapper">
+                    <label for="engine-search-input" class="form-label fw-semibold text-secondary small">Cari Nomor Mesin:</label>
+                    <div class="input-group">
+                        <input type="text" id="engine-search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin...">
+                        <button type="button" id="btn-search-engine" class="btn btn-warning fw-bold text-dark shadow-sm">
+                            <i class="fas fa-search me-1"></i> Cari
+                        </button>
+                    </div>
+                    <div id="engine-search-feedback" class="form-text text-danger d-none mt-1">Nomor Mesin tidak ditemukan!</div>
                 </div>
             </div>
+
+            <div id="wilayah-filters-wrapper">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary">Pulau Asal</label>
+                        {{ form.pulau_asal(class="form-select uppercase-input", id="pulau_asal") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary">Kota Asal</label>
+                        {{ form.kota_asal(class="form-select uppercase-input", id="kota_asal", **{"data-selected": form.kota_asal.data or ""}) }}
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary">PT Asal</label>
+                        {{ form.pt_asal(class="form-select uppercase-input", id="pt_asal", **{"data-selected": form.pt_asal.data or ""}) }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary">Unit Asal</label>
+                        {{ form.unit_asal(class="form-select uppercase-input", id="unit_asal", **{"data-selected": form.unit_asal.data or ""}) }}
+                    </div>
+                </div>
+            </div>
+            
             <div class="row g-3 mb-3">
                 <div class="col-12">
                     <label class="form-label fw-semibold text-secondary">Kode Unit (CN) Asal</label>
@@ -116,6 +143,12 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll('.uppercase-input').forEach(input => {
+        input.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
+        });
+    });
+
     // -------------------------------------------------------------
     // Cascading Dropdowns Logic for Source (Unit Asal)
     // -------------------------------------------------------------
@@ -219,6 +252,112 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (pulauAsal) {
+        // Engine lookup logic
+        const searchMethodSelect = document.getElementById("search-method-select");
+        const searchMesinWrapper = document.getElementById("search-mesin-wrapper");
+        const engineSearchInput = document.getElementById("engine-search-input");
+        const btnSearchEngine = document.getElementById("btn-search-engine");
+        const engineSearchFeedback = document.getElementById("engine-search-feedback");
+        const wilayahFiltersWrapper = document.getElementById("wilayah-filters-wrapper");
+
+        let enginesData = [];
+
+        // Fetch all engines once
+        fetch("/api/get-all-engines")
+            .then(res => res.json())
+            .then(data => {
+                enginesData = data;
+            })
+            .catch(err => console.error("Error loading engines:", err));
+
+        const originalPulauHtml = pulauAsal.innerHTML;
+
+        function setCnAsalReadOnly(isReadOnly) {
+            if (isReadOnly) {
+                cnAsal.style.pointerEvents = "none";
+                cnAsal.style.backgroundColor = "#e9ecef";
+                cnAsal.style.color = "#495057";
+            } else {
+                cnAsal.style.pointerEvents = "auto";
+                cnAsal.style.backgroundColor = "";
+                cnAsal.style.color = "";
+            }
+        }
+
+        searchMethodSelect.addEventListener("change", function() {
+            // Reset search input and feedback
+            engineSearchInput.value = "";
+            engineSearchFeedback.classList.add("d-none");
+            
+            // Reset cascading select elements
+            pulauAsal.innerHTML = '<option value="">-- Pilih Pulau --</option>';
+            kotaAsal.innerHTML = '<option value="">-- Pilih Kota --</option>';
+            ptAsal.innerHTML = '<option value="">-- Pilih PT --</option>';
+            unitAsal.innerHTML = '<option value="">-- Pilih Unit PT --</option>';
+            cnAsal.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
+            document.getElementById("kode_unit_tujuan").value = "";
+
+            if (this.value === "mesin") {
+                searchMesinWrapper.classList.remove("d-none");
+                wilayahFiltersWrapper.classList.add("d-none");
+                setCnAsalReadOnly(true);
+            } else {
+                searchMesinWrapper.classList.add("d-none");
+                wilayahFiltersWrapper.classList.remove("d-none");
+                setCnAsalReadOnly(false);
+                // Restore original cascading filters
+                pulauAsal.innerHTML = originalPulauHtml;
+                updateKotaAsal();
+            }
+        });
+
+        function performEngineSearch() {
+            const query = engineSearchInput.value.trim().toUpperCase();
+            if (!query) {
+                engineSearchFeedback.textContent = "Silakan masukkan Nomor Mesin terlebih dahulu!";
+                engineSearchFeedback.classList.remove("d-none");
+                return;
+            }
+
+            const item = enginesData.find(e => e.sn_engine.toUpperCase() === query);
+            if (item) {
+                engineSearchFeedback.classList.add("d-none");
+
+                pulauAsal.innerHTML = `<option value="${item.pulau}">${item.pulau}</option>`;
+                pulauAsal.value = item.pulau;
+
+                kotaAsal.innerHTML = `<option value="${item.kota}">${item.kota}</option>`;
+                kotaAsal.value = item.kota;
+
+                ptAsal.innerHTML = `<option value="${item.pt}">${item.pt}</option>`;
+                ptAsal.value = item.pt;
+
+                unitAsal.innerHTML = `<option value="${item.unit}">${item.unit}</option>`;
+                unitAsal.value = item.unit;
+
+                cnAsal.innerHTML = `<option value="${item.pkey}">${item.kode_unit}</option>`;
+                cnAsal.value = item.pkey;
+                
+                // Set the Kode Unit Tujuan field to the code!
+                document.getElementById("kode_unit_tujuan").value = item.kode_unit;
+                
+                setCnAsalReadOnly(true);
+            } else {
+                engineSearchFeedback.textContent = "Nomor Mesin tidak ditemukan!";
+                engineSearchFeedback.classList.remove("d-none");
+            }
+        }
+
+        if (btnSearchEngine && engineSearchInput) {
+            btnSearchEngine.addEventListener("click", performEngineSearch);
+            engineSearchInput.addEventListener("keypress", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    performEngineSearch();
+                }
+            });
+        }
+
         pulauAsal.addEventListener("change", () => {
             kotaAsal.setAttribute('data-selected', '');
             ptAsal.setAttribute('data-selected', '');

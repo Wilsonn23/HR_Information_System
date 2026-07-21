@@ -47,12 +47,10 @@
                     <thead class="table-light">
                         <tr>
                             <th>CN</th>
+                            <th>No Mesin</th>
                             <th>Jenis</th>
-                            <th>Nama PT</th>
                             <th>Nama Unit PT</th>
-                            <th>No Polis</th>
                             <th>Jumlah Dibayar</th>
-                            <th>Tanggal Bayar</th>
                             <th>Tanggal Berakhir Baru</th>
                             <th>Diinput Oleh</th>
                             <th>Tanggal Input</th>
@@ -62,13 +60,11 @@
                         {% for entry, report_entry in rows %}
                         <tr>
                             <td><strong>{{ entry.kode_unit }}</strong></td>
+                            <td>{{ entry.sn_engine }}</td>
                             <td>{{ report_entry.jenis }}</td>
-                            <td>{{ entry.pt }}</td>
                             <td>{{ entry.unit }}</td>
-                            <td>{{ entry.no_polis }}</td>
                             <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
                                 ",").replace("X", ".") }}</td>
-                            <td>{{ report_entry.tanggal_bayar }}</td>
                             <td>{{ report_entry.tanggal_berakhir_baru }}</td>
                             <td>{{ report_entry.diinput_oleh }}</td>
                             <td>{{ report_entry.tanggal_input }}</td>
@@ -108,12 +104,10 @@
                         <thead class="table-light">
                             <tr>
                                 <th>CN</th>
+                                <th>No Mesin</th>
                                 <th>Jenis</th>
-                                <th>Nama PT</th>
                                 <th>Nama Unit PT</th>
-                                <th>No Polis</th>
                                 <th>Jumlah Dibayar</th>
-                                <th>Tanggal Bayar</th>
                                 <th>Tanggal Berakhir Baru</th>
                                 <th>Diinput Oleh</th>
                                 <th>Tanggal Input</th>
@@ -123,13 +117,11 @@
                             {% for entry, report_entry in rows %}
                             <tr>
                                 <td><strong>{{ entry.kode_unit }}</strong></td>
+                                <td>{{ entry.sn_engine }}</td>
                                 <td>{{ report_entry.jenis }}</td>
-                                <td>{{ entry.pt }}</td>
                                 <td>{{ entry.unit }}</td>
-                                <td>{{ entry.no_polis }}</td>
                                 <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".",
                                     ",").replace("X", ".") }}</td>
-                                <td>{{ report_entry.tanggal_bayar }}</td>
                                 <td>{{ report_entry.tanggal_berakhir_baru }}</td>
                                 <td>{{ report_entry.diinput_oleh }}</td>
                                 <td>{{ report_entry.tanggal_input }}</td>
