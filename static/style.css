@@ -126,7 +126,7 @@ h5.border-bottom {
 .form-control:focus, .form-select:focus {
     background-color: #ffffff;
     border-color: #0052d4;
-    box-shadow: 0 0 0 4px rgba(0, 82, 212, 0.12) !important;
+    box-shadow: none !important;
     color: #1e293b;
 }
 
