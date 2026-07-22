@@ -6,7 +6,7 @@ import sys
 if __name__ == '__main__':
     sys.modules['app'] = sys.modules['__main__']
 
-from flask import Flask, render_template, request, redirect, url_for, Response, flash, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, Response, flash, session, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Integer, Sequence, text, select, or_
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -120,6 +120,12 @@ def batasi_akses_global():
         flash("Silakan login terlebih dahulu untuk mengakses halaman tersebut.", "warning")
         return redirect(url_for('login'))
 
+    # Auto-detect active module based on URL path
+    if request.path.startswith('/sdm'):
+        session['module'] = 'sdm'
+    elif any(request.path.startswith(prefix) for prefix in ['/asset-dashboard', '/transaksi', '/details', '/report', '/master', '/logs', '/perpanjang', '/mutasi', '/edit', '/delete', '/update', '/submit_data']):
+        session['module'] = 'aset'
+
 # ===============================================================================================================
 # DATABASE INITIALIZATION
 # ===============================================================================================================
@@ -210,6 +216,21 @@ class LokasiKerja(db.Model):
     dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
+    @property
+    def pkey(self):
+        entry = db.session.execute(
+            db.select(DataEntry.pkey).where(
+                db.func.upper(DataEntry.kode_unit) == self.kode_unit.upper(),
+                db.func.upper(DataEntry.unit) == self.owner.upper(),
+                (DataEntry.notes == None) | (
+                    (~DataEntry.notes.ilike('%Dimutasi ke%')) &
+                    (~DataEntry.notes.ilike('%Dihapus%'))
+                )
+            )
+        ).scalars().first()
+        return entry or ""
+
+
 class KodeUnit(db.Model):
     __tablename__ = 'kode_unit'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
@@ -246,11 +267,7 @@ class UserEntry(db.Model):
     password: Mapped[str] = mapped_column(db.String(255), nullable=False)
     role: Mapped[str] = mapped_column(db.String(20), default='user')
 
-class UserForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=50)])
-    password = StringField('Password (Isi jika ingin diubah)', validators=[Optional(), Length(min=6)])
-    role = SelectField('Role', choices=[('user', 'Staff Operasional'), ('admin', 'Administrator')], validators=[DataRequired()])
-    submit = SubmitField('Simpan Pengguna')
+# UserForm shifted to sdm.py
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
@@ -295,12 +312,13 @@ class DataEntry(db.Model):
     unit: Mapped[str] = mapped_column(nullable=False)
     kode_unit: Mapped[str] = mapped_column(nullable=False, index=True)
     pkey: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    status: Mapped[str] = mapped_column(nullable=False, default="ON")
     lokasi_kerja: Mapped[str] = mapped_column(nullable=False)
 
     #Details
     nama_asuransi: Mapped[str] = mapped_column(nullable=True)
     no_polis: Mapped[str] = mapped_column(nullable=True)
-    no_polisi: Mapped[str] = mapped_column(nullable=False)
+    no_polisi: Mapped[str] = mapped_column(nullable=False, index=True)
     merk: Mapped[str] = mapped_column(nullable=False)
     kategori: Mapped[str] = mapped_column(nullable=False)
     eqp_model: Mapped[str] = mapped_column(nullable=False)
@@ -367,44 +385,7 @@ PULAU_KOTA_MAPPING = {
 def index():
     return redirect(url_for('login'))
 
-@app.route('/users', methods=['GET', 'POST'])
-def manage_users():
-    form = UserForm()
-    
-    if form.validate_on_submit():
-        username_clean = form.username.data.strip()
-        existing_user = db.session.execute(db.select(UserEntry).where(UserEntry.username == username_clean)).scalar_one_or_none()
-        
-        if existing_user:
-            flash(f"⚠️ Gagal! Username '{username_clean}' sudah digunakan oleh orang lain.", "danger")
-        else:
-            if not form.password.data:
-                flash("⚠️ Password wajib diisi untuk pengguna baru!", "danger")
-            else:
-                hashed_pw = generate_password_hash(form.password.data)
-                new_user = UserEntry(username=username_clean, password=hashed_pw, role=form.role.data)
-                db.session.add(new_user)
-                db.session.commit()
-                return redirect(url_for('manage_users'))
-
-    all_users = db.session.execute(db.select(UserEntry).order_by(UserEntry.id)).scalars().all()
-    return render_template('users.html', form=form, users=all_users, active_page='users')
-
-@app.route('/users/delete/<int:user_id>', methods=['POST'])
-def delete_user(user_id):
-    if 'logged_user' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-        
-    user_to_delete = db.session.get(UserEntry, user_id)
-    
-    if user_to_delete and user_to_delete.username == session['logged_user']:
-        flash("⚠️ Anda tidak bisa menghapus akun Anda sendiri yang sedang aktif digunakan!", "danger")
-    elif user_to_delete:
-        db.session.delete(user_to_delete)
-        db.session.commit()
-        flash(f"Akun pengguna berhasil dihapus dari sistem.", "success")
-    
-    return redirect(url_for('manage_users'))
+# User management routes shifted to sdm.py
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -445,6 +426,11 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/temp_uploads/<filename>')
+def serve_temp_file(filename):
+    import os
+    return send_from_directory(os.path.join(app.root_path, 'temp_uploads'), filename)
+
 @app.route('/logs')
 def view_audit_logs():
     # 1. Pastikan user sudah login
@@ -454,7 +440,7 @@ def view_audit_logs():
     # 2. Batasi akses: Hanya user dengan role 'admin' yang boleh masuk
     if session.get('role') != 'admin':
         flash("⚠️ Anda tidak memiliki izin (Akses Ditolak) untuk membuka halaman Jejak Audit.", "danger")
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     page = request.args.get('page', 1, type=int)
     per_page = 50
@@ -488,7 +474,7 @@ def view_audit_logs():
 
     # 4. Tampilkan ke template dengan parameter paginasi
     return render_template(
-        'logs.html', 
+        'aset/logs.html', 
         logs=all_logs, 
         page=page, 
         total_pages=total_pages, 
@@ -496,9 +482,9 @@ def view_audit_logs():
         active_page='logs'
     )
 
-
-# Import the asset modules to register their routes directly on app
+# Import the modules to register their routes directly on app
 import aset
+import sdm
 
 if __name__ == '__main__':
     app.run(debug=True)

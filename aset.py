@@ -12,11 +12,15 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from PIL import Image, ImageOps
 import io
+import os
+import zipfile
 import zlib
 import urllib
 import pandas as pd
 
 # Import shared resources, models, app instance, and configurations from app.py
+from sqlalchemy.exc import IntegrityError
+from psycopg2.errors import UniqueViolation
 from sqlalchemy import text, select, or_
 from app import app, db, Base, decompress_data, compress_image_pil, CATEGORIES
 from app import Pulau, Kota, PT, Unit, LokasiKerja, KodeUnit, NamaAsuransi, Merk, Kategori, UserEntry, AuditLog, DataEntry, UnitImage, DocumentSurat, ReportEntry
@@ -212,8 +216,8 @@ def get_cn_choices_lokasi_kerja(selected_unit=None, selected_pt=None, selected_k
             if stripped_unit not in possible_names:
                 possible_names.append(stripped_unit)
 
-        # 1. Query LokasiKerja table to find the unit codes (kode_unit) matching the active work location criteria
-        lk_query = db.select(LokasiKerja.kode_unit).where(
+        # 1. Query LokasiKerja table to find the unit codes (kode_unit) and owner matching the active work location criteria
+        lk_query = db.select(LokasiKerja.kode_unit, LokasiKerja.owner).where(
             (db.func.upper(LokasiKerja.owner).in_(possible_names)) |
             (db.func.upper(LokasiKerja.nama).in_(possible_names))
         )
@@ -222,14 +226,25 @@ def get_cn_choices_lokasi_kerja(selected_unit=None, selected_pt=None, selected_k
         if selected_kota:
             lk_query = lk_query.where(db.func.upper(LokasiKerja.kota) == selected_kota.upper().strip())
             
-        matching_cns = db.session.execute(lk_query.distinct()).scalars().all()
-        if not matching_cns:
+        matching_pairs = db.session.execute(lk_query.distinct()).all()
+        if not matching_pairs:
             return []
             
-        # 2. Query DataEntry to get the pkey and kode_unit of those matching unit codes
+        # 2. Query DataEntry to get the pkey and kode_unit of those matching unit codes and owner
         # and exclude already mutated/deleted units
+        conditions = []
+        for cn_val, owner_val in matching_pairs:
+            if cn_val and owner_val:
+                conditions.append(
+                    (db.func.upper(DataEntry.kode_unit) == cn_val.upper().strip()) &
+                    (db.func.upper(DataEntry.unit) == owner_val.upper().strip())
+                )
+        
+        if not conditions:
+            return []
+            
         de_query = db.select(DataEntry.kode_unit, DataEntry.pkey).where(
-            DataEntry.kode_unit.in_(matching_cns)
+            or_(*conditions)
         )
         de_query = de_query.where(
             (DataEntry.notes == None) |
@@ -452,7 +467,7 @@ class MutasiForm(FlaskForm):
 @app.route('/master-all')
 def master_all():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     # Read group, sort, and filter criteria
     group_by = request.args.get('groupby', 'ALL').strip()
@@ -567,7 +582,7 @@ def master_all():
         grouped_data = {k: grouped_dict[k] for k in sorted(grouped_dict.keys())}
         
     return render_template(
-        'master-all.html', 
+        'aset/master_all.html', 
         grouped_data=grouped_data, 
         filter_options=filter_options, 
         selected_filters=selected_filters,
@@ -579,7 +594,7 @@ def master_all():
 @app.route('/master-lokasi-kerja')
 def master_lokasi_kerja():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     # Read group, sort, and filter criteria
     group_by = request.args.get('groupby', 'ALL').strip()
@@ -668,7 +683,7 @@ def master_lokasi_kerja():
         grouped_data = {k: grouped_dict[k] for k in sorted(grouped_dict.keys())}
         
     return render_template(
-        'master-lokasi-kerja.html', 
+        'aset/master_lokasi_kerja.html', 
         grouped_data=grouped_data, 
         filter_options=filter_options, 
         selected_filters=selected_filters,
@@ -680,17 +695,17 @@ def master_lokasi_kerja():
 @app.route('/master-pulau')
 def master_pulau():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(Pulau).order_by(Pulau.nama)
     ).scalars().all()
-    return render_template('master.html', type='Pulau', entries=all_entries, active_page='master')
+    return render_template('aset/master.html', type='Pulau', entries=all_entries, active_page='master')
 
 @app.route('/master-kota')
 def master_kota():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(Kota).order_by(Kota.nama)
@@ -698,12 +713,12 @@ def master_kota():
     references = db.session.execute(
         db.select(Pulau).order_by(Pulau.nama)
     ).scalars().all()
-    return render_template('master.html', type='Kota', entries=all_entries, references_list=references, active_page='master')
+    return render_template('aset/master.html', type='Kota', entries=all_entries, references_list=references, active_page='master')
 
 @app.route('/master-pt')
 def master_pt():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(PT).order_by(PT.nama)
@@ -711,12 +726,12 @@ def master_pt():
     references = db.session.execute(
         db.select(Kota).order_by(Kota.nama)
     ).scalars().all()
-    return render_template('master.html', type='PT', entries=all_entries, references_list=references, active_page='master')
+    return render_template('aset/master.html', type='PT', entries=all_entries, references_list=references, active_page='master')
 
 @app.route('/master-unit')
 def master_unit():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(Unit).order_by(Unit.nama)
@@ -724,42 +739,42 @@ def master_unit():
     references = db.session.execute(
         db.select(PT).order_by(PT.nama)
     ).scalars().all()
-    return render_template('master.html', type='Unit PT', entries=all_entries, references_list=references, active_page='master')
+    return render_template('aset/master.html', type='Unit PT', entries=all_entries, references_list=references, active_page='master')
 
 @app.route('/master-asuransi')
 def master_asuransi():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(NamaAsuransi).order_by(NamaAsuransi.nama)
     ).scalars().all()
-    return render_template('master.html', type='Asuransi', entries=all_entries, active_page='master')
+    return render_template('aset/master.html', type='Asuransi', entries=all_entries, active_page='master')
 
 @app.route('/master-merk')
 def master_merk():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(Merk).order_by(Merk.nama)
     ).scalars().all()
-    return render_template('master.html', type='Merk', entries=all_entries, active_page='master')
+    return render_template('aset/master.html', type='Merk', entries=all_entries, active_page='master')
 
 @app.route('/master-kategori')
 def master_kategori():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     all_entries = db.session.execute(
         db.select(Kategori).order_by(Kategori.nama)
     ).scalars().all()
-    return render_template('master.html', type='Kategori', entries=all_entries, active_page='master')
+    return render_template('aset/master.html', type='Kategori', entries=all_entries, active_page='master')
 
 @app.route('/master/add/<type>', methods=['POST'])
 def master_add(type):
     if session.get('role') != 'admin':
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     nama_input = request.form.get('nama', '').strip().upper()
     if not nama_input:
@@ -840,7 +855,7 @@ def master_add(type):
 @app.route('/master/delete/<type>/<int:id>', methods=['POST'])
 def master_delete(type, id):
     if session.get('role') != 'admin':
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
     
     try:
         if type == 'Pulau':
@@ -883,12 +898,12 @@ def master_delete(type, id):
 @app.route('/master')
 def master():
     if(session['role'] != 'admin'):
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
 
-    return render_template('master-landing.html', active_page='master')
+    return render_template('aset/master_landing.html', active_page='master')
 
-@app.route('/dashboard', methods=['GET', 'POST'])
-def dashboard():
+@app.route('/aset-dashboard', methods=['GET', 'POST'])
+def aset_dashboard():
     check_and_update_expired_units()
     query = text("SELECT COUNT(*) FROM data_entries WHERE (notes IS NULL OR (UPPER(notes) NOT LIKE '%DIMUTASI KE%' AND UPPER(notes) NOT LIKE '%DIHAPUS%'))")
     total_peralatan=db.session.execute(query).scalar()
@@ -922,8 +937,8 @@ def dashboard():
     asuransi_none = DataEntry.query.filter((DataEntry.tanggal_berakhir_asuransi == None), not_mutated).all()
 
     return render_template(
-        'dashboard.html', 
-        active_page='dashboard', 
+        'aset/aset_dashboard.html', 
+        active_page='aset-dashboard', 
         total_peralatan=total_peralatan, 
         jumlah_stnk_aktif=jumlah_stnk_aktif, 
         jumlah_asuransi_aktif=jumlah_asuransi_aktif,
@@ -939,13 +954,13 @@ def dashboard():
 
 @app.route('/transaksi')
 def transaksi():
-    return render_template('transaksi.html', active_page='transaksi')
+    return render_template('aset/transaksi.html', active_page='transaksi')
 
 @app.route('/entry')
 def database():
     form = DataForm()
     populate_form_choices(form)
-    return render_template('form.html', form=form, active_page='transaksi')
+    return render_template('aset/form.html', form=form, active_page='transaksi')
 
 @app.route('/perpanjang')
 def perpanjang():
@@ -958,12 +973,12 @@ def perpanjang():
     form.cn.choices = [('', '-- Pilih Kode Unit --')]
     asuransi_entries = db.session.execute(db.select(NamaAsuransi).order_by(NamaAsuransi.nama)).scalars().all()
     form.nama_asuransi.choices = [('', '-- Pilih Asuransi --'), ('-', '-')] + [(a.nama, a.nama) for a in asuransi_entries]
-    return render_template('perpanjang.html', form=form, active_page='transaksi')
+    return render_template('aset/perpanjang.html', form=form, active_page='transaksi')
 
 @app.route('/mutasi', methods=['GET', 'POST'])
 def mutasi():
     if session['role'] not in ['admin', 'user']:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('aset_dashboard'))
         
     form = MutasiForm()
     
@@ -1019,7 +1034,7 @@ def mutasi():
                 ).scalar_one_or_none()
                 if existing:
                     flash(f"Gagal mutasi: Unit dengan kode {dest_cn} sudah terdaftar di lokasi tujuan ({new_pkey}).", "danger")
-                    return render_template('mutasi.html', form=form, preselected_entry=preselected_entry, active_page='transaksi')
+                    return render_template('aset/mutasi.html', form=form, preselected_entry=preselected_entry, active_page='transaksi')
             
             try:
                 old_pkey = entry.pkey
@@ -1074,9 +1089,25 @@ def mutasi():
                 db.session.add(new_record)
 
                 # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (dest_lokasi)
+                # First try to find the Unit matching name AND the target PT/Kota/Pulau hierarchy
                 loc_unit = db.session.execute(
-                    db.select(Unit).where(db.func.upper(Unit.nama) == dest_lokasi.upper().strip())
+                    db.select(Unit)
+                    .join(PT, Unit.reference == PT.id)
+                    .join(Kota, PT.reference == Kota.id)
+                    .join(Pulau, Kota.reference == Pulau.id)
+                    .where(
+                        db.func.upper(Unit.nama) == dest_lokasi.upper().strip(),
+                        db.func.upper(PT.nama) == dest_pt.upper().strip(),
+                        db.func.upper(Kota.nama) == dest_kota.upper().strip(),
+                        db.func.upper(Pulau.nama) == dest_pulau.upper().strip()
+                    )
                 ).scalars().first()
+                
+                # Fallback: find any Unit matching the name
+                if not loc_unit:
+                    loc_unit = db.session.execute(
+                        db.select(Unit).where(db.func.upper(Unit.nama) == dest_lokasi.upper().strip())
+                    ).scalars().first()
                 
                 loc_pt = ""
                 loc_kota = ""
@@ -1100,10 +1131,11 @@ def mutasi():
                 if not loc_pulau:
                     loc_pulau = dest_pulau
 
-                # Delete any old LokasiKerja master records for this unit code
+                # Delete any old LokasiKerja master records for this unit code and owner
                 old_loks = db.session.execute(
                     db.select(LokasiKerja).where(
-                        db.func.upper(LokasiKerja.kode_unit) == old_kode_unit.upper().strip()
+                        db.func.upper(LokasiKerja.kode_unit) == old_kode_unit.upper().strip(),
+                        db.func.upper(LokasiKerja.owner) == old_unit.upper().strip()
                     )
                 ).scalars().all()
                 for old_lok in old_loks:
@@ -1133,6 +1165,7 @@ def mutasi():
                 db.session.add(audit_log)
 
                 entry.notes = f"Dimutasi ke {dest_unit_combined.upper().strip()} ({dest_cn})"
+                entry.status = "OFF"
 
                 db.session.commit()
                 flash(f"Sukses melakukan mutasi unit {dest_cn} ke lokasi baru.", "success")
@@ -1161,7 +1194,7 @@ def mutasi():
             form.kode_unit_tujuan.data = preselected_entry.kode_unit
             
     return render_template(
-        'mutasi.html', 
+        'aset/mutasi.html', 
         form=form, 
         preselected_entry=preselected_entry, 
         active_page='transaksi'
@@ -1169,6 +1202,133 @@ def mutasi():
 
 @app.route('/report')
 def report():
+    return render_template('aset/report.html', active_page='report')
+
+@app.route('/report-unit')
+def report_unit():
+    group_by = request.args.get('groupby', 'ALL').strip()
+    sort_by = request.args.get('sortby', 'id_desc').strip()
+    
+    pulau_filter = request.args.get('pulau', '').strip()
+    kota_filter = request.args.get('kota', '').strip()
+    pt_filter = request.args.get('pt', '').strip()
+    unit_filter = request.args.get('unit', '').strip()
+    lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
+    asuransi_filter = request.args.get('nama_asuransi', '').strip()
+    merk_filter = request.args.get('merk', '').strip()
+    kategori_filter = request.args.get('kategori', '').strip()
+    model_filter = request.args.get('eqp_model', '').strip()
+    
+    query = db.select(DataEntry)
+    
+    # Apply filters
+    if pulau_filter:
+        query = query.where(db.func.upper(DataEntry.pulau) == pulau_filter.upper())
+    if kota_filter:
+        query = query.where(db.func.upper(DataEntry.kota) == kota_filter.upper())
+    if pt_filter:
+        query = query.where(db.func.upper(DataEntry.pt) == pt_filter.upper())
+    if unit_filter:
+        query = query.where(
+            (db.func.upper(DataEntry.unit) == unit_filter.upper()) | 
+            (DataEntry.unit.like(f"%{unit_filter}%"))
+        )
+    if asuransi_filter:
+        query = query.where(db.func.upper(DataEntry.nama_asuransi) == asuransi_filter.upper())
+    if merk_filter:
+        query = query.where(db.func.upper(DataEntry.merk) == merk_filter.upper())
+    if kategori_filter:
+        query = query.where(db.func.upper(DataEntry.kategori) == kategori_filter.upper())
+    if model_filter:
+        query = query.where(db.func.upper(DataEntry.eqp_model) == model_filter.upper())
+    if lokasi_kerja_filter:
+        query = query.where(db.func.upper(DataEntry.lokasi_kerja) == lokasi_kerja_filter.upper())
+        
+    # Apply sorting
+    if sort_by == 'pulau':
+        query = query.order_by(DataEntry.pulau.asc())
+    elif sort_by == 'kota':
+        query = query.order_by(DataEntry.kota.asc())
+    elif sort_by == 'pt':
+        query = query.order_by(DataEntry.pt.asc())
+    elif sort_by == 'unit':
+        query = query.order_by(DataEntry.unit.asc())
+    elif sort_by == 'lokasi_kerja':
+        query = query.order_by(DataEntry.lokasi_kerja.asc())
+    elif sort_by == 'nama_asuransi':
+        query = query.order_by(DataEntry.nama_asuransi.asc())
+    elif sort_by == 'merk':
+        query = query.order_by(DataEntry.merk.asc())
+    elif sort_by == 'kategori':
+        query = query.order_by(DataEntry.kategori.asc())
+    elif sort_by == 'eqp_model':
+        query = query.order_by(DataEntry.eqp_model.asc())
+    else: # id_desc
+        query = query.order_by(DataEntry.id.desc())
+        
+    results = db.session.execute(query).scalars().all()
+    
+    # Extract distinct option lists from the actual master data tables
+    unit_entries = db.session.execute(db.select(Unit).order_by(Unit.nama)).scalars().all()
+    lokasi_choices = []
+    for u in unit_entries:
+        pt_obj = db.session.get(PT, u.reference)
+        if pt_obj:
+            display_val = f"{u.nama}"
+            lokasi_choices.append(display_val)
+        else:
+            lokasi_choices.append(u.nama)
+
+    filter_options = {
+        'pulau': db.session.execute(db.select(Pulau.nama).order_by(Pulau.nama)).scalars().all(),
+        'kota': db.session.execute(db.select(Kota.nama).order_by(Kota.nama)).scalars().all(),
+        'pt': db.session.execute(db.select(PT.nama).distinct().order_by(PT.nama)).scalars().all(),
+        'unit': db.session.execute(db.select(Unit.nama).distinct().order_by(Unit.nama)).scalars().all(),
+        'lokasi_kerja': sorted(list(set(lokasi_choices))),
+        'nama_asuransi': db.session.execute(db.select(NamaAsuransi.nama).order_by(NamaAsuransi.nama)).scalars().all(),
+        'merk': db.session.execute(db.select(Merk.nama).order_by(Merk.nama)).scalars().all(),
+        'kategori': db.session.execute(db.select(Kategori.nama).order_by(Kategori.nama)).scalars().all(),
+        'eqp_model': db.session.execute(db.select(DataEntry.eqp_model).distinct().where(DataEntry.eqp_model != None).order_by(DataEntry.eqp_model)).scalars().all(),
+    }
+    
+    selected_filters = {
+        'pulau': pulau_filter,
+        'kota': kota_filter,
+        'pt': pt_filter,
+        'unit': unit_filter,
+        'lokasi_kerja': lokasi_kerja_filter,
+        'nama_asuransi': asuransi_filter,
+        'merk': merk_filter,
+        'kategori': kategori_filter,
+        'eqp_model': model_filter
+    }
+    
+    # Group results into accordion sections
+    grouped_data = {}
+    if group_by == 'ALL':
+        grouped_data = {'ALL': results}
+    else:
+        from collections import defaultdict
+        grouped_dict = defaultdict(list)
+        for entry in results:
+            val = getattr(entry, group_by, None)
+            key_name = str(val) if val is not None else "Tidak Ada Data"
+            grouped_dict[key_name].append(entry)
+        # Sort accordion groups alphabetically by their group name
+        grouped_data = {k: grouped_dict[k] for k in sorted(grouped_dict.keys())}
+        
+    return render_template(
+        'aset/report_unit.html', 
+        grouped_data=grouped_data, 
+        filter_options=filter_options, 
+        selected_filters=selected_filters,
+        active_groupby=group_by,
+        active_sortby=sort_by,
+        active_page='report'
+    )
+
+@app.route('/report-transaksi')
+def report_transaction():
     group_by = request.args.get('groupby', 'ALL')
     
     query = (
@@ -1205,7 +1365,7 @@ def report():
         grouped_data = dict(grouped_dict)
 
     return render_template(
-        'report.html', 
+        'aset/report_transaksi.html', 
         grouped_data=grouped_data, 
         active_filter=group_by,
         active_page='report'
@@ -1219,7 +1379,7 @@ def details(pkey=None):
     pulau_list = db.session.execute(db.select(Pulau).order_by(Pulau.nama)).scalars().all()
     
     if not pkey:        
-        return render_template('details.html', entry=None, all_cn_list=all_cn_list, all_mesin_list=all_mesin_list, pulau_list=pulau_list, active_page='details')
+        return render_template('aset/details.html', entry=None, all_cn_list=all_cn_list, all_mesin_list=all_mesin_list, pulau_list=pulau_list, active_page='details')
     
     entry = db.session.execute(
         db.select(DataEntry).where(db.func.upper(DataEntry.pkey) == pkey.upper().strip())
@@ -1269,7 +1429,7 @@ def details(pkey=None):
     
     docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
         
-    return render_template('details.html', all_cn_list=all_cn_list, all_mesin_list=all_mesin_list, entry=entry, db_images=db_images, images_by_category=images_by_category, attachments=attachments, legacy_images=legacy_images, all_docs=all_docs, docs_by_type=docs_by_type, pulau_list=pulau_list, active_page='details')
+    return render_template('aset/details.html', all_cn_list=all_cn_list, all_mesin_list=all_mesin_list, entry=entry, db_images=db_images, images_by_category=images_by_category, attachments=attachments, legacy_images=legacy_images, all_docs=all_docs, docs_by_type=docs_by_type, pulau_list=pulau_list, active_page='details')
 
 @app.route('/submit_extend', methods=['POST'])
 def submit_extend():
@@ -1335,7 +1495,7 @@ def submit_extend():
 
         if not entry:
             flash("Data master unit tidak ditemukan!", "danger")
-            return render_template('perpanjang.html', form=form)
+            return render_template('aset/perpanjang.html', form=form)
 
         lokasi_record = db.session.execute(
             db.select(LokasiKerja).where(
@@ -1357,7 +1517,7 @@ def submit_extend():
 
         if not lokasi_record:
             flash("Data lokasi kerja unit tidak ditemukan!", "danger")
-            return render_template('perpanjang.html', form=form)
+            return render_template('aset/perpanjang.html', form=form)
 
         pkey = entry.pkey
 
@@ -1439,7 +1599,7 @@ def submit_extend():
             db.session.add(log_extend)
 
             db.session.commit()
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('aset_dashboard'))
                 
         except Exception as e:
             db.session.rollback()
@@ -1448,7 +1608,38 @@ def submit_extend():
     if form.errors:
         print(form.errors)
 
-    return render_template('perpanjang.html', form=form)
+    return render_template('aset/perpanjang.html', form=form)
+
+def preserve_uploaded_files():
+    import uuid
+    import os
+    temp_files = {}
+    temp_dir = os.path.join(app.root_path, 'temp_uploads')
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+        
+    for cat in CATEGORIES:
+        temp_val = request.form.get(f'temp_photo_{cat}')
+        if temp_val and ':' in temp_val:
+            filename, original_name = temp_val.split(':', 1)
+            temp_files[f'photo_{cat}'] = {
+                'filename': filename,
+                'original_name': original_name
+            }
+            
+    for cat in CATEGORIES:
+        file_field = f'photo_{cat}'
+        if file_field in request.files:
+            file = request.files[file_field]
+            if file and file.filename != '':
+                ext = os.path.splitext(file.filename)[1]
+                temp_filename = f"{uuid.uuid4()}{ext}"
+                file.save(os.path.join(temp_dir, temp_filename))
+                temp_files[file_field] = {
+                    'filename': temp_filename,
+                    'original_name': file.filename
+                }
+    return temp_files
 
 @app.route('/submit_data', methods=['POST'])
 def submit_data():
@@ -1480,13 +1671,29 @@ def submit_data():
             .where(db.func.upper(DataEntry.sn_equipment) == sn_equipment_input, active_not_mutated)
         ).scalars().first()
 
+        no_polisi_input = form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None
+        if no_polisi_input:
+            existing_polisi = db.session.execute(
+                db.select(DataEntry)
+                .where(
+                    db.func.upper(db.func.replace(DataEntry.no_polisi, ' ', '')) == no_polisi_input,
+                    active_not_mutated
+                )
+            ).scalars().first()
+            if existing_polisi:
+                flash(f"⚠️ Gagal! No. Polisi {form.no_polisi.data} sudah terdaftar pada unit aktif {existing_polisi.kode_unit}!", "danger")
+                temp_files = preserve_uploaded_files()
+                return render_template('aset/form.html', form=form, temp_files=temp_files)
+
         if existing_engine:
             flash(f"No. Mesin {sn_engine_input} sudah terdaftar pada unit aktif {existing_engine.kode_unit}!", "warning")
-            return render_template('form.html', form=form)
+            temp_files = preserve_uploaded_files()
+            return render_template('aset/form.html', form=form, temp_files=temp_files)
 
         if existing_equipment:
             flash(f"No. Rangka {sn_equipment_input} sudah terdaftar pada unit aktif {existing_equipment.kode_unit}!", "warning")
-            return render_template('form.html', form=form)
+            temp_files = preserve_uploaded_files()
+            return render_template('aset/form.html', form=form, temp_files=temp_files)
 
         new_record = DataEntry(
             pulau=form.pulau.data,
@@ -1496,7 +1703,7 @@ def submit_data():
             kode_unit=form.kode_unit.data.upper().replace(" ", ""),
             pkey=form.pulau.data+"-"+form.kota.data+"-"+form.pt.data.upper().strip()+"-"+form.unit.data.upper().strip()+"-"+form.kode_unit.data.upper().replace(" ", ""),
             lokasi_kerja=form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else None,
-
+            status="ON",
             nama_asuransi=form.nama_asuransi.data.upper().strip() if form.nama_asuransi.data else None,
             no_polis=form.no_polis.data.upper().strip() if form.no_polis.data else None,
             no_polisi=form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None,
@@ -1517,9 +1724,25 @@ def submit_data():
 
         loc_nama = form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else ""
         
+        # First try to find the Unit matching name AND the PT/Kota/Pulau hierarchy from form
         loc_unit = db.session.execute(
-            db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+            db.select(Unit)
+            .join(PT, Unit.reference == PT.id)
+            .join(Kota, PT.reference == Kota.id)
+            .join(Pulau, Kota.reference == Pulau.id)
+            .where(
+                db.func.upper(Unit.nama) == loc_nama.upper(),
+                db.func.upper(PT.nama) == form.pt.data.upper().strip(),
+                db.func.upper(Kota.nama) == form.kota.data.upper().strip(),
+                db.func.upper(Pulau.nama) == form.pulau.data.upper().strip()
+            )
         ).scalars().first()
+        
+        # Fallback: find any Unit matching the name
+        if not loc_unit:
+            loc_unit = db.session.execute(
+                db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+            ).scalars().first()
         
         pt_name = ""
         kota_name = ""
@@ -1589,40 +1812,79 @@ def submit_data():
 
             for cat in CATEGORIES:
                 file_field = f'photo_{cat}'
+                file = None
+                binary_data = None
+                filename = None
+                
                 if file_field in request.files:
-                    file = request.files[file_field]
-                    if file and file.filename != '':
+                    f = request.files[file_field]
+                    if f and f.filename != '':
+                        file = f
                         binary_data = file.read()
-                        optimized_data = compress_image_pil(binary_data)
-                        compressed_data = zlib.compress(optimized_data)
-                        new_image = UnitImage(
-                            pkey=new_record.pkey,
-                            filename=file.filename,
-                            file_data=compressed_data,
-                            category=cat
-                        )
-                        db.session.add(new_image)
+                        filename = file.filename
+                        
+                if not file:
+                    temp_val = request.form.get(f'temp_photo_{cat}')
+                    if temp_val and ':' in temp_val:
+                        temp_filename, original_name = temp_val.split(':', 1)
+                        temp_path = os.path.join(app.root_path, 'temp_uploads', temp_filename)
+                        if os.path.exists(temp_path):
+                            with open(temp_path, 'rb') as tf:
+                                binary_data = tf.read()
+                            filename = original_name
+
+                if binary_data:
+                    optimized_data = compress_image_pil(binary_data)
+                    compressed_data = zlib.compress(optimized_data)
+                    new_image = UnitImage(
+                        pkey=new_record.pkey,
+                        filename=filename,
+                        file_data=compressed_data,
+                        category=cat
+                    )
+                    db.session.add(new_image)
 
             db.session.commit()
-            return redirect(url_for('dashboard'))
+            
+            # Clean up temp files for this submission on success
+            for cat in CATEGORIES:
+                temp_val = request.form.get(f'temp_photo_{cat}')
+                if temp_val and ':' in temp_val:
+                    temp_filename, _ = temp_val.split(':', 1)
+                    temp_path = os.path.join(app.root_path, 'temp_uploads', temp_filename)
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
+                            
+            return redirect(url_for('aset_dashboard'))
         
         except IntegrityError as e:
             db.session.rollback()
             
             # Catch the duplicate key violation
             if isinstance(e.orig, UniqueViolation) or "duplicate key value" in str(e.orig):
-                flash("This Unit is already in Database", "warning")
+                if "no_polisi" in str(e.orig).lower():
+                    flash("⚠️ Gagal! No. Polisi tersebut sudah terdaftar pada unit lain.", "danger")
+                else:
+                    flash("This Unit is already in Database", "warning")
             else:
                 flash(f"Database integrity error: {e.orig}", "danger")
+            temp_files = preserve_uploaded_files()
+            return render_template('aset/form.html', form=form, temp_files=temp_files)
                 
         except Exception as e:
             db.session.rollback()
             flash(f"Unexpected database error: {e}", "danger")
+            temp_files = preserve_uploaded_files()
+            return render_template('aset/form.html', form=form, temp_files=temp_files)
         
     if form.errors:
         print("WTF Validasi Error detail:", form.errors)
 
-    return render_template('form.html', form=form)
+    temp_files = preserve_uploaded_files() if request.method == 'POST' else {}
+    return render_template('aset/form.html', form=form, temp_files=temp_files)
 
 @app.route('/edit/<pkey>')
 def edit(pkey):
@@ -1666,9 +1928,79 @@ def edit(pkey):
         except ValueError:
             pass
 
+    return render_template('aset/edit.html', form=form, entry=entry, photo=photo, photo_by_category=photo_by_category, attachments=attachments, legacy_images=legacy_images, all_docs=all_docs, docs_by_type=docs_by_type)
 
-    
-    return render_template('edit.html', form=form, entry=entry, photo=photo, photo_by_category=photo_by_category, attachments=attachments, legacy_images=legacy_images, all_docs=all_docs, docs_by_type=docs_by_type)
+@app.route('/disable/<pkey>', methods=['GET'])
+def disable(pkey):
+    try:
+        entry = db.session.execute(
+            db.select(DataEntry).where(DataEntry.pkey == pkey)
+        ).scalar_one_or_none()
+        
+        if not entry:
+            flash("Data unit dengan PKEY tersebut tidak ditemukan.", "danger")
+            return redirect(url_for('details'))
+            
+        if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+            flash("Unit ini sudah pernah dimutasi atau dihapus.", "danger")
+            return redirect(url_for('details', pkey=pkey))
+        
+        old_status = entry.status or "ON"
+        entry.status = "OFF"
+        
+        # Tambahkan ke log audit sebelum melakukan commit
+        log_disable = AuditLog(
+            pkey=pkey,
+            aksi="EDIT",
+            kolom_diubah="Status Unit",
+            nilai_lama=old_status,
+            nilai_baru="OFF",
+            dilakukan_oleh=session.get('logged_user', 'System')
+        )
+        db.session.add(log_disable)
+        
+        db.session.commit()
+        return redirect(url_for('details', pkey=pkey))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Gagal mengubah status data unit dari database: {e}", "danger")
+        return redirect(url_for('details', pkey=pkey))
+
+@app.route('/enable/<pkey>', methods=['GET'])
+def enable(pkey):
+    try:
+        entry = db.session.execute(
+            db.select(DataEntry).where(DataEntry.pkey == pkey)
+        ).scalar_one_or_none()
+        
+        if not entry:
+            flash("Data unit dengan PKEY tersebut tidak ditemukan.", "danger")
+            return redirect(url_for('details'))
+            
+        if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
+            flash("Unit ini sudah pernah dimutasi atau dihapus.", "danger")
+            return redirect(url_for('details', pkey=pkey))
+        
+        old_status = entry.status or "OFF"
+        entry.status = "ON"
+        
+        # Tambahkan ke log audit sebelum melakukan commit
+        log_enable = AuditLog(
+            pkey=pkey,
+            aksi="EDIT",
+            kolom_diubah="Status Unit",
+            nilai_lama=old_status,
+            nilai_baru="ON",
+            dilakukan_oleh=session.get('logged_user', 'System')
+        )
+        db.session.add(log_enable)
+        
+        db.session.commit()
+        return redirect(url_for('details', pkey=pkey))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Gagal mengubah status data unit dari database: {e}", "danger")
+        return redirect(url_for('details', pkey=pkey))
 
 @app.route('/delete/<pkey>', methods=['GET'])
 def delete(pkey):
@@ -1686,6 +2018,10 @@ def delete(pkey):
         
     if entry.notes and ("dimutasi ke" in entry.notes.lower() or "dihapus" in entry.notes.lower()):
         flash("Unit ini sudah pernah dimutasi atau dihapus.", "danger")
+        return redirect(url_for('details', pkey=pkey))
+
+    if entry.status == "ON":
+        flash("Unit ini masih Aktif (ON), nonaktifkan unit terlebih dahulu sebelum menghapus data unit", "warning")
         return redirect(url_for('details', pkey=pkey))
     
     try:
@@ -1772,6 +2108,44 @@ def update_data(pkey):
             )
         ).scalars().first()
 
+        no_polisi_input = form.no_polisi.data.upper().replace(" ", "") if form.no_polisi.data else None
+        if no_polisi_input:
+            existing_polisi = db.session.execute(
+                db.select(DataEntry)
+                .where(
+                    db.func.upper(db.func.replace(DataEntry.no_polisi, ' ', '')) == no_polisi_input,
+                    DataEntry.pkey != pkey,
+                    active_not_mutated
+                )
+            ).scalars().first()
+            if existing_polisi:
+                flash(f"⚠️ Gagal! No. Polisi {form.no_polisi.data} sudah terdaftar pada unit aktif {existing_polisi.kode_unit}!", "danger")
+                photo_objs = db.session.execute(
+                    db.select(UnitImage).where(UnitImage.pkey == pkey)
+                ).scalars().all()
+                photo_by_category = {p.category: p for p in photo_objs if p.category}
+                attachments = [p for p in photo_objs if p.category and p.category.startswith('lainnya_')]
+                legacy_images = [p for p in photo_objs if not p.category or p.category not in CATEGORIES]
+                
+                all_docs = db.session.execute(
+                    db.select(DocumentSurat).where(DocumentSurat.pkey == pkey).order_by(DocumentSurat.tanggal_input.desc())
+                ).scalars().all()
+                docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
+                
+                temp_files = preserve_uploaded_files()
+                return render_template(
+                    'aset/edit.html',
+                    form=form,
+                    entry=entry,
+                    photo=photo_objs,
+                    photo_by_category=photo_by_category,
+                    attachments=attachments,
+                    legacy_images=legacy_images,
+                    all_docs=all_docs,
+                    docs_by_type=docs_by_type,
+                    temp_files=temp_files
+                )
+
         if existing_engine:
             flash(f"No. Mesin {sn_engine_input} sudah terdaftar pada unit aktif {existing_engine.kode_unit}!", "warning")
             # Populate photo list and return template
@@ -1787,8 +2161,9 @@ def update_data(pkey):
             ).scalars().all()
             docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
             
+            temp_files = preserve_uploaded_files()
             return render_template(
-                'edit.html', 
+                'aset/edit.html', 
                 form=form, 
                 entry=entry, 
                 photo=photo_objs, 
@@ -1796,7 +2171,8 @@ def update_data(pkey):
                 attachments=attachments, 
                 legacy_images=legacy_images, 
                 all_docs=all_docs, 
-                docs_by_type=docs_by_type
+                docs_by_type=docs_by_type,
+                temp_files=temp_files
             )
 
         if existing_equipment:
@@ -1813,8 +2189,9 @@ def update_data(pkey):
             ).scalars().all()
             docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
             
+            temp_files = preserve_uploaded_files()
             return render_template(
-                'edit.html', 
+                'aset/edit.html', 
                 form=form, 
                 entry=entry, 
                 photo=photo_objs, 
@@ -1822,15 +2199,32 @@ def update_data(pkey):
                 attachments=attachments, 
                 legacy_images=legacy_images, 
                 all_docs=all_docs, 
-                docs_by_type=docs_by_type
+                docs_by_type=docs_by_type,
+                temp_files=temp_files
             )
 
         # Resolve Lokasi Kerja's pulau, kota, and pt from the selected lokasi_kerja (nama)
         loc_nama = form.lokasi_kerja.data.upper().strip() if form.lokasi_kerja.data else ""
         
+        # First try to find the Unit matching name AND the PT/Kota/Pulau hierarchy from entry
         loc_unit = db.session.execute(
-            db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+            db.select(Unit)
+            .join(PT, Unit.reference == PT.id)
+            .join(Kota, PT.reference == Kota.id)
+            .join(Pulau, Kota.reference == Pulau.id)
+            .where(
+                db.func.upper(Unit.nama) == loc_nama.upper(),
+                db.func.upper(PT.nama) == entry.pt.upper().strip(),
+                db.func.upper(Kota.nama) == entry.kota.upper().strip(),
+                db.func.upper(Pulau.nama) == entry.pulau.upper().strip()
+            )
         ).scalars().first()
+        
+        # Fallback: find any Unit matching the name
+        if not loc_unit:
+            loc_unit = db.session.execute(
+                db.select(Unit).where(db.func.upper(Unit.nama) == loc_nama.upper())
+            ).scalars().first()
         
         pt_name = ""
         kota_name = ""
@@ -1902,7 +2296,7 @@ def update_data(pkey):
             lok_rec.pulau = pulau_name
             lok_rec.kota = kota_name
             lok_rec.pt = pt_name
-            lok_rec.owner = loc_nama
+            lok_rec.owner = entry.unit.upper().strip()
             lok_rec.nama = loc_nama
             lok_rec.dilakukan_oleh = session.get('logged_user', 'System')
             lok_rec.tanggal_aksi = datetime.today()
@@ -1912,45 +2306,106 @@ def update_data(pkey):
         try:
             for cat in CATEGORIES:
                 file_field = f'photo_{cat}'
+                file = None
+                binary_data = None
+                filename = None
+                
                 if file_field in request.files:
-                    file = request.files[file_field]
-                    if file and file.filename != '':
-                        # Delete existing image for this category to overwrite it
-                        existing_img = db.session.execute(
-                            db.select(UnitImage).where(UnitImage.pkey == pkey, UnitImage.category == cat)
-                        ).scalar_one_or_none()
-                        if existing_img:
-                            db.session.delete(existing_img)
-                            db.session.flush()
-
+                    f = request.files[file_field]
+                    if f and f.filename != '':
+                        file = f
                         binary_data = file.read()
-                        optimized_data = compress_image_pil(binary_data)
-                        compressed_data = zlib.compress(optimized_data)
-                        new_image = UnitImage(
-                            pkey=pkey,
-                            filename=file.filename,
-                            file_data=compressed_data,
-                            category=cat
-                        )
-                        db.session.add(new_image)
+                        filename = file.filename
+                        
+                if not file:
+                    temp_val = request.form.get(f'temp_photo_{cat}')
+                    if temp_val and ':' in temp_val:
+                        temp_filename, original_name = temp_val.split(':', 1)
+                        temp_path = os.path.join(app.root_path, 'temp_uploads', temp_filename)
+                        if os.path.exists(temp_path):
+                            with open(temp_path, 'rb') as tf:
+                                binary_data = tf.read()
+                            filename = original_name
 
-                        log_upload = AuditLog(
-                            pkey=pkey,
-                            aksi="EDIT",
-                            kolom_diubah=f"Foto Unit ({cat})",
-                            nilai_lama="-",
-                            nilai_baru=f"Memperbarui foto {cat}: {file.filename}",
-                            dilakukan_oleh=session.get('logged_user', 'System')
-                        )
-                        db.session.add(log_upload)
+                if binary_data:
+                    # Delete existing image for this category to overwrite it
+                    existing_img = db.session.execute(
+                        db.select(UnitImage).where(UnitImage.pkey == pkey, UnitImage.category == cat)
+                    ).scalar_one_or_none()
+                    if existing_img:
+                        db.session.delete(existing_img)
+                        db.session.flush()
+
+                    optimized_data = compress_image_pil(binary_data)
+                    compressed_data = zlib.compress(optimized_data)
+                    new_image = UnitImage(
+                        pkey=pkey,
+                        filename=filename,
+                        file_data=compressed_data,
+                        category=cat
+                    )
+                    db.session.add(new_image)
+
+                    log_upload = AuditLog(
+                        pkey=pkey,
+                        aksi="EDIT",
+                        kolom_diubah=f"Foto Unit ({cat})",
+                        nilai_lama="-",
+                        nilai_baru=f"Memperbarui foto {cat}: {filename}",
+                        dilakukan_oleh=session.get('logged_user', 'System')
+                    )
+                    db.session.add(log_upload)
 
             db.session.commit()
+            
+            # Clean up temp files for this submission on success
+            for cat in CATEGORIES:
+                temp_val = request.form.get(f'temp_photo_{cat}')
+                if temp_val and ':' in temp_val:
+                    temp_filename, _ = temp_val.split(':', 1)
+                    temp_path = os.path.join(app.root_path, 'temp_uploads', temp_filename)
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
+                            
             return redirect(url_for('details', pkey=pkey))
+        except IntegrityError as e:
+            db.session.rollback()
+            if "no_polisi" in str(e.orig).lower():
+                flash("⚠️ Gagal! No. Polisi tersebut sudah terdaftar pada unit lain.", "danger")
+            else:
+                flash(f"Gagal memperbarui database: {e.orig}", "danger")
         except Exception as e:
             db.session.rollback()
             flash(f"Gagal memperbarui database: {e}", "danger")
             
-    return render_template('edit.html', form=form, entry=entry, photo=photo)
+    # Prepare all parameters for edit.html rendering
+    photo_objs = db.session.execute(
+        db.select(UnitImage).where(UnitImage.pkey == pkey)
+    ).scalars().all()
+    photo_by_category = {img.category: img for img in photo_objs if img.category}
+    attachments = [img for img in photo_objs if img.category and img.category.startswith('lainnya_')]
+    legacy_images = [img for img in photo_objs if not img.category or img.category not in CATEGORIES]
+    all_docs = db.session.execute(
+        db.select(DocumentSurat).where(DocumentSurat.pkey == pkey).order_by(DocumentSurat.tanggal_input.desc())
+    ).scalars().all()
+    docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
+    
+    temp_files = preserve_uploaded_files() if request.method == 'POST' else {}
+    return render_template(
+        'aset/edit.html',
+        form=form,
+        entry=entry,
+        photo=photo_objs,
+        photo_by_category=photo_by_category,
+        attachments=attachments,
+        legacy_images=legacy_images,
+        all_docs=all_docs,
+        docs_by_type=docs_by_type,
+        temp_files=temp_files
+    )
 
 @app.route('/api/get-tagihan/<jenis>/<pkey>')
 def get_tagihan(jenis, pkey):
@@ -2327,9 +2782,9 @@ def export_excel():
         # 3. Definisi Judul Kolom (Headers)
         headers = [
             'No', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Provinsi)', 'CN Unit', 
-            'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
-            'SN Equipment', 'SN Engine', 'Status STNK', 'Masa Berlaku STNK', 
-            'Status Asuransi', 'Masa Berlaku Asuransi', 'Year', 'Notes', 
+            'Status', 'Notes', 'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
+            'SN Equipment', 'SN Engine', 'Year', 'Status STNK', 'Masa Berlaku STNK', 
+            'Status Asuransi', 'Masa Berlaku Asuransi', 
             'Diinput Oleh', 'Tanggal Input'
         ]
         ws.append(headers)
@@ -2355,14 +2810,15 @@ def export_excel():
         # 5. Iterasi dan Masukkan Data dari Database
         for idx, entry in enumerate(all_entries, start=1):
             row_data = [
-                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.kota, entry.kode_unit,
+                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.kota, entry.kode_unit, entry.status,
+                entry.notes if entry.notes else '-',
                 entry.no_polis, entry.no_polisi, entry.merk, entry.kategori, entry.eqp_model,
-                entry.sn_equipment, entry.sn_engine, entry.status_stnk, 
+                entry.sn_equipment, entry.sn_engine, 
+                entry.year,
+                entry.status_stnk, 
                 entry.tanggal_berakhir_stnk if entry.tanggal_berakhir_stnk else '-',
                 entry.status_asuransi,
                 entry.tanggal_berakhir_asuransi if entry.tanggal_berakhir_asuransi else '-',
-                entry.year,
-                entry.notes if entry.notes else '-',
                 entry.diinput_oleh, entry.tanggal_input if entry.tanggal_input else '-'
             ]
             ws.append(row_data)
@@ -2526,8 +2982,183 @@ def export_lokasi_kerja():
     except Exception as e:
         return f"Terjadi kesalahan saat mengekspor Lokasi Kerja ke Excel: {str(e)}", 500
 
-@app.route('/export/report/excel')
-def export_report_excel():
+@app.route('/expost/report-unit/excel')
+def export_unit_excel():
+    try:
+        # 1. Ambil data dari database dengan filter pencarian jika ada
+        search_query = request.args.get('search', '').strip()
+        pulau_filter = request.args.get('pulau', '').strip()
+        kota_filter = request.args.get('kota', '').strip()
+        pt_filter = request.args.get('pt', '').strip()
+        unit_filter = request.args.get('unit', '').strip()
+        lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
+        asuransi_filter = request.args.get('nama_asuransi', '').strip()
+        merk_filter = request.args.get('merk', '').strip()
+        kategori_filter = request.args.get('kategori', '').strip()
+        model_filter = request.args.get('eqp_model', '').strip()
+        
+        groupby = request.args.get('groupby', '').strip()
+        groupval = request.args.get('groupval', '').strip()
+        sort_by = request.args.get('sortby', 'id_desc').strip()
+        
+        query = db.select(DataEntry)
+        
+        # Apply filters
+        if search_query:
+            search_pattern = f"%{search_query}%"
+            query = query.where(
+                DataEntry.pulau.ilike(search_pattern) |
+                DataEntry.kota.ilike(search_pattern) |
+                DataEntry.pt.ilike(search_pattern) |
+                DataEntry.unit.ilike(search_pattern) |
+                DataEntry.kode_unit.ilike(search_pattern) |
+                DataEntry.nama_asuransi.ilike(search_pattern) |
+                DataEntry.no_polis.ilike(search_pattern) |
+                DataEntry.no_polisi.ilike(search_pattern) |
+                DataEntry.merk.ilike(search_pattern) |
+                DataEntry.kategori.ilike(search_pattern) |
+                DataEntry.eqp_model.ilike(search_pattern)
+            )
+        if pulau_filter:
+            query = query.where(db.func.upper(DataEntry.pulau) == pulau_filter.upper())
+        if kota_filter:
+            query = query.where(db.func.upper(DataEntry.kota) == kota_filter.upper())
+        if pt_filter:
+            query = query.where(db.func.upper(DataEntry.pt) == pt_filter.upper())
+        if unit_filter:
+            query = query.where(
+                (db.func.upper(DataEntry.unit) == unit_filter.upper()) | 
+                (DataEntry.unit.like(f"%{unit_filter}%"))
+            )
+        if asuransi_filter:
+            query = query.where(db.func.upper(DataEntry.nama_asuransi) == asuransi_filter.upper())
+        if merk_filter:
+            query = query.where(db.func.upper(DataEntry.merk) == merk_filter.upper())
+        if kategori_filter:
+            query = query.where(db.func.upper(DataEntry.kategori) == kategori_filter.upper())
+        if model_filter:
+            query = query.where(db.func.upper(DataEntry.eqp_model) == model_filter.upper())
+        if lokasi_kerja_filter:
+            query = query.where(db.func.upper(DataEntry.lokasi_kerja) == lokasi_kerja_filter.upper())
+            
+        # Apply group filtering
+        if groupby and groupval and groupby != 'ALL':
+            query = query.where(db.func.upper(getattr(DataEntry, groupby)) == groupval.upper())
+            
+        # Apply sorting
+        if sort_by == 'pulau':
+            query = query.order_by(DataEntry.pulau.asc())
+        elif sort_by == 'kota':
+            query = query.order_by(DataEntry.kota.asc())
+        elif sort_by == 'pt':
+            query = query.order_by(DataEntry.pt.asc())
+        elif sort_by == 'unit':
+            query = query.order_by(DataEntry.unit.asc())
+        elif sort_by == 'lokasi_kerja':
+            query = query.order_by(DataEntry.lokasi_kerja.asc())
+        elif sort_by == 'nama_asuransi':
+            query = query.order_by(DataEntry.nama_asuransi.asc())
+        elif sort_by == 'merk':
+            query = query.order_by(DataEntry.merk.asc())
+        elif sort_by == 'kategori':
+            query = query.order_by(DataEntry.kategori.asc())
+        elif sort_by == 'eqp_model':
+            query = query.order_by(DataEntry.eqp_model.asc())
+        else: # id_desc
+            query = query.order_by(DataEntry.id.desc())
+            
+        all_entries = db.session.execute(query).scalars().all()
+        
+        # 2. Inisialisasi Workbook openpyxl
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Master Database"
+        
+        # Otomatis aktifkan grid lines agar tabel terlihat rapi
+        ws.views.sheetView[0].showGridLines = True
+        
+        # 3. Definisi Judul Kolom (Headers)
+        headers = [
+            'No', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Provinsi)', 'CN Unit', 
+            'Status', 'Notes', 'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
+            'SN Equipment', 'SN Engine', 'Year', 'Status STNK', 'Masa Berlaku STNK', 
+            'Status Asuransi', 'Masa Berlaku Asuransi', 
+            'Diinput Oleh', 'Tanggal Input'
+        ]
+        ws.append(headers)
+        
+        header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin', color='CCCCCC'),
+            right=Side(style='thin', color='CCCCCC'),
+            top=Side(style='thin', color='CCCCCC'),
+            bottom=Side(style='thin', color='CCCCCC')
+        )
+        
+        # Terapkan style ke baris header (Baris 1)
+        ws.row_dimensions[1].height = 28
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+
+        # 5. Iterasi dan Masukkan Data dari Database
+        for idx, entry in enumerate(all_entries, start=1):
+            row_data = [
+                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.kota, entry.kode_unit, entry.status,
+                entry.notes if entry.notes else '-',
+                entry.no_polis, entry.no_polisi, entry.merk, entry.kategori, entry.eqp_model,
+                entry.sn_equipment, entry.sn_engine, 
+                entry.year,
+                entry.status_stnk, 
+                entry.tanggal_berakhir_stnk if entry.tanggal_berakhir_stnk else '-',
+                entry.status_asuransi,
+                entry.tanggal_berakhir_asuransi if entry.tanggal_berakhir_asuransi else '-',
+                entry.diinput_oleh, entry.tanggal_input if entry.tanggal_input else '-'
+            ]
+            ws.append(row_data)
+            
+            # Format Border dan Alignments untuk Baris Data yang Baru Ditambahkan
+            current_row = ws.max_row
+            ws.row_dimensions[current_row].height = 20
+            
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=current_row, column=col_num)
+                cell.border = thin_border
+                cell.font = Font(name="Arial", size=10)
+                
+                # Sisi perataan data
+                if col_num in [1, 6, 14, 15, 16, 17, 18]: # No, CN Unit, Status, Tanggal, Tahun
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
+
+        # 6. Otomatis Menyesuaikan Lebar Kolom Berdasarkan Karakter Terpanjang
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = col[0].column_letter
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+        # 7. Kirim file ke browser sebagai file download langsung
+        out_buffer = io.BytesIO()
+        wb.save(out_buffer)
+        out_buffer.seek(0)
+        
+        filename = f"Laporan_Unit_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        return Response(
+            out_buffer.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        return f"Terjadi kesalahan saat mengekspor ke Excel: {str(e)}", 500
+
+@app.route('/export/report-transaksi/excel')
+def export_transaksi_excel():
     if 'logged_user' not in session:
         return redirect(url_for('login'))
         

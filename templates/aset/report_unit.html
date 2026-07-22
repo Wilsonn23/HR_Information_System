@@ -1,6 +1,6 @@
-{% extends 'base.html' %}
+{% extends 'aset/base.html' %}
 
-{% block title %}Data Master - Admin System{% endblock %}
+{% block title %}Report Unit{% endblock %}
 
 {% block body_class %}dashboard-page bg-light{% endblock %}
 
@@ -9,13 +9,12 @@
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
-            <!-- Title Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="fw-bold text-primary m-0">📁 Master Database</h3>
+                <h3 class="fw-bold text-primary m-0">Report Unit</h3>
             </div>
 
             <!-- Control & Filter Section -->
-            <form action="{{ url_for('master_all') }}" method="GET" class="mb-4">
+            <form action="{{ url_for('report_unit') }}" method="GET" class="mb-4">
                 <input type="hidden" name="groupby" value="{{ active_groupby }}">
                 <input type="hidden" name="sortby" value="{{ active_sortby }}">
                 <div class="card shadow-sm border rounded-3 bg-light p-3">
@@ -126,9 +125,26 @@
                 </div>
             </form>
 
+            <!-- Color Legend Section -->
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-4 px-1">
+                <span class="fw-bold text-secondary small">Keterangan Warna Baris:</span>
+                <div class="d-flex align-items-center gap-2 small">
+                    <span class="d-inline-block rounded" style="width: 16px; height: 16px; background-color: #fbc4c4; border: 1px solid #f58d8d;"></span>
+                    <span class="text-secondary fw-medium">Unit Dihapus/Dimutasi (Merah)</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 small ms-2">
+                    <span class="d-inline-block rounded" style="width: 16px; height: 16px; background-color: #ffe066; border: 1px solid #eec411;"></span>
+                    <span class="text-secondary fw-medium">Unit Dinonaktifkan (Kuning)</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 small ms-2">
+                    <span class="d-inline-block rounded" style="width: 16px; height: 16px; background-color: #ffffff; border: 1px solid #dee2e6;"></span>
+                    <span class="text-secondary fw-medium">Unit Aktif (Putih)</span>
+                </div>
+            </div>
+
             <!-- Macro for Rendering Row -->
             {% macro render_row(entry, idx) %}
-            <tr>
+            <tr class="{% if entry.status == 'OFF' %}{% if entry.notes and ('dihapus' in entry.notes|lower or 'dimutasi' in entry.notes|lower) %}row-danger-strong{% else %}row-warning-strong{% endif %}{% endif %}">
                 <td class="text-center text-muted small fw-bold">{{ idx }}</td>
                 <td>{{ entry.pulau }}</td>
                 <td>{{ entry.kota }}</td>
@@ -136,6 +152,14 @@
                 <td>{{ entry.unit }}</td>
                 <td>{{ entry.lokasi_kerja or '-' }}</td>
                 <td><a href="/details/{{ entry.pkey }}" class="fw-bold text-decoration-none text-primary">{{ entry.kode_unit }}</a></td>
+                <td class="text-center">
+                    {% if entry.status == 'ON' %}
+                    <span class="badge bg-success px-2 py-1">ON</span>
+                    {% else %}
+                    <span class="badge bg-danger px-2 py-1">OFF</span>
+                    {% endif %}
+                </td>
+                <td>{{ entry.notes or '-' }}</td>
                 <td>{{ entry.nama_asuransi }}</td>
                 <td>{{ entry.no_polis or '-' }}</td>
                 <td class="font-monospace fw-semibold">{{ entry.no_polisi or '-' }}</td>
@@ -144,6 +168,7 @@
                 <td>{{ entry.eqp_model or '-' }}</td>
                 <td>{{ entry.sn_equipment or '-' }}</td>
                 <td>{{ entry.sn_engine or '-' }}</td>
+                <td class="text-center">{{ entry.year or '-' }}</td>
                 <td class="text-center">
                     {% if entry.status_stnk == 'ON' %}
                     <span class="badge bg-success px-2 py-1">ON</span>
@@ -160,9 +185,7 @@
                     {% endif %}
                 </td>
                 <td class="text-muted">{{ entry.tanggal_berakhir_asuransi or '-' }}</td>
-                <td class="text-center">{{ entry.year or '-' }}</td>
                 
-                <td>{{ entry.notes or '-' }}</td>
                 <td><span class="badge bg-secondary px-2 py-1">{{ entry.diinput_oleh }}</span></td>
                 <td class="text-muted small">{{ entry.tanggal_input or '-' }}</td>
             </tr>
@@ -174,7 +197,7 @@
                 <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 px-4 border-bottom">
                     <div class="d-flex align-items-center">
                         <h5 class="mb-0 fw-bold text-secondary text-uppercase" style="font-size: 0.95rem;">
-                            📁 Semua Data Master
+                            Semua Unit
                         </h5>
                         {% for key_name, rows in grouped_data.items() %}
                             <span class="badge bg-primary ms-3">{{ rows|length }} Unit</span>
@@ -200,6 +223,8 @@
                                     <th scope="col">Unit PT</th>
                                     <th scope="col">Lokasi Kerja</th>
                                     <th scope="col">Kode Unit (CN)</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Notes</th>
                                     <th scope="col">Nama Asuransi</th>
                                     <th scope="col">No. Polis</th>
                                     <th scope="col">No. Polisi</th>
@@ -208,12 +233,11 @@
                                     <th scope="col">Equipment Model</th>
                                     <th scope="col">SN Equipment</th>
                                     <th scope="col">SN Engine</th>
+                                    <th scope="col" class="text-center">Year</th>
                                     <th scope="col" class="text-center">Status STNK</th>
                                     <th scope="col">Tanggal Berakhir STNK</th>
                                     <th scope="col" class="text-center">Status Asuransi</th>
                                     <th scope="col">Tanggal Berakhir Asuransi</th>
-                                    <th scope="col" class="text-center">Year</th>
-                                    <th scope="col">Notes</th>
                                     <th scope="col">Diinput Oleh</th>
                                     <th scope="col">Tanggal Input</th>
                                 </tr>
@@ -260,6 +284,8 @@
                                         <th scope="col">Unit PT</th>
                                         <th scope="col">Lokasi Kerja</th>
                                         <th scope="col">Kode Unit (CN)</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Notes</th>
                                         <th scope="col">Nama Asuransi</th>
                                         <th scope="col">No. Polis</th>
                                         <th scope="col">No. Polisi</th>
@@ -268,12 +294,11 @@
                                         <th scope="col">Equipment Model</th>
                                         <th scope="col">SN Equipment</th>
                                         <th scope="col">SN Engine</th>
+                                        <th scope="col" class="text-center">Year</th>
                                         <th scope="col" class="text-center">Status STNK</th>
                                         <th scope="col">Tanggal Berakhir STNK</th>
                                         <th scope="col" class="text-center">Status Asuransi</th>
                                         <th scope="col">Tanggal Berakhir Asuransi</th>
-                                        <th scope="col" class="text-center">Year</th>
-                                        <th scope="col">Notes</th>
                                         <th scope="col">Diinput Oleh</th>
                                         <th scope="col">Tanggal Input</th>
                                     </tr>
@@ -339,6 +364,14 @@
     
     .cursor-pointer {
         cursor: pointer;
+    }
+
+    .row-danger-strong td {
+        background-color: #fbc4c4 !important;
+    }
+
+    .row-warning-strong td {
+        background-color: #ffe066 !important;
     }
 </style>
 {% endblock %}

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'aset/base.html' %}
 
 {% block title %}Detail Unit{% endblock %}
 
@@ -162,6 +162,15 @@
                         <a href="/edit/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
                             Edit Data
                         </a>
+                        {% if entry.status == 'ON' %}
+                        <a href="/disable/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
+                            Nonaktifkan Unit
+                        </a>
+                        {% else %}
+                        <a href="/enable/{{ entry.pkey }}" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm">
+                            Aktifkan Unit
+                        </a>
+                        {% endif %}
                         {% if session.get('role') == 'admin' %}
                         <a href="/delete/{{ entry.pkey }}" class="btn btn-danger btn-sm fw-bold text-light shadow-sm" onclick="return confirm('Hapus Data?');">
                             Hapus Data

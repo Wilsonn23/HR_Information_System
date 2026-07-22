@@ -11,20 +11,19 @@
 <body class="{% block body_class %}{% endblock %}">
     {% block navbar %}
     <header>
-        <nav class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+        <nav class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary shadow-sm">
             <div class="container">
-                <a class="navbar-brand mb-0" href="/dashboard">Insurance Dashboard</a>
+                <a class="navbar-brand mb-0 fw-bold" href="/aset-dashboard"><i class="fas fa-cubes me-2"></i>Dashboard Aset</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         {% if session.get('role') == 'admin' %}
-                            <li class="nav-item"><a class="nav-link {% if active_page=='master' %}active{% endif %}" href="/master"><i class="fas fa-database me-1"></i>Master</a></li>
-                            <li class="nav-item"><a class="nav-link {% if active_page=='logs' %}active{% endif %}" href="/logs"><i class="fas fa-history me-1"></i>Logs</a></li>
-                            <li class="nav-item"><a class="nav-link {% if active_page=='users' %}active{% endif %}" href="/users"><i class="fas fa-user-cog me-1"></i>Users</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='master' %}active{% endif %}" href="/master"><i class="fas fa-database me-1"></i>Master</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='logs' %}active{% endif %}" href="/logs"><i class="fas fa-history me-1"></i>Logs</a></li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link {% if active_page=='dashboard' %}active{% endif %}" href="/dashboard"><i class="fas fa-home me-1"></i>Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='aset-dashboard' %}active{% endif %}" href="/aset-dashboard"><i class="fas fa-home me-1"></i>Dashboard</a></li>
                         <li class="nav-item"><a class="nav-link {% if active_page=='transaksi' %}active{% endif %}" href="/transaksi"><i class="fas fa-exchange-alt me-1"></i>Transaksi</a></li>
                         <li class="nav-item"><a class="nav-link {% if active_page=='details' %}active{% endif %}" href="/details"><i class="fas fa-info-circle me-1"></i>Details</a></li>
                         <li class="nav-item"><a class="nav-link {% if active_page=='report' %}active{% endif %}" href="/report"><i class="fas fa-chart-bar me-1"></i>Report</a></li>

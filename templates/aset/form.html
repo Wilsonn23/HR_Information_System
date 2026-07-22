@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'aset/base.html' %}
 
 {% block title %}Entry Form{% endblock %}
 
@@ -139,19 +139,21 @@
                         <h6 class="fw-bold text-primary mb-3"><i class="fas fa-fingerprint me-1"></i> Identifikasi Aset </h6>
                         <div class="row g-3">
                             {% for cat, label, is_required in [('no_mesin', 'No. Mesin', True), ('no_rangka', 'No. Rangka', True), ('bpkb_1', 'Foto BPKB 1', True), ('bpkb_2', 'Foto BPKB 2', True)] %}
+                            {% set temp_file = temp_files.get('photo_' ~ cat) if temp_files else None %}
                             <div class="col-md-3 col-sm-6">
                                 <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} {% if is_required %}<span class="text-danger">*</span>{% endif %}</label>
                                 <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
-                                    <div class="upload-placeholder text-center">
+                                    <div class="upload-placeholder text-center {% if temp_file %}d-none{% endif %}">
                                         <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
                                         <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
                                         <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
                                     </div>
-                                    <div class="upload-preview d-none position-absolute w-100 h-100 top-0 start-0 p-1">
-                                        <img src="" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                    <div class="upload-preview {% if not temp_file %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1">
+                                        <img src="{% if temp_file %}/temp_uploads/{{ temp_file.filename }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
                                         <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
                                     </div>
                                     <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                                    <input type="hidden" name="temp_photo_{{ cat }}" value="{% if temp_file %}{{ temp_file.filename }}:{{ temp_file.original_name }}{% endif %}">
                                 </div>
                             </div>
                             {% endfor %}
@@ -165,19 +167,21 @@
                         <h6 class="fw-bold text-primary mb-3"><i class="fas fa-car me-1"></i> Visual Tampak Kendaraan </h6>
                         <div class="row g-3">
                             {% for cat, label in [('tampak_depan', 'Tampak Depan'), ('tampak_belakang', 'Tampak Belakang'), ('tampak_kiri', 'Tampak Kiri'), ('tampak_kanan', 'Tampak Kanan')] %}
+                            {% set temp_file = temp_files.get('photo_' ~ cat) if temp_files else None %}
                             <div class="col-md-3 col-sm-6">
                                 <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} <span class="text-danger">*</span></label>
                                 <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
-                                    <div class="upload-placeholder text-center">
+                                    <div class="upload-placeholder text-center {% if temp_file %}d-none{% endif %}">
                                         <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
                                         <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
-                                        <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
+                                        <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if temp_file %}{{ temp_file.original_name }}{% else %}Belum ada file{% endif %}</span>
                                     </div>
-                                    <div class="upload-preview d-none position-absolute w-100 h-100 top-0 start-0 p-1">
-                                        <img src="" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                    <div class="upload-preview {% if not temp_file %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1">
+                                        <img src="{% if temp_file %}/temp_uploads/{{ temp_file.filename }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
                                         <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
                                     </div>
                                     <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                                    <input type="hidden" name="temp_photo_{{ cat }}" value="{% if temp_file %}{{ temp_file.filename }}:{{ temp_file.original_name }}{% endif %}">
                                 </div>
                             </div>
                             {% endfor %}
@@ -191,19 +195,21 @@
                         <h6 class="fw-bold text-primary mb-3"><i class="fas fa-images me-1"></i> Foto Lainnya (Opsional)</h6>
                         <div class="row g-3">
                             {% for cat, label in [('lainnya_1', 'Lainnya 1'), ('lainnya_2', 'Lainnya 2'), ('lainnya_3', 'Lainnya 3'), ('lainnya_4', 'Lainnya 4')] %}
+                            {% set temp_file = temp_files.get('photo_' ~ cat) if temp_files else None %}
                             <div class="col-md-3 col-sm-6">
                                 <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }}</label>
                                 <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
-                                    <div class="upload-placeholder text-center">
+                                    <div class="upload-placeholder text-center {% if temp_file %}d-none{% endif %}">
                                         <i class="fas fa-image text-primary fa-lg mb-1"></i>
                                         <span class="font-size-xs fw-semibold text-secondary d-block">Pilih Berkas</span>
-                                        <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Belum ada file</span>
+                                        <span class="file-name-text text-muted d-block" style="font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if temp_file %}{{ temp_file.original_name }}{% else %}Belum ada file{% endif %}</span>
                                     </div>
-                                    <div class="upload-preview d-none position-absolute w-100 h-100 top-0 start-0 p-1">
-                                        <img src="" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
+                                    <div class="upload-preview {% if not temp_file %}d-none{% endif %} position-absolute w-100 h-100 top-0 start-0 p-1">
+                                        <img src="{% if temp_file %}/temp_uploads/{{ temp_file.filename }}{% endif %}" class="img-fluid rounded-2 w-100 h-100" style="object-fit: cover;">
                                         <div class="preview-overlay position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white py-0.5 px-2 text-center" style="font-size: 9px;">Ganti File</div>
                                     </div>
                                     <input type="file" name="photo_{{ cat }}" class="d-none custom-file-input-raw" accept="image/*">
+                                    <input type="hidden" name="temp_photo_{{ cat }}" value="{% if temp_file %}{{ temp_file.filename }}:{{ temp_file.original_name }}{% endif %}">
                                 </div>
                             </div>
                             {% endfor %}
@@ -221,7 +227,7 @@
                 </button>
             </div>
             <div class="col-sm-6">
-                <a href="/dashboard" class="btn btn-outline-secondary w-100 py-2.5 fw-semibold">
+                <a href="/aset-dashboard" class="btn btn-outline-secondary w-100 py-2.5 fw-semibold">
                     <i class="fas fa-times-circle me-1"></i> Cancel
                 </a>
             </div>
@@ -504,7 +510,9 @@
                     if (wrapper) {
                         wrapper.style.borderColor = ''; // reset error style
                     }
-                    if (!input.files || input.files.length === 0) {
+                    const tempInput = document.querySelector(`input[name="temp_photo_${cat}"]`);
+                    const hasTemp = tempInput && tempInput.value.trim() !== '';
+                    if ((!input.files || input.files.length === 0) && !hasTemp) {
                         valid = false;
                         if (wrapper) {
                             wrapper.style.setProperty('border-color', '#dc3545', 'important'); // bootstrap danger red
