@@ -6,11 +6,11 @@
 
 {% block content %}
 <div class="container-fluid px-4 mt-3 details-container">
-    <div class="row g-4 h-100">
+    <div class="row g-4 h-md-100">
 
-        <div class="col-md-4 col-lg-3 h-100">
-            <div class="card shadow border-0 rounded-3 h-100">
-                <div class="card-body p-4 d-flex flex-column h-100 overflow-hidden">
+        <div class="col-md-4 col-lg-3 h-md-100">
+            <div class="card shadow border-0 rounded-3 h-md-100">
+                <div class="card-body p-4 d-flex flex-column h-md-100 overflow-md-hidden">
 
                     <h4 class="card-title fw-bold text-primary mb-3">🔎 Detail Unit</h4>
 
@@ -18,16 +18,17 @@
                     <div class="mb-2">
                         <label for="search-method" class="form-label fw-semibold text-secondary small">Metode Pencarian:</label>
                         <select id="search-method" class="form-select form-select-sm shadow-sm">
-                            <option value="wilayah" selected>Filter Wilayah</option>
-                            <option value="mesin">Nomor Mesin</option>
+                            <option value="mesin" selected>Nomor Mesin</option>
+                            <option value="rangka">Nomor Rangka</option>
+                            <option value="wilayah">Filter Wilayah</option>
                         </select>
                     </div>
 
                     <!-- Direct Nomor Mesin Selector (Typing Search) -->
                     <div id="search-mesin-container" class="mb-2 search-section">
-                        <label for="search-input" class="form-label fw-semibold text-secondary small">Cari No. Mesin / CN:</label>
+                        <label for="search-input" class="form-label fw-semibold text-secondary small">Cari No. Mesin:</label>
                         <div class="input-group input-group-sm shadow-sm">
-                            <input type="text" id="search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin..." value="{{ entry.sn_engine if entry else '' }}">
+                            <input type="text" id="search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin..." value="{% if entry %}{% if request.args.get('search_method') == 'rangka' %}{{ entry.sn_equipment }}{% else %}{{ entry.sn_engine }}{% endif %}{% else %}{% endif %}" autofocus autocomplete="off">
                             <button class="btn btn-primary" type="button" id="btn-search">
                                 <i class="fas fa-search"></i>
                             </button>
@@ -188,9 +189,9 @@
             </div>
         </div>
 
-        <div class="col-md-8 col-lg-9 h-100">
-            <div class="card shadow border-0 rounded-3 h-100">
-                <div class="card-body p-4 d-flex flex-column h-100 overflow-hidden bg-white">
+        <div class="col-md-8 col-lg-9 h-md-100">
+            <div class="card shadow border-0 rounded-3 h-md-100">
+                <div class="card-body p-4 d-flex flex-column h-md-100 overflow-md-hidden bg-white">
 
                     {% if entry %}
                     <div class="d-flex align-items-center justify-content-between mb-4">
@@ -542,14 +543,34 @@
             
             function toggleSearchSections() {
                 const method = searchMethod.value;
+                const searchLabel = document.querySelector("#search-mesin-container label");
+                const searchInput = document.getElementById("search-input");
                 
                 // Hide all sections
                 mesinContainer.classList.add("d-none");
                 wilayahContainer.classList.add("d-none");
                 
                 // Show selected section
-                if (method === "mesin") {
+                if (method === "mesin" || method === "rangka") {
                     mesinContainer.classList.remove("d-none");
+                    if (method === "mesin") {
+                        if (searchLabel) searchLabel.textContent = "Cari No. Mesin:";
+                        if (searchInput) {
+                            searchInput.placeholder = "Masukkan No. Mesin...";
+                            if (searchInput.value === "" && "{{ entry.sn_engine if entry else '' }}") {
+                                searchInput.value = "{{ entry.sn_engine if entry else '' }}";
+                            }
+                        }
+                    } else {
+                        if (searchLabel) searchLabel.textContent = "Cari No. Rangka:";
+                        if (searchInput) {
+                            searchInput.placeholder = "Masukkan No. Rangka...";
+                            // If this is loaded, set it to the equipment SN
+                            if ("{{ entry.sn_equipment if entry else '' }}") {
+                                searchInput.value = "{{ entry.sn_equipment if entry else '' }}";
+                            }
+                        }
+                    }
                 } else if (method === "wilayah") {
                     wilayahContainer.classList.remove("d-none");
                 }
@@ -578,10 +599,12 @@
             function performSearch() {
                 if (!searchInput) return;
                 const query = searchInput.value.trim();
+                const method = searchMethod ? searchMethod.value : 'mesin';
                 if (query) {
-                    window.location.href = '/details/' + encodeURIComponent(query) + '?search_method=mesin';
+                    window.location.href = '/details/' + encodeURIComponent(query) + '?search_method=' + method;
                 } else {
-                    alert("Silakan masukkan No. Mesin atau CN terlebih dahulu!");
+                    const labelName = method === 'mesin' ? 'No. Mesin' : 'No. Rangka';
+                    alert("Silakan masukkan " + labelName + " terlebih dahulu!");
                 }
             }
             
@@ -737,13 +760,27 @@
 </script>
 
 <style>
-    body.details-body {
-        height: 100vh;
-        overflow: hidden;
+    .overflow-md-hidden {
+        overflow: visible;
     }
 
-    .details-container {
-        height: calc(100vh - 56px - 2rem);
+    @media (min-width: 768px) {
+        body.details-body {
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .details-container {
+            height: calc(100vh - 56px - 2rem);
+        }
+
+        .h-md-100 {
+            height: 100% !important;
+        }
+
+        .overflow-md-hidden {
+            overflow: hidden !important;
+        }
     }
 
     /* Customize scrollbar inside unit-attributes */

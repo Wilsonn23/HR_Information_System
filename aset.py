@@ -25,6 +25,28 @@ from sqlalchemy import text, select, or_
 from app import app, db, Base, decompress_data, compress_image_pil, CATEGORIES
 from app import Pulau, Kota, PT, Unit, LokasiKerja, KodeUnit, NamaAsuransi, Merk, Kategori, UserEntry, AuditLog, DataEntry, UnitImage, DocumentSurat, ReportEntry
 
+# Constants and helpers for file upload validation
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}
+ALLOWED_DOC_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'pdf'}
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+
+def is_allowed_file(filename, allowed_set):
+    if not filename or '.' not in filename:
+        return False
+    ext = filename.rsplit('.', 1)[1].lower()
+    return ext in allowed_set
+
+def validate_uploaded_files(allowed_set, max_size):
+    for key, f in request.files.items():
+        if f and f.filename != '':
+            if not is_allowed_file(f.filename, allowed_set):
+                return f"Format file '{f.filename}' tidak didukung. Gunakan format yang diizinkan ({', '.join(sorted(allowed_set))})."
+            content = f.read(max_size + 1)
+            if len(content) > max_size:
+                return f"Ukuran file '{f.filename}' melebihi batas maksimal {max_size // (1024 * 1024)} MB."
+            f.seek(0)
+    return None
+
 # ===============================================================================================================
 # HELPERS SECTION
 # ===============================================================================================================
@@ -300,7 +322,7 @@ def populate_form_choices(form):
     form.lokasi_kerja.choices = [('', '-- Pilih Unit Lokasi Kerja --')] + sorted(lokasi_choices, key=lambda x: x[0])
 
     asuransi_entries = db.session.execute(db.select(NamaAsuransi).order_by(NamaAsuransi.nama)).scalars().all()
-    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --'), ('-', '-')] + [(a.nama, a.nama) for a in asuransi_entries]
+    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --')] + [(a.nama, a.nama) for a in asuransi_entries]
     
     merk_entries = db.session.execute(db.select(Merk).order_by(Merk.nama)).scalars().all()
     form.merk.choices = [('', '-- Pilih Merk --')] + [(m.nama, m.nama) for m in merk_entries]
@@ -972,7 +994,7 @@ def perpanjang():
     form.unit.choices = [('', '-- Pilih Unit PT --')]
     form.cn.choices = [('', '-- Pilih Kode Unit --')]
     asuransi_entries = db.session.execute(db.select(NamaAsuransi).order_by(NamaAsuransi.nama)).scalars().all()
-    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --'), ('-', '-')] + [(a.nama, a.nama) for a in asuransi_entries]
+    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --')] + [(a.nama, a.nama) for a in asuransi_entries]
     return render_template('aset/perpanjang.html', form=form, active_page='transaksi')
 
 @app.route('/mutasi', methods=['GET', 'POST'])
@@ -1386,13 +1408,21 @@ def details(pkey=None):
     ).scalars().first()
     
     if not entry:
-        entry = db.session.execute(
-            db.select(DataEntry)
-            .where(
+        search_method = request.args.get('search_method', '').strip()
+        if search_method == 'mesin':
+            condition = (db.func.upper(DataEntry.sn_engine) == pkey.upper().strip())
+        elif search_method == 'rangka':
+            condition = (db.func.upper(DataEntry.sn_equipment) == pkey.upper().strip())
+        else:
+            condition = (
                 (db.func.upper(DataEntry.kode_unit) == pkey.upper().strip()) |
                 (db.func.upper(DataEntry.sn_engine) == pkey.upper().strip()) |
                 (db.func.upper(DataEntry.sn_equipment) == pkey.upper().strip())
             )
+            
+        entry = db.session.execute(
+            db.select(DataEntry)
+            .where(condition)
             .order_by(
                 db.case(
                     (
@@ -1442,7 +1472,7 @@ def submit_extend():
     form.unit.choices = [('', '-- Pilih Unit PT --')] + get_unit_choices(form.pt.data, form.kota.data)
     
     asuransi_entries = db.session.execute(db.select(NamaAsuransi).order_by(NamaAsuransi.nama)).scalars().all()
-    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --'), ('-', '-')] + [(a.nama, a.nama) for a in asuransi_entries]
+    form.nama_asuransi.choices = [('', '-- Pilih Asuransi --')] + [(a.nama, a.nama) for a in asuransi_entries]
 
     if form.pt.data and form.unit.data:
         choices = get_cn_choices_asset(form.unit.data, form.pt.data, form.kota.data)
@@ -1463,6 +1493,12 @@ def submit_extend():
         form.cn.choices.append((form.cn.data, form.cn.data))
     if form.nama_asuransi.data and form.nama_asuransi.data not in [c[0] for c in form.nama_asuransi.choices]:
         form.nama_asuransi.choices.append((form.nama_asuransi.data, form.nama_asuransi.data))
+
+    if request.method == 'POST':
+        error_msg = validate_uploaded_files(ALLOWED_DOC_EXTENSIONS, MAX_FILE_SIZE)
+        if error_msg:
+            flash(f"⚠️ {error_msg}", "danger")
+            return render_template('aset/perpanjang.html', form=form, active_page='transaksi')
 
     if form.validate_on_submit():
         def clean_numeric_input(val):
@@ -1495,7 +1531,20 @@ def submit_extend():
 
         if not entry:
             flash("Data master unit tidak ditemukan!", "danger")
-            return render_template('aset/perpanjang.html', form=form)
+            return render_template('aset/perpanjang.html', form=form, active_page='transaksi')
+
+        # Validate date renewal is after old date
+        new_date = form.tanggal_berakhir_baru.data
+        if new_date:
+            old_date_str = entry.tanggal_berakhir_stnk if jenis == "STNK" else entry.tanggal_berakhir_asuransi
+            if old_date_str:
+                try:
+                    old_date = datetime.strptime(old_date_str, '%Y-%m-%d').date()
+                    if new_date <= old_date:
+                        flash(f"⚠️ Gagal Perpanjang! Tanggal berakhir baru ({new_date}) harus lebih besar dari tanggal berakhir lama ({old_date_str}).", "danger")
+                        return render_template('aset/perpanjang.html', form=form, active_page='transaksi')
+                except ValueError:
+                    pass
 
         lokasi_record = db.session.execute(
             db.select(LokasiKerja).where(
@@ -1651,6 +1700,13 @@ def submit_data():
             form.nama_asuransi.data = '-'
         if not form.no_polis.data:
             form.no_polis.data = '-'
+
+    if request.method == 'POST':
+        error_msg = validate_uploaded_files(ALLOWED_IMAGE_EXTENSIONS, MAX_FILE_SIZE)
+        if error_msg:
+            flash(f"⚠️ {error_msg}", "danger")
+            temp_files = preserve_uploaded_files()
+            return render_template('aset/form.html', form=form, temp_files=temp_files)
 
     if form.validate_on_submit():
         sn_engine_input = form.sn_engine.data.upper().strip()
@@ -2081,6 +2137,36 @@ def update_data(pkey):
         if not form.no_polis.data:
             form.no_polis.data = '-'
 
+    if request.method == 'POST':
+        error_msg = validate_uploaded_files(ALLOWED_IMAGE_EXTENSIONS, MAX_FILE_SIZE)
+        if error_msg:
+            flash(f"⚠️ {error_msg}", "danger")
+            photo_objs = db.session.execute(
+                db.select(UnitImage).where(UnitImage.pkey == pkey)
+            ).scalars().all()
+            photo_by_category = {p.category: p for p in photo_objs if p.category}
+            attachments = [p for p in photo_objs if p.category and p.category.startswith('lainnya_')]
+            legacy_images = [p for p in photo_objs if not p.category or p.category not in CATEGORIES]
+            
+            all_docs = db.session.execute(
+                db.select(DocumentSurat).where(DocumentSurat.pkey == pkey).order_by(DocumentSurat.tanggal_input.desc())
+            ).scalars().all()
+            docs_by_type = {doc.jenis: doc for doc in all_docs if doc.status_aktif}
+            
+            temp_files = preserve_uploaded_files()
+            return render_template(
+                'aset/edit.html',
+                form=form,
+                entry=entry,
+                photo=photo_objs,
+                photo_by_category=photo_by_category,
+                attachments=attachments,
+                legacy_images=legacy_images,
+                all_docs=all_docs,
+                docs_by_type=docs_by_type,
+                temp_files=temp_files
+            )
+
     if form.validate_on_submit():
         sn_engine_input = form.sn_engine.data.upper().strip() if form.sn_engine.data else ""
         sn_equipment_input = form.sn_equipment.data.upper().strip() if form.sn_equipment.data else ""
@@ -2501,18 +2587,17 @@ def get_all_engines():
     results = db.session.execute(
         db.select(DataEntry)
         .where(
-            DataEntry.sn_engine != None,
-            DataEntry.sn_engine != '',
             (DataEntry.notes == None) | (~DataEntry.notes.ilike('%dimutasi ke%')),
             (DataEntry.notes == None) | (~DataEntry.notes.ilike('%dihapus%'))
         )
-        .order_by(DataEntry.sn_engine.asc())
+        .order_by(DataEntry.kode_unit.asc())
     ).scalars().all()
     
     return jsonify([
         {
             'pkey': r.pkey,
-            'sn_engine': r.sn_engine,
+            'sn_engine': r.sn_engine or "",
+            'sn_equipment': r.sn_equipment or "",
             'kode_unit': r.kode_unit,
             'pulau': r.pulau,
             'pt': r.pt,

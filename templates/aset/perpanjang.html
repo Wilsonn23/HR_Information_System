@@ -19,16 +19,17 @@
             <div class="col-md-12">
                 <label for="search-method-select" class="form-label fw-semibold text-secondary small">Metode Pencarian:</label>
                 <select id="search-method-select" class="form-select shadow-sm">
-                    <option value="wilayah" selected>Filter Wilayah</option>
-                    <option value="mesin">Nomor Mesin</option>
+                    <option value="mesin" selected>Nomor Mesin</option>
+                    <option value="rangka">Nomor Rangka</option>
+                    <option value="wilayah">Filter Wilayah</option>
                 </select>
             </div>
         </div>
         <div class="row g-3 mb-3">
-            <div class="col-md-12 d-none" id="search-mesin-wrapper">
+            <div class="col-md-12" id="search-mesin-wrapper">
                 <label for="engine-search-input" class="form-label fw-semibold text-secondary small">Cari Nomor Mesin:</label>
                 <div class="input-group">
-                    <input type="text" id="engine-search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin...">
+                    <input type="text" id="engine-search-input" class="form-control uppercase-input" placeholder="Masukkan No. Mesin..." autofocus autocomplete="off">
                     <button type="button" id="btn-search-engine" class="btn btn-warning fw-bold text-dark shadow-sm">
                         <i class="fas fa-search me-1"></i> Cari
                     </button>
@@ -37,7 +38,7 @@
             </div>
         </div>
 
-        <div id="wilayah-filters-wrapper">
+        <div id="wilayah-filters-wrapper" class="d-none">
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold text-secondary">Pulau (Lokasi Kerja)</label>
@@ -405,10 +406,20 @@
             cnInput.innerHTML = '<option value="">-- Pilih Kode Unit --</option>';
             aturStatusCnInput();
 
-            if (this.value === "mesin") {
+            const searchLabel = document.querySelector("#search-mesin-wrapper label");
+            const searchInput = document.getElementById("engine-search-input");
+
+            if (this.value === "mesin" || this.value === "rangka") {
                 searchMesinWrapper.classList.remove("d-none");
                 wilayahFiltersWrapper.classList.add("d-none");
                 setCnInputReadOnly(true);
+                if (this.value === "mesin") {
+                    if (searchLabel) searchLabel.textContent = "Cari Nomor Mesin:";
+                    if (searchInput) searchInput.placeholder = "Masukkan No. Mesin...";
+                } else {
+                    if (searchLabel) searchLabel.textContent = "Cari Nomor Rangka:";
+                    if (searchInput) searchInput.placeholder = "Masukkan No. Rangka...";
+                }
             } else {
                 searchMesinWrapper.classList.add("d-none");
                 wilayahFiltersWrapper.classList.remove("d-none");
@@ -421,13 +432,18 @@
 
         function performEngineSearch() {
             const query = engineSearchInput.value.trim().toUpperCase();
+            const method = searchMethodSelect.value;
             if (!query) {
-                engineSearchFeedback.textContent = "Silakan masukkan Nomor Mesin terlebih dahulu!";
+                const labelName = method === 'mesin' ? 'Nomor Mesin' : 'Nomor Rangka';
+                engineSearchFeedback.textContent = `Silakan masukkan ${labelName} terlebih dahulu!`;
                 engineSearchFeedback.classList.remove("d-none");
                 return;
             }
 
-            const item = enginesData.find(e => e.sn_engine.toUpperCase() === query);
+            const item = enginesData.find(e => {
+                const searchField = method === 'mesin' ? e.sn_engine : e.sn_equipment;
+                return searchField && searchField.toUpperCase() === query;
+            });
             if (item) {
                 engineSearchFeedback.classList.add("d-none");
 
@@ -453,7 +469,8 @@
                     window.muatJumlahTagihan();
                 }
             } else {
-                engineSearchFeedback.textContent = "Nomor Mesin tidak ditemukan!";
+                const labelName = method === 'mesin' ? 'Nomor Mesin' : 'Nomor Rangka';
+                engineSearchFeedback.textContent = `${labelName} tidak ditemukan!`;
                 engineSearchFeedback.classList.remove("d-none");
             }
         }
@@ -492,7 +509,9 @@
         });
 
         aturStatusCnInput();
-        if (pulauSelect.value) {
+        if (searchMethodSelect.value === "mesin") {
+            setCnInputReadOnly(true);
+        } else if (pulauSelect.value) {
             updateKotaChoices();
         }
     }

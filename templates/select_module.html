@@ -8,8 +8,8 @@
 {% block navbar %}{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-center h-100 w-100" style="background: linear-gradient(135deg, #0052d4 0%, #4364f7 100%);">
-    <div class="container px-4">
+<div class="select-module-wrapper">
+    <div class="container px-4 py-5">
         <div class="row justify-content-center text-center mb-5">
             <div class="col-lg-8">
                 <h1 class="display-5 fw-bold text-white mb-2">Selamat Datang, {{ session.get('logged_user', 'User') }}</h1>
@@ -73,8 +73,32 @@
     body.select-module-body {
         padding-top: 0 !important;
         margin: 0 !important;
-        height: 100vh !important;
-        overflow: hidden !important;
+        min-height: 100vh !important;
+        background: linear-gradient(135deg, #0052d4 0%, #4364f7 100%) !important;
+        overflow: auto !important;
+    }
+
+    /* Hide base.html empty flash message container */
+    body.select-module-body .container.mt-3 {
+        display: none !important;
+    }
+
+    .select-module-wrapper {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    @media (min-width: 768px) {
+        body.select-module-body {
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+        .select-module-wrapper {
+            height: 100vh;
+        }
     }
     .icon-wrapper {
         transition: transform 0.3s ease;

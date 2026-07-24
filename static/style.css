@@ -11,7 +11,7 @@ body {
 }
 
 /* Base override for pages using select-module-body (landing) and login-page */
-body.select-module-body, body.login-page {
+body.login-page {
     padding-top: 0 !important;
     background: linear-gradient(135deg, #0052d4 0%, #4364f7 100%) !important;
     height: 100vh !important;

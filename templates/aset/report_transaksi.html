@@ -34,7 +34,7 @@
                     <!-- Right side: Search and Download Excel -->
                     <div class="col-md-7 col-lg-8 d-flex justify-content-end align-items-center gap-2 flex-wrap">
                         <div style="max-width: 250px;" class="w-100">
-                            <input type="text" id="SearchInput" class="form-control shadow-sm" placeholder="🔍 Cari Data Laporan..." style="height: 38px; font-size: 0.875rem;">
+                            <input type="text" id="SearchInput" class="form-control shadow-sm uppercase-input" placeholder="🔍 Cari No. Mesin atau No. Rangka" style="height: 38px; font-size: 0.875rem;" autocomplete="off">
                         </div>
                         <div style="max-width: 250px;" class="w-100">
                             <a href="/export/report-transaksi/excel?groupby={{ active_filter }}"
@@ -61,12 +61,13 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive" style="max-height: 580px; overflow-y: auto;">
-                        <table class="table table-striped table-hover align-middle table-bordered text-nowrap m-0">
+                        <table class="table table-hover align-middle table-bordered text-nowrap m-0">
                             <thead class="table-dark position-sticky top-0 z-2">
                                 <tr class="align-middle">
                                     <th scope="col" class="text-center">No</th>
                                     <th scope="col">Kode Unit (CN)</th>
                                     <th scope="col">No Mesin</th>
+                                    <th scope="col">No Rangka</th>
                                     <th scope="col">Jenis</th>
                                     <th scope="col">Nama Unit PT</th>
                                     <th scope="col">Jumlah Dibayar</th>
@@ -81,6 +82,7 @@
                                     <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
                                     <td><a href="/details/{{ entry.pkey }}" class="fw-bold text-decoration-none text-primary">{{ entry.kode_unit }}</a></td>
                                     <td>{{ entry.sn_engine }}</td>
+                                    <td>{{ entry.sn_equipment or '-' }}</td>
                                     <td>{{ report_entry.jenis }}</td>
                                     <td>{{ entry.unit }}</td>
                                     <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
@@ -90,7 +92,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-5">
+                                    <td colspan="10" class="text-center text-muted py-5">
                                         <i class="fas fa-folder-open d-block fs-2 mb-2"></i>
                                         <span class="fw-bold">No data entries found.</span>
                                     </td>
@@ -118,12 +120,13 @@
                 <div id="{{ section_id }}" class="collapse">
                     <div class="card-body p-0">
                         <div class="table-responsive" style="max-height: 580px; overflow-y: auto;">
-                            <table class="table table-striped table-hover align-middle table-bordered text-nowrap m-0">
+                            <table class="table table-hover align-middle table-bordered text-nowrap m-0">
                                 <thead class="table-dark position-sticky top-0 z-2">
                                     <tr class="align-middle">
                                         <th scope="col" class="text-center">No</th>
                                         <th scope="col">Kode Unit (CN)</th>
                                         <th scope="col">No Mesin</th>
+                                        <th scope="col">No Rangka</th>
                                         <th scope="col">Jenis</th>
                                         <th scope="col">Nama Unit PT</th>
                                         <th scope="col">Jumlah Dibayar</th>
@@ -138,6 +141,7 @@
                                         <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
                                         <td><a href="/details/{{ entry.pkey }}" class="fw-bold text-decoration-none text-primary">{{ entry.kode_unit }}</a></td>
                                         <td>{{ entry.sn_engine }}</td>
+                                        <td>{{ entry.sn_equipment or '-' }}</td>
                                         <td>{{ report_entry.jenis }}</td>
                                         <td>{{ entry.unit }}</td>
                                         <td>Rp {{ "{:,.2f}".format(report_entry.jumlah_dibayar or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
@@ -147,7 +151,7 @@
                                     </tr>
                                     {% else %}
                                     <tr>
-                                        <td colspan="9" class="text-center text-muted py-5">
+                                        <td colspan="10" class="text-center text-muted py-5">
                                             <i class="fas fa-folder-open d-block fs-2 mb-2"></i>
                                             <span class="fw-bold">No data entries found.</span>
                                         </td>
@@ -186,28 +190,44 @@
 
     searchInput.addEventListener('keyup', function () {
         let filter = this.value.toUpperCase();
-        let rows = document.querySelectorAll('table tbody tr');
+        let tables = document.querySelectorAll('table');
 
-        rows.forEach(row => {
-            let cells = Array.from(row.cells);
-            // Check if any cell in the row matches the search filter
-            let match = cells.some(cell => {
-                let text = cell ? (cell.textContent || cell.innerText) : "";
-                return text.toUpperCase().indexOf(filter) > -1;
-            });
+        tables.forEach(table => {
+            let headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim().toUpperCase());
+            let snEngineIdx = headers.indexOf('NO MESIN');
+            let snEquipmentIdx = headers.indexOf('NO RANGKA');
 
-            if (match) {
-                row.style.display = "";
-                
-                // Auto-expand parent accordion card if row matches and search filter is not empty
-                let collapseParent = row.closest('.collapse');
-                if (collapseParent && filter !== "") {
-                    let bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseParent);
-                    bsCollapse.show();
+            // Fallback to static indexes if headers are somehow not matching
+            if (snEngineIdx === -1) snEngineIdx = 2;
+            if (snEquipmentIdx === -1) snEquipmentIdx = 3;
+
+            let rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                let cellEngine = row.cells[snEngineIdx];
+                let cellEquipment = row.cells[snEquipmentIdx];
+
+                let textEngine = cellEngine ? (cellEngine.textContent || cellEngine.innerText) : "";
+                let textEquipment = cellEquipment ? (cellEquipment.textContent || cellEquipment.innerText) : "";
+
+                if (textEngine.toUpperCase().indexOf(filter) > -1 || textEquipment.toUpperCase().indexOf(filter) > -1) {
+                    row.style.display = "";
+                    
+                    // Auto-expand parent accordion card if row matches and search filter is not empty
+                    let collapseParent = row.closest('.collapse');
+                    if (collapseParent && filter !== "") {
+                        let bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseParent);
+                        bsCollapse.show();
+                    }
+                } else {
+                    row.style.display = "none";
                 }
-            } else {
-                row.style.display = "none";
-            }
+            });
+        });
+    });
+
+    document.querySelectorAll('.uppercase-input').forEach(input => {
+        input.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
         });
     });
 </script>

@@ -51,5 +51,32 @@
     {% block content %}{% endblock %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const action = this.getAttribute('action') || '';
+                    if (action.includes('download') || action.includes('export') || this.hasAttribute('data-no-disable')) {
+                        return;
+                    }
+                    
+                    if (this.classList.contains('form-submitted')) {
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    this.classList.add('form-submitted');
+                    
+                    const submitButtons = this.querySelectorAll('button[type="submit"], input[type="submit"]');
+                    setTimeout(() => {
+                        submitButtons.forEach(btn => {
+                            btn.disabled = true;
+                            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Memproses...';
+                        });
+                    }, 10);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

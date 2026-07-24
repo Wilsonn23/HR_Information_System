@@ -126,6 +126,22 @@ def batasi_akses_global():
     elif any(request.path.startswith(prefix) for prefix in ['/asset-dashboard', '/transaksi', '/details', '/report', '/master', '/logs', '/perpanjang', '/mutasi', '/edit', '/delete', '/update', '/submit_data']):
         session['module'] = 'aset'
 
+def cleanup_temp_uploads():
+    import os
+    import time
+    temp_dir = os.path.join(app.root_path, 'temp_uploads')
+    if os.path.exists(temp_dir):
+        now = time.time()
+        for f in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, f)
+            if os.path.isfile(file_path):
+                # 86400 seconds = 24 hours
+                if os.stat(file_path).st_mtime < now - 86400:
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Error removing temp file {file_path}: {e}")
+
 # ===============================================================================================================
 # DATABASE INITIALIZATION
 # ===============================================================================================================
@@ -148,6 +164,12 @@ with app.app_context():
     except Exception as e:
         db.session.rollback()
         print(f"Error checking/adding category column: {e}")
+        
+    try:
+        cleanup_temp_uploads()
+        print("Successfully cleaned up old temporary uploads.")
+    except Exception as e:
+        print(f"Error cleaning temp uploads: {e}")
 
 # ===============================================================================================================
 # CLASS DEFINITIONS
@@ -443,16 +465,31 @@ def view_audit_logs():
         return redirect(url_for('aset_dashboard'))
     
     page = request.args.get('page', 1, type=int)
-    per_page = 50
+    per_page = 20
     offset = (page - 1) * per_page
     
+    q = request.args.get('q', '').strip()
+    
+    stmt = db.select(AuditLog)
+    if q:
+        search_filter = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                AuditLog.pkey.ilike(search_filter),
+                AuditLog.aksi.ilike(search_filter),
+                AuditLog.kolom_diubah.ilike(search_filter),
+                AuditLog.nilai_lama.ilike(search_filter),
+                AuditLog.nilai_baru.ilike(search_filter),
+                AuditLog.dilakukan_oleh.ilike(search_filter)
+            )
+        )
+    
     # Get total count of audit logs
-    total_count = db.session.scalar(db.select(db.func.count()).select_from(AuditLog)) or 0
+    total_count = db.session.scalar(db.select(db.func.count()).select_from(stmt.subquery())) or 0
     
     # 3. Ambil data logs dengan limit dan offset (paginasi)
     all_logs = db.session.execute(
-        db.select(AuditLog)
-        .order_by(AuditLog.tanggal_aksi.desc())
+        stmt.order_by(AuditLog.tanggal_aksi.desc())
         .limit(per_page)
         .offset(offset)
     ).scalars().all()
@@ -479,6 +516,7 @@ def view_audit_logs():
         page=page, 
         total_pages=total_pages, 
         total_count=total_count, 
+        q=q,
         active_page='logs'
     )
 
@@ -488,3 +526,4 @@ import sdm
 
 if __name__ == '__main__':
     app.run(debug=True)
+    # app.run(host='0.0.0.0', port=5000, debug=True)
