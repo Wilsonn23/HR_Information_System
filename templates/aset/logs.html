@@ -16,7 +16,7 @@
                 <div style="max-width: 300px;" class="w-100 position-relative">
                     <input type="text" id="logSearchInput" class="form-control pe-5" placeholder="🔍 Cari..." value="{{ q or '' }}">
                     {% if q %}
-                    <button class="btn btn-sm btn-link text-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0" onclick="window.location.href='{{ url_for('view_audit_logs') }}'" style="text-decoration: none; z-index: 10;">✕</button>
+                    <button class="btn btn-sm btn-link text-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0" onclick="window.location.href='{{ url_for('view_asset_audit_logs') }}'" style="text-decoration: none; z-index: 10;">✕</button>
                     {% endif %}
                 </div>
             </div>
@@ -82,13 +82,13 @@
                 <nav aria-label="Navigasi Halaman Log">
                     <ul class="pagination pagination-sm m-0">
                         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=page-1, q=q) }}" tabindex="-1">Sebelumnya</a>
+                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page-1, q=q) }}" tabindex="-1">Sebelumnya</a>
                         </li>
                         
                         {% for p in range(1, total_pages + 1) %}
                         {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
                         <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=p, q=q) }}">{{ p }}</a>
+                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=p, q=q) }}">{{ p }}</a>
                         </li>
                         {% elif p == page - 3 or p == page + 3 %}
                         <li class="page-item disabled"><span class="page-link bg-light border-0">...</span></li>
@@ -96,7 +96,7 @@
                         {% endfor %}
                         
                         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_audit_logs', page=page+1, q=q) }}">Berikutnya</a>
+                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page+1, q=q) }}">Berikutnya</a>
                         </li>
                     </ul>
                 </nav>
@@ -115,7 +115,7 @@
     document.getElementById('logSearchInput').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             let query = this.value.trim();
-            window.location.href = "{{ url_for('view_audit_logs') }}?q=" + encodeURIComponent(query);
+            window.location.href = "{{ url_for('view_asset_audit_logs') }}?q=" + encodeURIComponent(query);
         }
     });
 </script>

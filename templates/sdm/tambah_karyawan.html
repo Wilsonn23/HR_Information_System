@@ -1,0 +1,128 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Tambah Data Karyawan{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-4">
+    <div class="card shadow-lg border-0 mx-auto" style="border-radius: 16px; max-width: 700px; overflow: hidden;">
+        <!-- Header Card dengan Gradient Premium -->
+        <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-2 me-3">👤</span>
+                <div>
+                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Form Tambah Karyawan</h3>
+                    <p class="small text-white-50 m-0">Masukkan detail informasi karyawan baru ke sistem</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 p-md-5 bg-white">
+            <form action="{{ url_for('tambah_karyawan') }}" method="POST" class="needs-validation" novalidate id="formTambahKaryawan">
+                <!-- CSRF Token jika diaktifkan ( Flask-WTF CSRFProtect ) -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="row g-3">
+                    <!-- NIK -->
+                    <div class="col-md-6">
+                        <label for="input_nik" class="form-label fw-bold text-secondary small">Nomor Induk Karyawan (NIK)</label>
+                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nik" name="nik" placeholder="Contoh: NIK2026001" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap masukkan NIK karyawan.</div>
+                    </div>
+
+                    <!-- No Absen -->
+                    <div class="col-md-6">
+                        <label for="input_absen" class="form-label fw-bold text-secondary small">Nomor Absen</label>
+                        <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_absen" name="absen" placeholder="Contoh: 101" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap masukkan nomor absen yang unik.</div>
+                    </div>
+
+                    <!-- Nama Lengkap -->
+                    <div class="col-12 mt-3">
+                        <label for="input_nama" class="form-label fw-bold text-secondary small">Nama Lengkap</label>
+                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nama" name="nama" placeholder="Contoh: Budi Santoso" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap masukkan nama lengkap karyawan.</div>
+                    </div>
+
+                    <!-- Jabatan -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_jabatan" class="form-label fw-bold text-secondary small">Jabatan</label>
+                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jabatan" name="jabatan" placeholder="Masukkan jabatan (contoh: STAFF)..." required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap isi jabatan karyawan.</div>
+                    </div>
+
+                    <!-- Tanggal Mulai Kerja (TMK) -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_tmk" class="form-label fw-bold text-secondary small">Tanggal Mulai Kerja</label>
+                        <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_tmk" name="tmk" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap isi tanggal mulai kerja.</div>
+                    </div>
+
+                    <!-- Jam Masuk -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_jam_masuk" class="form-label fw-bold text-secondary small">Jam Masuk</label>
+                        <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_masuk" name="jam_masuk" value="08:00" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap isi jam masuk kerja.</div>
+                    </div>
+
+                    <!-- Jam Pulang -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_jam_pulang" class="form-label fw-bold text-secondary small">Jam Pulang</label>
+                        <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_pulang" name="jam_pulang" value="17:00" required style="box-shadow: none;">
+                        <div class="invalid-feedback">Harap isi jam pulang kerja.</div>
+                    </div>
+                </div>
+
+                <!-- Tombol Submit & Batal -->
+                <div class="d-flex justify-content-end gap-3 mt-5">
+                    <a href="/sdm-transaksi" class="btn btn-light px-4 py-2 fw-bold text-secondary" style="border-radius: 8px;">
+                        Batal
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4 py-2 fw-bold shadow-sm transition-all" id="btn_submit_karyawan" style="border-radius: 8px;">
+                        Simpan Karyawan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Validasi form Bootstrap 5
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+
+    // Otomatis convert input NIK jadi uppercase saat mengetik
+    const nikInput = document.getElementById('input_nik');
+    nikInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+</script>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+    }
+    .form-control:focus, .form-select:focus {
+        background-color: #f8fafc !important;
+        border: 1px solid #0d6efd !important;
+    }
+</style>
+{% endblock %}

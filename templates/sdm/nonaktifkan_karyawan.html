@@ -1,0 +1,74 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Nonaktifkan Karyawan (Resign){% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-4">
+    <div class="card shadow-lg border-0 mx-auto" style="border-radius: 16px; max-width: 600px; overflow: hidden;">
+        <!-- Header Card dengan Gradient Premium -->
+        <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-2 me-3">👤</span>
+                <div>
+                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Nonaktifkan Karyawan (Resign)</h3>
+                    <p class="small text-white-50 m-0">Atur tanggal pengunduran diri/resign karyawan</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 p-md-5 bg-white">
+            <form action="{{ url_for('nonaktifkan_karyawan') }}" method="POST" class="needs-validation" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <!-- Pilih Karyawan -->
+                <div class="mb-4">
+                    <label for="nik" class="form-label fw-bold text-secondary small">Karyawan</label>
+                    <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="nik" name="nik" required>
+                        <option value="" disabled selected>-- Pilih Karyawan --</option>
+                        {% for k in karyawan_list %}
+                        <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Tanggal Resign -->
+                <div class="mb-4">
+                    <label for="tanggal_resign" class="form-label fw-bold text-secondary small">Tanggal Resign Efektif</label>
+                    <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="tanggal_resign" name="tanggal_resign" required>
+                    <div class="form-text text-muted small mt-2">
+                        Status kehadiran karyawan akan otomatis diatur menjadi <strong>R (Resign)</strong> mulai dari tanggal ini sampai akhir bulan, dan tidak akan dimunculkan di bulan-bulan berikutnya.
+                    </div>
+                </div>
+                
+                <!-- Tombol Action -->
+                <div class="d-flex justify-content-end gap-3 mt-5">
+                    <a href="/sdm-transaksi" class="btn btn-light px-4 py-2 fw-bold text-secondary" style="border-radius: 8px;">
+                        Batal
+                    </a>
+                    <button type="submit" class="btn btn-danger px-4 py-2 fw-bold shadow-sm transition-all" style="border-radius: 8px;">
+                        Simpan Status Resign
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Enable Bootstrap validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
+{% endblock %}

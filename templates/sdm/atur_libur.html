@@ -1,0 +1,127 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Atur Tanggal Libur - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-4">
+    <div class="card shadow border-0 mx-auto" style="border-radius: 16px; max-width: 900px; overflow: hidden;">
+        <!-- Header Card dengan Gradient Premium -->
+        <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-2 me-3">📅</span>
+                <div>
+                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Pengaturan Hari Libur</h3>
+                    <p class="small text-white-50 m-0">Kelola tanggal libur nasional dan perusahaan</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 p-md-5 bg-white">
+            
+            <!-- Form Filter Periode (Bulan & Tahun) -->
+            <form method="GET" action="{{ url_for('atur_libur') }}" class="row g-3 align-items-end mb-5 border-bottom pb-4">
+                <div class="col-md-5">
+                    <label for="bulan" class="form-label fw-bold text-muted small">Pilih Bulan</label>
+                    <select class="form-select border-2" id="bulan" name="bulan">
+                        {% for b in list_bulan %}
+                        <option value="{{ b.nama }}" {% if b.nama == selected_bulan %}selected{% endif %}>{{ b.nama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="tahun" class="form-label fw-bold text-muted small">Pilih Tahun</label>
+                    <select class="form-select border-2" id="tahun" name="tahun">
+                        {% for t in range(2020, 2031) %}
+                        <option value="{{ t }}" {% if t == selected_tahun %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-dark w-100 fw-bold py-2 shadow-sm rounded-3">
+                        🔍 Tampilkan
+                    </button>
+                </div>
+            </form>
+
+            <div class="row g-4">
+                <!-- Sisi Kiri: Form Tambah Libur Baru -->
+                <div class="col-md-5 border-end pe-md-4">
+                    <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-plus-circle me-1"></i> Tambah Hari Libur</h5>
+                    <form action="{{ url_for('add_libur') }}" method="POST" id="addLiburForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="tanggal" class="form-label fw-semibold text-muted small">Tanggal Libur</label>
+                            <input type="date" class="form-control border-2" id="tanggal" name="tanggal" required>
+                            <div class="form-text text-muted small">Pilih tanggal spesifik libur.</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="keterangan" class="form-label fw-semibold text-muted small">Keterangan / Nama Libur</label>
+                            <input type="text" class="form-control border-2" id="keterangan" name="keterangan" required placeholder="Contoh: Tahun Baru Imlek">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm transition-all" style="background-color: #0d6efd; border-color: #0d6efd;">
+                            💾 Simpan Hari Libur
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Sisi Kanan: Tabel Hari Libur Aktif di Periode ini -->
+                <div class="col-md-7 ps-md-4">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-list me-1"></i> Daftar Libur Periode {{ selected_bulan }} {{ selected_tahun }}</h5>
+                    
+                    <div class="table-responsive border rounded-3 bg-light" style="max-height: 350px;">
+                        <table class="table table-hover align-middle m-0 small">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-center" style="width: 50px;">No</th>
+                                    <th style="width: 110px;">Tanggal</th>
+                                    <th>Keterangan</th>
+                                    <th class="text-center" style="width: 80px;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for h in holidays %}
+                                <tr>
+                                    <td class="text-center text-muted fw-bold">{{ loop.index }}</td>
+                                    <td class="fw-bold text-primary">{{ h.tanggal.strftime('%d-%m-%Y') }}</td>
+                                    <td>{{ h.keterangan }}</td>
+                                    <td class="text-center">
+                                        <form action="{{ url_for('delete_libur', id=h.id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus tanggal libur ini?');" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1" title="Hapus">
+                                                🗑️
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-5">
+                                        🌴 Tidak ada hari libur terjadwal pada periode ini.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .transition-all {
+        transition: all 0.2s ease-in-out;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+    }
+</style>
+{% endblock %}

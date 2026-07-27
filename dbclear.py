@@ -2,7 +2,18 @@ from app import db, app
 
 with app.app_context():
     # 1. Filter out the master tables so they don't get dropped
-    excluded = {"users", "pulau", "kota", "pt", "unit", "nama_asuransi", "merk", "kategori"}
+    excluded = {
+        "users", 
+        "pulau", 
+        "kota", 
+        "pt", 
+        "unit", 
+        "nama_asuransi", 
+        "merk", 
+        "kategori", 
+        "bulan", 
+        "jabatan"
+    }
 
     # 2. Get sorted list of tables to drop (respecting foreign key dependencies)
     sorted_tables = [table for table in db.metadata.sorted_tables if table.name not in excluded]

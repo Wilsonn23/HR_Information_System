@@ -21,7 +21,7 @@
                     <ul class="navbar-nav ms-auto">
                         {% if session.get('role') == 'admin' %}
                         <li class="nav-item"><a class="nav-link {% if active_page=='master' %}active{% endif %}" href="/master"><i class="fas fa-database me-1"></i>Master</a></li>
-                        <li class="nav-item"><a class="nav-link {% if active_page=='logs' %}active{% endif %}" href="/logs"><i class="fas fa-history me-1"></i>Logs</a></li>
+                        <li class="nav-item"><a class="nav-link {% if active_page=='logs-aset' %}active{% endif %}" href="/logs-aset"><i class="fas fa-history me-1"></i>Logs</a></li>
                         {% endif %}
                         <li class="nav-item"><a class="nav-link {% if active_page=='aset-dashboard' %}active{% endif %}" href="/aset-dashboard"><i class="fas fa-home me-1"></i>Dashboard</a></li>
                         <li class="nav-item"><a class="nav-link {% if active_page=='transaksi' %}active{% endif %}" href="/transaksi"><i class="fas fa-exchange-alt me-1"></i>Transaksi</a></li>

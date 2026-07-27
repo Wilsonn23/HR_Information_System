@@ -1,0 +1,94 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Data Master - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold text-primary m-0">📁 Master Database Karyawan</h3>
+            </div>
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0"
+                    id="masterTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle">
+                            <th scope="col" class="text-center">No</th>
+                            <th scope="col">Absen</th>
+                            <th scope="col">Nama</th>
+                            <th scope="col">NIK</th>
+                            <th scope="col">Jabatan</th>
+                            <th scope="col">TMK</th>
+                            <th scope="col">Jam Masuk</th>
+                            <th scope="col">Jam Pulang</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                            <td>{{ entry.absen }}</td>
+                            <td>{{ entry.nama }}</td>
+                            <td>{{ entry.nik }}</td>
+                            <td>{{ entry.jabatan }}</td>
+                            <td>{{ entry.tmk }}</td>
+                            <td>{{ entry.jam_masuk }}</td>
+                            <td>{{ entry.jam_pulang }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="20" class="text-center text-muted py-5">
+                                📁 Belum ada data yang tersimpan.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('SearchInput');
+    
+    // Prevent form submission when pressing Enter in search box
+    searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
+
+    document.querySelectorAll('.uppercase-input').forEach(input => {
+        input.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
+        });
+    });
+</script>
+
+<style>
+    .position-sticky {
+        position: sticky !important;
+    }
+
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+    
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    .row-danger-strong td {
+        background-color: #fbc4c4 !important;
+    }
+
+    .row-warning-strong td {
+        background-color: #ffe066 !important;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Unggah Kehadiran Excel{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-4">
+    <div class="card shadow-lg border-0 mx-auto" style="border-radius: 16px; max-width: 800px; overflow: hidden;">
+        <!-- Header Card dengan Gradient Premium -->
+        <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-2 me-3">📊</span>
+                <div>
+                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Unggah Kehadiran Karyawan (Excel)</h3>
+                    <p class="small text-white-50 m-0">Unggah berkas log absen harian mesin fingerprint</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 p-md-5 bg-white">
+            <!-- Informasi Format Excel -->
+            <div class="alert alert-info border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background-color: #f0f7ff;">
+                <h5 class="fw-bold text-primary mb-3"><i class="fas fa-info-circle me-2"></i>Petunjuk Penting Format Berkas</h5>
+                <p class="small text-secondary mb-3">
+                    Sistem akan membaca berkas Excel harian yang Anda unggah. Pastikan berkas Anda memiliki kolom-kolom berikut di baris pertama (header):
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered text-center small m-0 bg-white" style="border-color: #dbeafe;">
+                        <thead style="background-color: #eff6ff; color: #1e40af;">
+                            <tr>
+                                <th>No. ID</th>
+                                <th>NIK</th>
+                                <th>Nama</th>
+                                <th>tanggal</th>
+                                <th>scan masuk</th>
+                                <th>scan pulang</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-secondary">
+                            <tr>
+                                <td>1</td>
+                                <td>NIK2026001</td>
+                                <td>Budi Santoso</td>
+                                <td>27/07/2026</td>
+                                <td>08:00</td>
+                                <td>17:00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="small text-secondary mt-3 mb-0 ps-3">
+                    <li>Kolom <strong>tanggal</strong> dapat berupa format tanggal Excel standar, `MM/DD/YYYY`.</li>
+                    <li>Kolom <strong>scan masuk</strong> dan <strong>scan pulang</strong> diisi waktu (`HH:MM`). Jika karyawan tidak melakukan scan, kosongkan kolom tersebut.</li>
+                </ul>
+            </div>
+
+            <!-- Form Upload -->
+            <form action="{{ url_for('upload_kehadiran') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                {% if has_warning %}
+                <!-- Locked Warning Alert -->
+                <div class="alert alert-danger border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background-color: #fef2f2; color: #991b1b;">
+                    <h5 class="fw-bold mb-2">🚨 Unggah Dinonaktifkan</h5>
+                    <p class="small m-0">
+                        Anda tidak dapat mengunggah berkas kehadiran baru karena masih ada data kehadiran yang berstatus <strong>Pending (P)</strong> di Dashboard. 
+                        Silakan selesaikan seluruh data Pending terlebih dahulu melalui menu Edit Kehadiran sebelum mengunggah berkas baru.
+                    </p>
+                </div>
+                {% endif %}
+
+                <!-- Drag and Drop Zone -->
+                <div id="dropzone" class="border-2 border-dashed rounded-3 p-5 text-center transition-all {% if has_warning %}bg-light cursor-not-allowed text-muted{% else %}cursor-pointer bg-light border-secondary{% endif %}" style="border-color: #cbd5e1 !important;">
+                    <div class="py-4">
+                        {% if has_warning %}
+                        <span class="fs-1 mb-3 d-block">🚫</span>
+                        <h5 class="fw-bold text-secondary mb-2">Unggah Absen Dikunci</h5>
+                        <p class="small text-muted mb-4">Selesaikan data pending terlebih dahulu di dashboard</p>
+                        <button type="button" class="btn btn-secondary fw-bold px-4 rounded-pill btn-sm" disabled>
+                            Pilih Berkas Excel
+                        </button>
+                        {% else %}
+                        <span class="fs-1 text-primary mb-3 d-block">📤</span>
+                        <h5 class="fw-bold text-dark mb-2" id="dropzoneText">Tarik & Lepas file Excel di sini</h5>
+                        <p class="small text-muted mb-4">atau klik untuk menelusuri dari penyimpanan Anda</p>
+                        <input type="file" name="file" id="fileInput" accept=".xlsx, .xls" class="d-none" required>
+                        <button type="button" class="btn btn-outline-primary fw-bold px-4 rounded-pill btn-sm" onclick="document.getElementById('fileInput').click()">
+                            Pilih Berkas Excel
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Info Berkas yang dipilih -->
+                <div id="fileInfo" class="mt-3 alert alert-success border-0 p-3 align-items-center justify-content-between rounded-3 d-none">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-4 me-2">📄</span>
+                        <div>
+                            <strong id="fileName" class="text-dark small d-block">nama_file.xlsx</strong>
+                            <span id="fileSize" class="text-muted small">0 KB</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" onclick="resetFileInput()" aria-label="Close"></button>
+                </div>
+
+                <!-- Tombol Action -->
+                <div class="d-flex justify-content-end gap-3 mt-5">
+                    <a href="/sdm-transaksi" class="btn btn-light px-4 py-2 fw-bold text-secondary" style="border-radius: 8px;">
+                        Batal
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4 py-2 fw-bold shadow-sm transition-all" id="btnSubmitUpload" style="border-radius: 8px;" disabled>
+                        Mulai Impor Kehadiran
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const btnSubmitUpload = document.getElementById('btnSubmitUpload');
+    const dropzoneText = document.getElementById('dropzoneText');
+
+    if (fileInput) {
+        // Mencegah behavior default drag & drop browser
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Sorot dropzone saat file ditarik ke atasnya
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.add('bg-white', 'border-primary');
+                dropzone.style.borderColor = '#0d6efd';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.remove('bg-white', 'border-primary');
+                dropzone.style.borderColor = '#cbd5e1';
+            }, false);
+        });
+
+        // Menangani file yang dijatuhkan (dropped)
+        dropzone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelection(files[0]);
+            }
+        });
+
+        // Menangani file yang dipilih lewat tombol/dialog
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFileSelection(this.files[0]);
+            }
+        });
+        
+        // Klik pada dropzone untuk memilih file
+        dropzone.addEventListener('click', function() {
+            fileInput.click();
+        });
+    }
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleFileSelection(file) {
+        // Cek ekstensi file
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (extension !== 'xlsx' && extension !== 'xls') {
+            alert('Format berkas tidak didukung! Pastikan Anda mengunggah berkas .xlsx atau .xls.');
+            resetFileInput();
+            return;
+        }
+
+        fileName.textContent = file.name;
+        // Format ukuran file ke KB
+        const sizeInKB = (file.size / 1024).toFixed(1);
+        fileSize.textContent = `${sizeInKB} KB`;
+
+        // Tampilkan info file, sembunyikan dropzone
+        dropzone.classList.add('d-none');
+        fileInfo.classList.remove('d-none');
+        fileInfo.classList.add('d-flex');
+        
+        // Aktifkan tombol submit
+        btnSubmitUpload.removeAttribute('disabled');
+    }
+
+    function resetFileInput() {
+        fileInput.value = '';
+        dropzone.classList.remove('d-none');
+        fileInfo.classList.remove('d-flex');
+        fileInfo.classList.add('d-none');
+        btnSubmitUpload.setAttribute('disabled', 'true');
+    }
+
+    // Handling loading state on submit
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        btnSubmitUpload.setAttribute('disabled', 'true');
+        btnSubmitUpload.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Mengimpor Data...';
+    });
+</script>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    #dropzone:hover {
+        background-color: #f8fafc !important;
+        border-color: #0d6efd !important;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+    }
+</style>
+{% endblock %}

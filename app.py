@@ -18,7 +18,7 @@ from flask_wtf import FlaskForm
 from flask_wtf.csrf import CSRFProtect
 from wtforms import StringField, EmailField, SubmitField, FloatField, SelectField, DateField
 from wtforms.validators import DataRequired, Optional, NumberRange, Email, Length
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from collections import defaultdict
 from werkzeug.security import check_password_hash, generate_password_hash
 from openpyxl import Workbook
@@ -252,7 +252,6 @@ class LokasiKerja(db.Model):
         ).scalars().first()
         return entry or ""
 
-
 class KodeUnit(db.Model):
     __tablename__ = 'kode_unit'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
@@ -288,8 +287,6 @@ class UserEntry(db.Model):
     username: Mapped[str] = mapped_column(db.String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(db.String(255), nullable=False)
     role: Mapped[str] = mapped_column(db.String(20), default='user')
-
-# UserForm shifted to sdm.py
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
@@ -394,10 +391,65 @@ PULAU_KOTA_MAPPING = {
     ]
 }
 
+class KaryawanEntry(db.Model):
+    __tablename__ = "karyawan_entries"
+    
+    id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, nullable=False)
+    absen: Mapped[int] = mapped_column(unique=True, nullable=False)
+    nama: Mapped[str] = mapped_column(nullable=False)
+    nik: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    jabatan: Mapped[str] = mapped_column(nullable=False)
+    tmk: Mapped[str] = mapped_column(nullable=False)
+    jam_masuk: Mapped[time] = mapped_column(db.Time, nullable=False)
+    jam_pulang: Mapped[time] = mapped_column(db.Time, nullable=False)
+    tanggal_resign: Mapped[str] = mapped_column(db.String(50), nullable=True)
 
-# ===============================================================================================================
-# CORE ROUTES (AUTHENTICATION & USER ACCOUNTS)
-# ===============================================================================================================
+class Cuti(db.Model):
+    __tablename__ = "cuti"
+    
+    id: Mapped[int] = mapped_column(Integer, Sequence("id"), unique=True, nullable=False)
+    nik: Mapped[str] = mapped_column(db.ForeignKey('karyawan_entries.nik'), primary_key=True, nullable=False)
+    cuti_tahunan: Mapped[float] = mapped_column(db.Float, default=0.0, nullable=False)
+    cuti_dinas: Mapped[float] = mapped_column(db.Float, default=0.0, nullable=False)
+    
+    karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
+
+    @property
+    def nama(self):
+        return self.karyawan.nama if self.karyawan else ""
+
+class Bulan(db.Model):
+    __tablename__ = "bulan"
+    nama: Mapped[str] = mapped_column(db.String(50), primary_key=True, nullable=False)
+    jumlah_hari: Mapped[int] = mapped_column(db.Integer, nullable=False)
+
+class HariLibur(db.Model):
+    __tablename__ = "hari_libur"
+    
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    tanggal: Mapped[datetime.date] = mapped_column(db.Date, unique=True, nullable=False)
+    keterangan: Mapped[str] = mapped_column(db.String(150), nullable=False)
+
+class Kehadiran(db.Model):
+    __tablename__ = "kehadiran"
+    
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nik: Mapped[str] = mapped_column(db.String(50), db.ForeignKey('karyawan_entries.nik'), nullable=False)
+    bulan: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    tahun: Mapped[int] = mapped_column(db.Integer, nullable=False)
+    
+    status_hari: Mapped[dict] = mapped_column(db.JSON, default=dict, nullable=False)
+    scan_masuk_hari: Mapped[dict] = mapped_column(db.JSON, default=dict, nullable=False)
+    scan_pulang_hari: Mapped[dict] = mapped_column(db.JSON, default=dict, nullable=False)
+    keterangan_hari: Mapped[dict] = mapped_column(db.JSON, default=dict, nullable=True)
+    izin_hari: Mapped[dict] = mapped_column(db.JSON, default=dict, nullable=True)
+
+    # Hubungan dengan KaryawanEntry untuk mendapatkan nama karyawan
+    karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
+
+    @property
+    def nama(self):
+        return self.karyawan.nama if self.karyawan else ""
 
 # ===============================================================================================================
 # ROUTING
@@ -453,8 +505,8 @@ def serve_temp_file(filename):
     import os
     return send_from_directory(os.path.join(app.root_path, 'temp_uploads'), filename)
 
-@app.route('/logs')
-def view_audit_logs():
+@app.route('/logs-aset')
+def view_asset_audit_logs():
     # 1. Pastikan user sudah login
     if 'logged_user' not in session:
         return redirect(url_for('login'))

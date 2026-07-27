@@ -1,0 +1,273 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Master Kehadiran Karyawan (Spreadsheet View){% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <!-- Title Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="fw-bold text-primary m-0">📅 Master Kehadiran</h3>
+            </div>
+
+            <!-- Filter Bulan dan Tahun -->
+            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                <form action="{{ url_for('master_kehadiran') }}" method="GET" class="row g-3 align-items-end">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small">Filter Bulan</label>
+                        <select name="bulan" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for b in list_bulan %}
+                            <option value="{{ b.nama }}" {% if selected_bulan == b.nama %}selected{% endif %}>{{ b.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small">Filter Tahun</label>
+                        <select name="tahun" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for t in list_tahun %}
+                            <option value="{{ t }}" {% if selected_tahun == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Legenda Warna Status -->
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-3 px-1 small fw-semibold text-secondary">
+                <span>Panduan Status:</span>
+                <span><span class="badge bg-light text-dark px-2 border">M</span> Masuk</span>
+                <span><span class="badge bg-late-brown text-white px-2 border" style="background-color: #8d6e63 !important;">M</span> Terlambat (&gt; 08:30)</span>
+                <span><span class="badge bg-light text-dark px-2 border">DL</span> Dinas Luar</span>
+                <span><span class="badge bg-light text-dark px-2 border">S</span> Sakit</span>
+                <span><span class="badge bg-light text-dark px-2 border">CT</span> Cuti Tahunan</span>
+                <span><span class="badge bg-light text-dark px-2 border">CN</span> Cuti Normatif</span>
+                <span><span class="badge bg-light text-dark px-2 border">CD</span> Cuti Dinas</span>
+                <span><span class="badge bg-light text-dark px-2 border">A</span> Alpa</span>
+                <span><span class="badge bg-light text-dark px-2 border">L</span> Libur</span>
+                <span><span class="badge bg-light text-dark px-2 border">R</span> Resign</span>
+                <span><span class="badge bg-light text-dark px-2 border">P</span> Pending</span>
+            </div>
+
+            <!-- Spreadsheet Table Container -->
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 600px; overflow: auto;">
+                <table class="table table-hover table-bordered align-middle text-center m-0" style="font-size: 0.85rem;" id="spreadsheetTable">
+                    <thead class="table-dark position-sticky top-0 z-2">
+                        <tr class="align-middle">
+                            <th rowspan="2" class="position-sticky left-0 bg-dark z-3" style="width: 40px; min-width: 40px;">No</th>
+                            <th rowspan="2" class="position-sticky bg-dark z-3" style="left: 40px; min-width: 60px;">Absen</th>
+                            <th rowspan="2" class="position-sticky bg-dark z-3" style="left: 100px; min-width: 90px;">NIK</th>
+                            <th rowspan="2" class="position-sticky bg-dark text-start z-3" style="left: 190px; min-width: 180px;">Nama Karyawan</th>
+                            <th colspan="{{ jumlah_hari }}">Bulan {{ selected_bulan }}</th>
+                            <th colspan="9" class="bg-dark">Rekapitulasi</th>
+                        </tr>
+                        <tr class="bg-dark text-white" style="font-size: 0.75rem;">
+                            <!-- Kolom Hari 1 - 31 -->
+                            {% for d in range_hari %}
+                            <th style="min-width: 48px; width: 48px; padding: 4px;">{{ d }}</th>
+                            {% endfor %}
+                            <!-- Header Rekap -->
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Masuk">M</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Dinas Luar">DL</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Sakit">S</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Cuti Tahunan">CT</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Cuti Normatif">CN</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Cuti Dinas">CD</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Alpa">A</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Libur">L</th>
+                            <th style="min-width: 40px;" class="bg-white text-black" title="Pending">P</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <!-- Sticky Left Info Karyawan -->
+                            <td class="text-muted small fw-bold position-sticky left-0 bg-white">{{ loop.index }}</td>
+                            <td class="fw-bold position-sticky bg-white text-center" style="left: 40px;">{{ entry.karyawan.absen if entry.karyawan else '-' }}</td>
+                            <td class="fw-bold position-sticky bg-white" style="left: 100px;">{{ entry.nik }}</td>
+                            <td class="text-start fw-bold text-dark position-sticky bg-white shadow-right" style="left: 190px;">{{ entry.nama }}</td>
+
+                            <!-- Daily Cells (Tampilan Saja / Read-Only) -->
+                            {% for d in range_hari %}
+                                {% set is_holiday = d in holiday_days if holiday_days else false %}
+                                {% set is_weekend = d in weekends %}
+                                {% set db_status = entry.status_hari.get(d|string, '') %}
+                                
+                                {% set status = db_status %}
+                                {% if (is_holiday or is_weekend) and db_status != 'M' %}
+                                    {% set status = 'L' %}
+                                {% endif %}
+                                
+                                {% set desc = 'Belum Diisi' %}
+                                {% if status == 'M' %}
+                                    {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                    {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
+                                    {% set desc = 'Masuk (Masuk: ' ~ (masuk_time or '-') ~ ', Pulang: ' ~ (pulang_time or '-') ~ ')' %}
+                                {% elif status == 'DL' %}{% set desc = 'Dinas Luar' %}
+                                {% elif status == 'S' %}{% set desc = 'Sakit' %}
+                                {% elif status == 'CT' or status == 'C' %}{% set desc = 'Cuti Tahunan' %}
+                                {% elif status == 'CN' %}{% set desc = 'Cuti Normatif' %}
+                                {% elif status == 'CD' %}{% set desc = 'Cuti Dinas' %}
+                                {% elif status == 'A' %}{% set desc = 'Alpa' %}
+                                {% elif status == 'R' %}{% set desc = 'Sudah Resign' %}
+                                {% elif status == 'P' %}{% set desc = 'Pending' %}
+                                {% elif status == 'L' %}
+                                    {% if is_holiday %}
+                                        {% set desc = 'Libur: ' ~ holiday_days[d] %}
+                                    {% elif is_weekend %}
+                                        {% set desc = 'Libur Akhir Pekan' %}
+                                    {% else %}
+                                        {% set desc = 'Libur' %}
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% set cell_class = '' %}
+                                {% set is_izin = entry.izin_hari.get(d|string, False) if entry.izin_hari else False %}
+                                {% if is_holiday and db_status != 'M' %}
+                                    {% set cell_class = 'bg-holiday-red' %}
+                                {% elif is_weekend and db_status != 'M' %}
+                                    {% set cell_class = 'bg-weekend-libur' %}
+                                {% elif status == 'M' %}
+                                    {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                    {% if is_izin %}
+                                        {% set cell_class = 'bg-izin-green' %}
+                                    {% elif masuk_time|is_late_scan %}
+                                        {% set cell_class = 'bg-late-brown' %}
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% set display_desc = desc %}
+                                {% if is_izin %}
+                                    {% set display_desc = desc ~ ' (Disetujui Izin)' %}
+                                {% endif %}
+                                
+                                <td class="p-1 border-cell fw-bold text-center daily-status {{ cell_class }}" 
+                                    data-status="{{ status }}" 
+                                    title="Tanggal {{ d }} {{ selected_bulan }} {{ selected_tahun }}: {{ display_desc }}{% if entry.keterangan_hari and entry.keterangan_hari.get(d|string) %}&#10;Keterangan: {{ entry.keterangan_hari.get(d|string) }}{% endif %}"
+                                    style="height: 35px; min-width: 48px; width: 48px; line-height: 25px;">
+                                    {{ status }}
+                                </td>
+                            {% endfor %}
+
+                            <!-- Summary Rekap (Dihitung di Sisi Klien menggunakan JS secara realtime) -->
+                            <td class="fw-bold text-black total-hadir">0</td>
+                            <td class="fw-bold text-black total-dl">0</td>
+                            <td class="fw-bold text-black total-sakit">0</td>
+                            <td class="fw-bold text-black total-ct">0</td>
+                            <td class="fw-bold text-black total-cn">0</td>
+                            <td class="fw-bold text-black total-cd">0</td>
+                            <td class="fw-bold text-black total-alpa">0</td>
+                            <td class="fw-bold text-black total-libur">0</td>
+                            <td class="fw-bold text-black total-pending">0</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ 3 + jumlah_hari + 9 }}" class="text-center text-muted py-5">
+                                📁 Belum ada data kehadiran untuk periode <strong>{{ selected_bulan }} {{ selected_tahun }}</strong>.<br>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Hover effects for daily status cell */
+    td.border-cell.daily-status {
+        transition: all 0.15s ease-in-out;
+        cursor: help;
+    }
+    td.border-cell.daily-status:hover {
+        background-color: #f1f5f9 !important;
+        color: #212529 !important;
+        box-shadow: inset 0 0 0 1px #cbd5e1, 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+        transform: scale(1.1);
+        z-index: 5;
+        position: relative;
+    }
+
+    /* Shadow Efek Sticky Kanan-Kiri */
+    .shadow-right {
+        box-shadow: 2px 0 5px rgba(0,0,0,0.05) !important;
+    }
+    
+    th.position-sticky, td.position-sticky {
+        left: 0;
+        z-index: 1;
+    }
+    
+    td.position-sticky {
+        box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+    }
+    
+    .bg-weekend-libur {
+        background-color: #e2e8f0 !important;
+        color: #475569 !important;
+    }
+    
+    .bg-holiday-red {
+        background-color: #fee2e2 !important;
+        color: #991b1b !important;
+    }
+
+    .bg-late-brown {
+        background-color: #8d6e63 !important;
+        color: #ffffff !important;
+    }
+
+    .bg-izin-green {
+        background-color: #d1e7dd !important;
+        color: #0f5132 !important;
+    }
+    
+    .fs-7 {
+        font-size: 0.75rem;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        
+        // Fungsi untuk menghitung total kehadiran harian per baris
+        function hitungTotalBaris(row) {
+            let hadir = 0, dl = 0, sakit = 0, ct = 0, cn = 0, cd = 0, alpa = 0, libur = 0, pending = 0;
+            
+            row.querySelectorAll('.daily-status').forEach(cell => {
+                const val = cell.getAttribute('data-status');
+                if (val === 'M') hadir++;
+                else if (val === 'DL') dl++;
+                else if (val === 'S') sakit++;
+                else if (val === 'CT' || val === 'C') ct++;
+                else if (val === 'CN') cn++;
+                else if (val === 'CD') cd++;
+                else if (val === 'A') alpa++;
+                else if (val === 'L') libur++;
+                else if (val === 'P') pending++;
+            });
+            
+            row.querySelector('.total-hadir').textContent = hadir;
+            row.querySelector('.total-dl').textContent = dl;
+            row.querySelector('.total-sakit').textContent = sakit;
+            row.querySelector('.total-ct').textContent = ct;
+            row.querySelector('.total-cn').textContent = cn;
+            row.querySelector('.total-cd').textContent = cd;
+            row.querySelector('.total-alpa').textContent = alpa;
+            row.querySelector('.total-libur').textContent = libur;
+            row.querySelector('.total-pending').textContent = pending;
+        }
+
+        // Hitung total untuk semua baris saat halaman pertama kali dimuat
+        document.querySelectorAll('#spreadsheetTable tbody tr').forEach(row => {
+            if (row.querySelector('.daily-status')) {
+                hitungTotalBaris(row);
+            }
+        });
+    });
+</script>
+
+{% endblock %}

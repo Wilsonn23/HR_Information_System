@@ -1,0 +1,68 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Data Master - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">📁 Master Data Bulan</h3>
+                </div>
+            </div>
+
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0"
+                    id="masterTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle">
+                            <th scope="col" class="text-center">No</th>
+                            <th scope="col">Nama Bulan</th>
+                            <th scope="col">Jumlah Hari</th>
+                            <!-- <th scope="col" class="text-center">Aksi</th> -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                            <td>{{ entry.nama }}</td>
+                            <td>{{ entry.jumlah_hari }}</td>
+                            <!-- <td class="text-center">
+                                <form action="/master/delete/{{ type }}/{{ entry.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data master {{ type }} ini?')" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-danger py-1 px-2 d-inline-flex align-items-center gap-1 shadow-sm">
+                                        <span>🗑️</span> Hapus
+                                    </button>
+                                </form>
+                            </td> -->
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{% if has_reference %}6{% else %}5{% endif %}" class="text-center text-muted py-5">
+                                📁 Belum ada data yang tersimpan.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .position-sticky {
+        position: sticky !important;
+    }
+
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+</style>
+{% endblock %}
