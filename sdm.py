@@ -8,7 +8,23 @@ from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional, Length
 from werkzeug.security import generate_password_hash
 
-from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual
+from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog
+
+def sdm_log(aksi: str, kategori: str, detail: str, nik: str = None, nama_karyawan: str = None):
+    """Helper untuk mencatat log aktivitas SDM ke tabel sdm_activity_logs."""
+    try:
+        log = SdmActivityLog(
+            aksi=aksi,
+            kategori=kategori,
+            nik=nik,
+            nama_karyawan=nama_karyawan,
+            detail=detail,
+            dilakukan_oleh=session.get('logged_user', 'system')
+        )
+        db.session.add(log)
+        # commit dilakukan oleh caller, tidak di sini, untuk menghindari partial commit
+    except Exception:
+        pass  # jangan sampai logging error mengganggu flow utama
 
 @app.template_filter('is_late_scan')
 def is_late_scan(time_str):
@@ -244,6 +260,218 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
         'next_expiration_amount': next_expiration_amount
     }
 
+MONTH_NUMBERS_GLOBAL = {
+    'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+    'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+    'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+}
+
+def get_cuti_dinas_balance(karyawan, ref_date=None):
+    """
+    Hitung saldo cuti dinas (ADD_CD) secara FIFO berdasarkan tanggal TMK karyawan.
+    Masa berlaku jatah cuti dinas = sama dengan akhir periode cuti tahunan aktif saat cuti dinas didapat.
+    """
+    if not ref_date:
+        if 'simulation_date' in session:
+            try:
+                ref_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+            except Exception:
+                ref_date = datetime.date.today()
+        else:
+            ref_date = datetime.date.today()
+
+    # Parse TMK
+    raw_tmk = None
+    for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+        try:
+            raw_tmk = datetime.datetime.strptime(karyawan.tmk.strip(), fmt).date()
+            break
+        except (ValueError, AttributeError):
+            continue
+
+    if not raw_tmk:
+        return {
+            'added': 0.0,
+            'used': 0.0,
+            'expired': 0.0,
+            'balance': 0.0,
+            'pending_expiration_amount': 0.0,
+            'detail': []
+        }
+
+    tmk_date = datetime.date(raw_tmk.year, raw_tmk.month, 1)
+
+    # 1. Kumpulkan semua ADD_CD
+    add_manuals = db.session.execute(
+        db.select(CutiManual).where(
+            CutiManual.nik == karyawan.nik,
+            CutiManual.tipe == 'ADD_CD'
+        )
+    ).scalars().all()
+
+    allocations = []
+    for m in add_manuals:
+        try:
+            m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        # Cari E_n (tanggal hangus block cuti tahunan) >= tanggal_input cuti dinas
+        n = 1
+        while True:
+            expiration_date = add_months(tmk_date, 28 + 12 * (n - 1))
+            if expiration_date >= m_date:
+                break
+            n += 1
+
+        allocations.append({
+            'date': m_date,
+            'amount': m.jumlah,
+            'expiration': expiration_date,
+            'remaining': m.jumlah
+        })
+
+    # Sort alokasi berdasarkan tanggal hangus dahulu, baru tanggal didapat
+    allocations.sort(key=lambda x: (x['expiration'], x['date']))
+
+    # 2. Penggunaan cuti dinas (Kehadiran CD & CutiManual CD)
+    usages = []
+
+    # Kehadiran CD
+    kehadiran_entries = db.session.execute(
+        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
+    ).scalars().all()
+
+    for entry in kehadiran_entries:
+        m_num = MONTH_NUMBERS_GLOBAL.get(entry.bulan)
+        if not m_num:
+            continue
+        if entry.status_hari:
+            for d_str, status in entry.status_hari.items():
+                if status == 'CD':
+                    try:
+                        usages.append({
+                            'date': datetime.date(entry.tahun, m_num, int(d_str)),
+                            'amount': 1.0
+                        })
+                    except ValueError:
+                        pass
+
+    # CutiManual CD
+    cd_manuals = db.session.execute(
+        db.select(CutiManual).where(
+            CutiManual.nik == karyawan.nik,
+            CutiManual.tipe == 'CD'
+        )
+    ).scalars().all()
+
+    for m in cd_manuals:
+        try:
+            m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
+            usages.append({
+                'date': m_date,
+                'amount': m.jumlah
+            })
+        except Exception:
+            pass
+
+    usages.sort(key=lambda x: x['date'])
+
+    # 3. Potong FIFO
+    for u in usages:
+        use_date = u['date']
+        use_amt = u['amount']
+        for acc in allocations:
+            if use_amt <= 0:
+                break
+            if acc['date'] <= use_date and acc['expiration'] > use_date and acc['remaining'] > 0:
+                consume = min(acc['remaining'], use_amt)
+                acc['remaining'] -= consume
+                use_amt -= consume
+
+    # 4. Potong HANGUS_CD manual
+    hangus_manuals = db.session.execute(
+        db.select(CutiManual).where(
+            CutiManual.nik == karyawan.nik,
+            CutiManual.tipe == 'HANGUS_CD'
+        )
+    ).scalars().all()
+
+    total_deleted_manual = sum(m.jumlah for m in hangus_manuals)
+    remaining_hangus = total_deleted_manual
+
+    # Dahulukan alokasi yang sudah expired
+    for acc in allocations:
+        if remaining_hangus <= 0:
+            break
+        if acc['expiration'] <= ref_date and acc['remaining'] > 0:
+            consume = min(acc['remaining'], remaining_hangus)
+            acc['remaining'] -= consume
+            remaining_hangus -= consume
+
+    # Fallback ke alokasi lain jika ada sisa
+    for acc in allocations:
+        if remaining_hangus <= 0:
+            break
+        if acc['remaining'] > 0:
+            consume = min(acc['remaining'], remaining_hangus)
+            acc['remaining'] -= consume
+            remaining_hangus -= consume
+
+    # 5. Hitung total saldo
+    total_added = sum(acc['amount'] for acc in allocations)
+    active_balance = 0.0
+    pending_expiration = 0.0
+    detail_hangus = {}
+
+    for acc in allocations:
+        if acc['date'] <= ref_date:
+            active_balance += acc['remaining']
+            if acc['expiration'] <= ref_date:
+                pending_expiration += acc['remaining']
+                if acc['remaining'] > 0:
+                    detail_hangus[acc['expiration']] = detail_hangus.get(acc['expiration'], 0.0) + acc['remaining']
+
+    detail_list = []
+    for exp_date, amt in detail_hangus.items():
+        periods = []
+        for acc in allocations:
+            if acc['expiration'] == exp_date:
+                p_str = f"{list(MONTH_NUMBERS_GLOBAL.keys())[acc['date'].month - 1]} {acc['date'].year}"
+                if p_str not in periods:
+                    periods.append(p_str)
+        detail_list.append({
+            'period': ", ".join(periods),
+            'expired_amount': amt,
+            'period_end': exp_date
+        })
+
+    return {
+        'added': total_added,
+        'used': sum(u['amount'] for u in usages),
+        'expired': total_deleted_manual,
+        'balance': active_balance,
+        'pending_expiration_amount': pending_expiration,
+        'detail': detail_list
+    }
+
+def get_cuti_dinas_hangus(nik, ref_date=None):
+    """
+    Wrapper untuk kompatibilitas pencarian cuti dinas hangus.
+    """
+    karyawan = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.nik == nik)
+    ).scalar_one_or_none()
+    if not karyawan:
+        return {'total_hangus': 0.0, 'detail': []}
+
+    res = get_cuti_dinas_balance(karyawan, ref_date)
+    return {
+        'total_hangus': res['pending_expiration_amount'],
+        'detail': res['detail']
+    }
+
+
 @app.route('/simulasi-tanggal', methods=['POST'])
 def simulasi_tanggal():
     sim_date = request.form.get('sim_date')
@@ -301,104 +529,137 @@ def sdm_dashboard():
         except ValueError:
             pass
             
-    reminders = []
-    for k in all_kehadiran:
-        selected_bulan = k.bulan
-        selected_tahun = k.tahun
-        
-        jumlah_hari = bulan_days_map.get(selected_bulan, 31)
-        if selected_bulan == 'Februari':
-            if (selected_tahun % 4 == 0 and selected_tahun % 100 != 0) or (selected_tahun % 400 == 0):
-                jumlah_hari = 29
-            else:
-                jumlah_hari = 28
-                
-        month_num = MONTH_NUMBERS.get(selected_bulan, 1)
+    reminders_h1 = []
+    reminders_lampau = []
+    h1_date = system_date - datetime.timedelta(days=1)
+    
+    karyawan_list = db.session.execute(db.select(KaryawanEntry)).scalars().all()
+    kehadiran_records = db.session.execute(db.select(Kehadiran)).scalars().all()
+    kehadiran_map = {(k.nik, k.bulan, k.tahun): k for k in kehadiran_records}
+    INV_MONTHS = {v: k for k, v in MONTH_NUMBERS_GLOBAL.items()}
 
-        # Cek jika karyawan sudah resign sebelum bulan ini
-        if k.karyawan and k.karyawan.tanggal_resign:
-            try:
-                dt_resign = datetime.datetime.strptime(k.karyawan.tanggal_resign, "%Y-%m-%d")
-                if selected_tahun > dt_resign.year:
-                    continue
-                if selected_tahun == dt_resign.year and month_num > dt_resign.month:
-                    continue
-            except ValueError:
-                pass
-        
-        # Hitung weekends
-        weekends = set()
-        for d in range(1, jumlah_hari + 1):
-            try:
-                dt = datetime.date(selected_tahun, month_num, d)
-                if dt.weekday() in (5, 6):  # Saturday, Sunday
-                    weekends.add(d)
-            except ValueError:
-                pass
-                
-        # Hitung holidays
-        holidays = set()
-        for h in all_holidays:
-            if h.tanggal.month == month_num and h.tanggal.year == selected_tahun:
-                holidays.add(h.tanggal.day)
-                
+    for karyawan in karyawan_list:
         # Resolve TMK date
         tmk_date = None
-        if k.karyawan and k.karyawan.tmk:
+        if karyawan.tmk:
             for fmt in ("%Y-%d-%m", "%Y-%m-%d"):
                 try:
-                    tmk_date = datetime.datetime.strptime(k.karyawan.tmk.strip(), fmt).date()
+                    tmk_date = datetime.datetime.strptime(karyawan.tmk.strip(), fmt).date()
                     break
                 except ValueError:
                     pass
 
-        pending_days = []
-        for d in range(1, jumlah_hari + 1):
-            try:
-                cell_date = datetime.date(selected_tahun, month_num, d)
-            except ValueError:
-                continue
-                
-            # Batasi sampai sebelum waktu sistem (H-1)
-            if cell_date >= system_date:
-                continue
-                
-            # Jangan dihitung jika sebelum TMK
-            if tmk_date and cell_date < tmk_date:
-                continue
+        # Skip if employee hasn't started yet relative to system_date
+        if tmk_date and tmk_date > system_date:
+            continue
 
-            # Jika karyawan resign di bulan ini, lewati pengecekan untuk hari >= tanggal resign
-            if k.karyawan and k.karyawan.tanggal_resign:
+        start_year = tmk_date.year if tmk_date else system_date.year
+        start_month = tmk_date.month if tmk_date else system_date.month
+
+        end_year = system_date.year
+        end_month = system_date.month
+
+        # Generate list of (year, month) to check
+        periods = []
+        curr_y, curr_m = start_year, start_month
+        while (curr_y < end_year) or (curr_y == end_year and curr_m <= end_month):
+            periods.append((curr_y, curr_m))
+            curr_m += 1
+            if curr_m > 12:
+                curr_m = 1
+                curr_y += 1
+
+        for y, m in periods:
+            bulan_nama = INV_MONTHS[m]
+            jumlah_hari = bulan_days_map.get(bulan_nama, 31)
+            if m == 2:
+                if (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0):
+                    jumlah_hari = 29
+                else:
+                    jumlah_hari = 28
+
+            k = kehadiran_map.get((karyawan.nik, bulan_nama, y))
+            status_hari = k.status_hari if k else {}
+
+            # Hitung weekends
+            weekends = set()
+            for d in range(1, jumlah_hari + 1):
                 try:
-                    dt_resign = datetime.datetime.strptime(k.karyawan.tanggal_resign, "%Y-%m-%d")
-                    if selected_tahun == dt_resign.year and month_num == dt_resign.month and d >= dt_resign.day:
-                        continue
+                    dt = datetime.date(y, m, d)
+                    if dt.weekday() in (5, 6):  # Saturday, Sunday
+                        weekends.add(d)
                 except ValueError:
                     pass
 
-            day_str = str(d)
-            db_status = k.status_hari.get(day_str, '')
-            
-            # Jangan masukkan hari libur/weekend ke pending (kecuali masuk 'M')
-            if (d in weekends or d in holidays) and db_status != 'M':
-                continue
-                
-            if db_status == 'P' or db_status == '':
-                pending_days.append(d)
-                
-        if pending_days:
-            pending_days.sort()
-            reminders.append({
-                'nik': k.nik,
-                'absen': k.karyawan.absen if k.karyawan else None,
-                'nama': k.nama,
-                'bulan': k.bulan,
-                'tahun': k.tahun,
-                'hari': pending_days
-            })
-            
+            # Hitung holidays
+            holidays = set()
+            for h in all_holidays:
+                if h.tanggal.month == m and h.tanggal.year == y:
+                    holidays.add(h.tanggal.day)
+
+            pending_h1_days = []
+            pending_lampau_days = []
+            for d in range(1, jumlah_hari + 1):
+                try:
+                    cell_date = datetime.date(y, m, d)
+                except ValueError:
+                    continue
+
+                # Batasi sampai sebelum waktu sistem (H-1)
+                if cell_date >= system_date:
+                    continue
+
+                # Jangan dihitung jika sebelum TMK
+                if tmk_date and cell_date < tmk_date:
+                    continue
+
+                # Jika karyawan resign di/sebelum tanggal ini, lewati
+                if karyawan.tanggal_resign:
+                    try:
+                        dt_resign = datetime.datetime.strptime(karyawan.tanggal_resign, "%Y-%m-%d").date()
+                        if cell_date >= dt_resign:
+                            continue
+                    except ValueError:
+                        pass
+
+                day_str = str(d)
+                db_status = status_hari.get(day_str, '')
+
+                # Jangan masukkan hari libur/weekend ke pending (kecuali masuk 'M')
+                if (d in weekends or d in holidays) and db_status != 'M':
+                    continue
+
+                if db_status == 'P' or db_status == '':
+                    if cell_date == h1_date:
+                        pending_h1_days.append(d)
+                    else:
+                        pending_lampau_days.append(d)
+
+            if pending_h1_days:
+                pending_h1_days.sort()
+                reminders_h1.append({
+                    'nik': karyawan.nik,
+                    'absen': karyawan.absen,
+                    'nama': karyawan.nama,
+                    'bulan': bulan_nama,
+                    'tahun': y,
+                    'hari': pending_h1_days
+                })
+
+            if pending_lampau_days:
+                pending_lampau_days.sort()
+                reminders_lampau.append({
+                    'nik': karyawan.nik,
+                    'absen': karyawan.absen,
+                    'nama': karyawan.nama,
+                    'bulan': bulan_nama,
+                    'tahun': y,
+                    'hari': pending_lampau_days
+                })
+
     # Sort reminders by employee name
-    reminders.sort(key=lambda x: x['absen'])
+    reminders_h1.sort(key=lambda x: x['absen'] or 0)
+    reminders_lampau.sort(key=lambda x: x['absen'] or 0)
 
     # Fetch all cuti entries dynamically with expiration info
     # Hanya karyawan aktif (belum resign) yang dihitung jatah cutinya
@@ -443,26 +704,39 @@ def sdm_dashboard():
     # Urutkan berdasarkan tanggal hangus terdekat
     dashboard_cuti_list.sort(key=lambda c: c.next_expiration_date)
 
-    # Hitung karyawan dengan jatah cuti yang sudah hangus (pending_expiration_amount > 0)
+    # Hitung karyawan dengan jatah cuti yang sudah hangus (tahunan atau dinas)
     expired_leaves_list = []
     for k in karyawan_list:
         balance_info = get_cuti_tahunan_balance(k, system_date)
         pending_hangus = balance_info['pending_expiration_amount']
-        if pending_hangus > 0:
+        
+        dinas_info = get_cuti_dinas_balance(k, system_date)
+        pending_dinas = dinas_info['pending_expiration_amount']
+        
+        if pending_hangus > 0 or pending_dinas > 0:
             expired_leaves_list.append({
                 'nik': k.nik,
                 'absen': k.absen,
                 'nama': k.nama,
-                'pending_hangus': pending_hangus
+                'pending_hangus': pending_hangus,
+                'pending_dinas': pending_dinas
             })
     expired_leaves_list.sort(key=lambda x: x['absen'])
 
+    system_bulan = list(MONTH_NUMBERS_GLOBAL.keys())[system_date.month - 1]
+    system_tahun = system_date.year
+    h1_date_str = f"{h1_date.day} {list(MONTH_NUMBERS_GLOBAL.keys())[h1_date.month - 1]} {h1_date.year}"
+
     return render_template(
         'sdm/sdm_dashboard.html',
-        reminders=reminders,
+        reminders_h1=reminders_h1,
+        reminders_lampau=reminders_lampau,
         cuti_list=dashboard_cuti_list,
         cutoff_date=cutoff_date,
         expired_leaves_list=expired_leaves_list,
+        system_bulan=system_bulan,
+        system_tahun=system_tahun,
+        h1_date_str=h1_date_str,
         active_page='sdm-dashboard'
     )
 
@@ -639,6 +913,7 @@ def upload_karyawan():
                 print(f"Error parsing row {idx}: {str(e)}")
                 error_count += 1
                 
+        sdm_log('IMPORT_KARYAWAN', 'KARYAWAN', f"Impor Excel: {success_count} berhasil, {skip_count} dilewati, {error_count} galat.")
         db.session.commit()
         flash(f"✅ Berhasil mengimpor {success_count} karyawan. (Dilewati/Duplikat: {skip_count}, Galat: {error_count})", "success")
         
@@ -667,7 +942,126 @@ def hapus_cuti():
     if request.method == 'POST':
         action_type = request.form.get('action_type', 'hangus')
 
-        if action_type == 'manual':
+        if action_type == 'manual_hangus':
+            # Hapus cuti hangus individu
+            nik = request.form.get('nik', '').strip().upper()
+            jumlah_raw = request.form.get('jumlah', '').strip()
+            keterangan = request.form.get('keterangan', '').strip()
+
+            if not (nik and jumlah_raw):
+                flash("⚠️ Pilih karyawan dan isi jumlah hari yang akan dihapus!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            try:
+                jumlah = float(jumlah_raw)
+                if jumlah <= 0:
+                    raise ValueError
+            except ValueError:
+                flash("⚠️ Jumlah hari harus berupa angka positif!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            karyawan = db.session.execute(
+                db.select(KaryawanEntry).where(KaryawanEntry.nik == nik)
+            ).scalar_one_or_none()
+            if not karyawan:
+                flash("⚠️ Karyawan tidak ditemukan!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            # Pastikan hanya bisa hapus sejumlah pending_hangus
+            balance_info = get_cuti_tahunan_balance(karyawan, system_date)
+            pending_hangus = balance_info['pending_expiration_amount']
+
+            if pending_hangus <= 0:
+                flash(f"⚠️ {karyawan.nama} tidak memiliki cuti yang sudah hangus!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            if jumlah > pending_hangus:
+                flash(f"⚠️ Jumlah melebihi saldo cuti hangus! Sisa hangus: {pending_hangus} hari.", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            if not keterangan:
+                keterangan = f"Penghapusan cuti hangus individu sebanyak {jumlah} hari untuk NIK {nik} pada {tanggal_input}"
+
+            try:
+                new_hangus = CutiManual(
+                    nik=nik,
+                    tanggal_input=tanggal_input,
+                    jumlah=jumlah,
+                    tipe='HANGUS',
+                    keterangan=keterangan
+                )
+                db.session.add(new_hangus)
+                sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari.", nik=nik, nama_karyawan=karyawan.nama)
+                db.session.commit()
+                flash(f"✅ Berhasil menghapus {jumlah} hari cuti hangus milik {karyawan.nama}.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"⚠️ Terjadi kesalahan: {str(e)}", "danger")
+
+            return redirect(url_for('hapus_cuti'))
+
+        elif action_type == 'manual_hangus_cd':
+            # Hapus cuti dinas hangus individu (satu periode tertentu)
+            nik = request.form.get('nik', '').strip().upper()
+            period = request.form.get('period', '').strip()  # e.g. "Januari 2025"
+            jumlah_raw = request.form.get('jumlah', '').strip()
+            keterangan = request.form.get('keterangan', '').strip()
+
+            if not (nik and period and jumlah_raw):
+                flash("⚠️ Pilih karyawan, periode, dan isi jumlah hari yang akan dihapus!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            try:
+                jumlah = float(jumlah_raw)
+                if jumlah <= 0:
+                    raise ValueError
+            except ValueError:
+                flash("⚠️ Jumlah hari harus berupa angka positif!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            karyawan = db.session.execute(
+                db.select(KaryawanEntry).where(KaryawanEntry.nik == nik)
+            ).scalar_one_or_none()
+            if not karyawan:
+                flash("⚠️ Karyawan tidak ditemukan!", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            # Validasi: cek periode tersebut memang ada dan punya saldo hangus
+            dinas_hangus = get_cuti_dinas_hangus(nik, system_date)
+            period_detail = next((d for d in dinas_hangus['detail'] if d['period'] == period), None)
+
+            if not period_detail:
+                flash(f"⚠️ Tidak ada saldo cuti dinas hangus untuk periode '{period}'.", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            if jumlah > period_detail['expired_amount']:
+                flash(f"⚠️ Jumlah melebihi saldo hangus periode '{period}'! Sisa: {period_detail['expired_amount']} hari.", "danger")
+                return redirect(url_for('hapus_cuti'))
+
+            if not keterangan:
+                keterangan = f"{period}|Penghapusan cuti dinas hangus sebanyak {jumlah} hari untuk NIK {nik} periode {period} pada {tanggal_input}"
+            else:
+                keterangan = f"{period}|{keterangan}"
+
+            try:
+                new_hangus = CutiManual(
+                    nik=nik,
+                    tanggal_input=tanggal_input,
+                    jumlah=jumlah,
+                    tipe='HANGUS_CD',
+                    keterangan=keterangan
+                )
+                db.session.add(new_hangus)
+                sdm_log('HAPUS_CUTI_DINAS_HANGUS', 'CUTI', f"Hapus cuti dinas hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari periode {period}.", nik=nik, nama_karyawan=karyawan.nama)
+                db.session.commit()
+                flash(f"✅ Berhasil menghapus {jumlah} hari cuti dinas hangus periode {period} milik {karyawan.nama}.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"⚠️ Terjadi kesalahan: {str(e)}", "danger")
+
+            return redirect(url_for('hapus_cuti'))
+
+        elif action_type == 'manual':
             nik = request.form.get('nik', '').strip().upper()
             tipe = request.form.get('tipe', '').strip().upper()  # 'CT', 'CD', or 'ADD_CD'
             jumlah_raw = request.form.get('jumlah', '').strip()
@@ -721,57 +1115,13 @@ def hapus_cuti():
 
             else:
                 # tipe == 'CD' (Pengurangan cuti dinas)
-                # 1. Cuti Dinas total (ADD_CD) dari DB dalam periode ini
-                dinas_total = 0.0
-                add_manuals = db.session.execute(
-                    db.select(CutiManual).where(
-                        CutiManual.nik == nik,
-                        CutiManual.tipe == 'ADD_CD'
-                    )
-                ).scalars().all()
-                for m in add_manuals:
-                    try:
-                        m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
-                        m_period = f"{INDONESIAN_MONTHS[m_date.month]} {m_date.year}"
-                        if m_period == ref_period:
-                            dinas_total += m.jumlah
-                    except Exception:
-                        pass
+                dinas_info = get_cuti_dinas_balance(karyawan, system_date)
+                usable_dinas_balance = max(0.0, dinas_info['balance'] - dinas_info['pending_expiration_amount'])
 
-                # 2. Yang sudah terpakai di kehadiran (kehadiran berstatus 'CD') dalam periode ini
-                used_dinas = 0
-                kehadiran_entries = db.session.execute(
-                    db.select(Kehadiran).where(Kehadiran.nik == nik)
-                ).scalars().all()
-                for entry in kehadiran_entries:
-                    if entry.bulan == INDONESIAN_MONTHS[system_date.month] and entry.tahun == system_date.year:
-                        if entry.status_hari:
-                            for day_str, status in entry.status_hari.items():
-                                if status == 'CD':
-                                    used_dinas += 1
-
-                # 3. Yang sudah terhapus secara manual (CutiManual tipe 'CD') dalam periode ini
-                manual_used_dinas = 0.0
-                manuals = db.session.execute(
-                    db.select(CutiManual).where(
-                        CutiManual.nik == nik,
-                        CutiManual.tipe == 'CD'
-                    )
-                ).scalars().all()
-                for m in manuals:
-                    try:
-                        m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
-                        m_period = f"{INDONESIAN_MONTHS[m_date.month]} {m_date.year}"
-                        if m_period == ref_period:
-                            manual_used_dinas += m.jumlah
-                    except Exception:
-                        pass
-
-                dinas_balance = max(0.0, dinas_total - used_dinas - manual_used_dinas)
-
-                if dinas_balance < jumlah:
-                    flash(f"⚠️ Saldo cuti dinas tidak mencukupi! Sisa: {dinas_balance} hari, input: {jumlah} hari.", "danger")
+                if usable_dinas_balance < jumlah:
+                    flash(f"⚠️ Saldo cuti dinas tidak mencukupi! Sisa aktif: {usable_dinas_balance} hari, input: {jumlah} hari.", "danger")
                     return redirect(url_for('hapus_cuti'))
+
 
                 if not keterangan:
                     keterangan = f"Penghapusan cuti dinas sebanyak {jumlah_raw} hari untuk NIK {nik} pada {tanggal_input}"
@@ -785,6 +1135,14 @@ def hapus_cuti():
                     keterangan=keterangan
                 )
                 db.session.add(new_manual)
+                
+                if tipe == 'ADD_CD':
+                    sdm_log('TAMBAH_CUTI_DINAS', 'CUTI', f"Tambah cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
+                elif tipe == 'CT':
+                    sdm_log('POTONG_CUTI_TAHUNAN', 'CUTI', f"Potong cuti tahunan {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
+                else:
+                    sdm_log('POTONG_CUTI_DINAS', 'CUTI', f"Potong cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
+                
                 db.session.commit()
                 
                 if tipe == 'ADD_CD':
@@ -860,6 +1218,8 @@ def hapus_cuti():
                     error_messages.append(f"NIK {nik}: Gagal menyimpan ({str(e)}).")
 
             try:
+                if success_count > 0:
+                    sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus massal: {success_count} karyawan berhasil, {len(error_messages)} gagal.")
                 db.session.commit()
                 if success_count > 0:
                     flash(f"✅ Berhasil menghapus jatah cuti hangus untuk {success_count} karyawan.", "success")
@@ -922,6 +1282,52 @@ def hapus_cuti_delete(log_id):
         flash(f"⚠️ Gagal membatalkan penghapusan: {str(e)}", "danger")
 
     return redirect(url_for('hapus_cuti'))
+
+@app.route('/logs-cuti')
+def view_cuti_audit_logs():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    offset = (page - 1) * per_page
+    
+    q = request.args.get('q', '').strip()
+    
+    stmt = db.select(SdmActivityLog)
+    if q:
+        search_filter = f"%{q}%"
+        stmt = stmt.where(
+            db.or_(
+                SdmActivityLog.aksi.ilike(search_filter),
+                SdmActivityLog.nik.ilike(search_filter),
+                SdmActivityLog.nama_karyawan.ilike(search_filter),
+                SdmActivityLog.detail.ilike(search_filter),
+                SdmActivityLog.dilakukan_oleh.ilike(search_filter)
+            )
+        )
+        
+    stmt = stmt.order_by(SdmActivityLog.id.desc())
+    
+    total_count = db.session.execute(
+        db.select(db.func.count()).select_from(stmt.subquery())
+    ).scalar() or 0
+    
+    all_logs = db.session.execute(
+        stmt.limit(per_page).offset(offset)
+    ).scalars().all()
+    
+    total_pages = (total_count + per_page - 1) // per_page
+
+    return render_template(
+        'sdm/logs_cuti.html',
+        logs=all_logs,
+        q=q,
+        page=page,
+        total_pages=total_pages,
+        total_count=total_count,
+        active_page='sdm-logs'
+    )
 
 
 @app.route('/nonaktifkan-karyawan', methods=['GET', 'POST'])
@@ -1015,6 +1421,7 @@ def nonaktifkan_karyawan():
             entry.scan_masuk_hari = scan_masuk_dict
             entry.scan_pulang_hari = scan_pulang_dict
             
+            sdm_log('RESIGN', 'KARYAWAN', f"Karyawan '{karyawan.nama}' (NIK: {nik}) dinonaktifkan per {tanggal_resign_str}.", nik=nik, nama_karyawan=karyawan.nama)
             db.session.commit()
             flash(f"✅ Karyawan '{karyawan.nama}' (NIK: {nik}) berhasil dinonaktifkan sebagai Resign per {tanggal_resign_str}!", "success")
             return redirect(url_for('master_karyawan'))
@@ -1086,36 +1493,23 @@ def master_cuti():
         balance_info = get_cuti_tahunan_balance(k)
         tahunan_bal = balance_info['balance']
         
-        # Hitung sum ADD_CD untuk k.nik di current_period
-        add_dinas_sum = 0.0
-        add_manuals = db.session.execute(
-            db.select(CutiManual).where(
-                CutiManual.nik == k.nik,
-                CutiManual.tipe == 'ADD_CD'
-            )
-        ).scalars().all()
-        for m in add_manuals:
-            try:
-                m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
-                m_period = f"{INDONESIAN_MONTHS[m_date.month]} {m_date.year}"
-                if m_period == current_period:
-                    add_dinas_sum += m.jumlah
-            except Exception:
-                pass
+        dinas_info = get_cuti_dinas_balance(k, system_date)
+        dinas_bal = dinas_info['balance']
         
         if k.nik in cuti_map:
             c = cuti_map[k.nik]
             c.cuti_tahunan = tahunan_bal
-            c.cuti_dinas = add_dinas_sum
+            c.cuti_dinas = dinas_bal
             entries.append(c)
         else:
             temp_cuti = Cuti(
                 nik=k.nik,
                 cuti_tahunan=tahunan_bal,
-                cuti_dinas=add_dinas_sum
+                cuti_dinas=dinas_bal
             )
             temp_cuti.karyawan = k
             entries.append(temp_cuti)
+
             
     return render_template(
         'sdm/master_cuti.html',
@@ -1149,59 +1543,108 @@ def api_get_cuti_balance(nik):
         return jsonify({'success': False, 'message': 'Karyawan tidak ditemukan'}), 404
         
     tahunan_info = get_cuti_tahunan_balance(karyawan, ref_date)
-    
-    INDONESIAN_MONTHS = [
-        "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ]
-    ref_period = f"{INDONESIAN_MONTHS[ref_date.month]} {ref_date.year}"
-
-    cuti_db = db.session.execute(
-        db.select(Cuti).where(Cuti.nik == nik)
-    ).scalar_one_or_none()
-    
-    dinas_total = 0.0
-    if cuti_db and cuti_db.cuti_dinas_period == ref_period:
-        dinas_total = cuti_db.cuti_dinas
-    
-    used_dinas = 0
-    kehadiran_entries = db.session.execute(
-        db.select(Kehadiran).where(Kehadiran.nik == nik)
-    ).scalars().all()
-    
-    for entry in kehadiran_entries:
-        if entry.bulan == INDONESIAN_MONTHS[ref_date.month] and entry.tahun == ref_date.year:
-            if entry.status_hari:
-                for day_str, status in entry.status_hari.items():
-                    if status == 'CD':
-                        used_dinas += 1
-                    
-    manual_used_dinas = 0.0
-    manuals = db.session.execute(
-        db.select(CutiManual).where(
-            CutiManual.nik == nik,
-            CutiManual.tipe == 'CD'
-        )
-    ).scalars().all()
-    for m in manuals:
-        try:
-            m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
-            m_period = f"{INDONESIAN_MONTHS[m_date.month]} {m_date.year}"
-            if m_period == ref_period:
-                manual_used_dinas += m.jumlah
-        except Exception:
-            pass
-
-    dinas_balance = max(0.0, dinas_total - used_dinas - manual_used_dinas)
+    dinas_info = get_cuti_dinas_balance(karyawan, ref_date)
+    dinas_hangus_info = get_cuti_dinas_hangus(nik, ref_date)
     
     return jsonify({
         'success': True,
         'cuti_tahunan_balance': tahunan_info['balance'],
-        'cuti_dinas_balance': dinas_balance,
-        'cuti_dinas_total': dinas_total,
-        'cuti_dinas_used': used_dinas + manual_used_dinas,
-        'pending_expiration_amount': tahunan_info['pending_expiration_amount']
+        'cuti_dinas_balance': max(0.0, dinas_info['balance'] - dinas_info['pending_expiration_amount']),
+        'cuti_dinas_total': dinas_info['added'],
+        'cuti_dinas_used': dinas_info['used'],
+        'pending_expiration_amount': tahunan_info['pending_expiration_amount'],
+        'pending_dinas_hangus': dinas_hangus_info['total_hangus'],
+        'dinas_hangus_detail': [
+            {
+                'period': d['period'],
+                'expired_amount': d['expired_amount'],
+                'period_end': d['period_end'].strftime('%d %b %Y')
+            }
+            for d in dinas_hangus_info['detail']
+        ]
     })
+
+
+@app.route('/tambah-cuti-dinas', methods=['GET', 'POST'])
+def tambah_cuti_dinas():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    # Resolve system/simulation date
+    import datetime as dt_module
+    if 'simulation_date' in session:
+        try:
+            system_date = dt_module.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+        except ValueError:
+            system_date = dt_module.date.today()
+    else:
+        system_date = dt_module.date.today()
+    tanggal_input = system_date.strftime("%Y-%m-%d")
+
+    INDONESIAN_MONTHS = [
+        "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ]
+    ref_period = f"{INDONESIAN_MONTHS[system_date.month]} {system_date.year}"
+
+    if request.method == 'POST':
+        nik = request.form.get('nik', '').strip().upper()
+        jumlah_raw = request.form.get('jumlah', '').strip()
+        keterangan = request.form.get('keterangan', '').strip()
+        
+        if not (nik and jumlah_raw):
+            flash("⚠️ Kolom Karyawan dan Jumlah wajib diisi!", "danger")
+            return redirect(url_for('tambah_cuti_dinas'))
+            
+        try:
+            jumlah = float(jumlah_raw)
+            if jumlah <= 0:
+                raise ValueError
+        except ValueError:
+            flash("⚠️ Jumlah hari harus berupa angka positif!", "danger")
+            return redirect(url_for('tambah_cuti_dinas'))
+            
+        karyawan = db.session.execute(
+            db.select(KaryawanEntry).where(KaryawanEntry.nik == nik)
+        ).scalar_one_or_none()
+        if not karyawan:
+            flash("⚠️ Karyawan tidak ditemukan!", "danger")
+            return redirect(url_for('tambah_cuti_dinas'))
+            
+        if not keterangan:
+            keterangan = f"Penambahan cuti dinas sebanyak {jumlah_raw} hari untuk NIK {nik} pada {tanggal_input}"
+            
+        try:
+            new_add_cd = CutiManual(
+                nik=nik,
+                tanggal_input=tanggal_input,
+                jumlah=jumlah,
+                tipe='ADD_CD',
+                keterangan=keterangan
+            )
+            db.session.add(new_add_cd)
+            sdm_log('TAMBAH_CUTI_DINAS', 'CUTI', f"Tambah cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari periode {ref_period}. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
+            db.session.commit()
+            flash(f"✅ Transaksi berhasil: Jatah Cuti Dinas {karyawan.nama} ditambahkan sebanyak {jumlah} hari untuk periode {ref_period}.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"⚠️ Terjadi kesalahan database: {str(e)}", "danger")
+            
+        return redirect(url_for('tambah_cuti_dinas'))
+        
+    karyawan_list = db.session.execute(
+        db.select(KaryawanEntry).where(
+            (KaryawanEntry.tanggal_resign == None) | (KaryawanEntry.tanggal_resign == '')
+        ).order_by(KaryawanEntry.absen)
+    ).scalars().all()
+    
+    return render_template(
+        'sdm/tambah_cuti_dinas.html',
+        karyawan_list=karyawan_list,
+        system_date=tanggal_input,
+        current_period=ref_period,
+        active_page='sdm-transaksi'
+    )
 
 @app.route('/master-cuti/update', methods=['POST'])
 def update_cuti():
@@ -1255,6 +1698,12 @@ def update_cuti():
             keterangan=keterangan
         )
         db.session.add(new_add_cd)
+        INDONESIAN_MONTHS = [
+            "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ]
+        ref_period = f"{INDONESIAN_MONTHS[system_date.month]} {system_date.year}"
+        sdm_log('TAMBAH_CUTI_DINAS', 'CUTI', f"Tambah jatah cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari untuk periode {ref_period}. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
         db.session.commit()
         flash(f"✅ Transaksi berhasil: Jatah Cuti Dinas {karyawan.nama} ditambahkan sebanyak {jumlah} hari.", "success")
     except Exception as e:
@@ -1776,6 +2225,7 @@ def tambah_karyawan():
             )
             db.session.add(new_karyawan)
             db.session.add(new_cuti)
+            sdm_log('TAMBAH_KARYAWAN', 'KARYAWAN', f"Tambah karyawan baru: '{nama}' (NIK: {nik}, Jabatan: {jabatan}, TMK: {tmk}).", nik=nik, nama_karyawan=nama)
             db.session.commit()
             flash(f"✅ Karyawan '{nama}' (NIK: {nik}) berhasil ditambahkan!", "success")
             return redirect(url_for('master_karyawan'))
@@ -2223,6 +2673,7 @@ def upload_kehadiran():
                 unique_employees.add(m_nik)
                 skipped_missing_count += 1
                 
+            sdm_log('UPLOAD_KEHADIRAN', 'KEHADIRAN', f"Upload Excel kehadiran: {success_count} baris diproses untuk {len(unique_employees)} karyawan.")
             db.session.commit()
             
             # Flash success message
@@ -2316,6 +2767,7 @@ def add_libur():
             
         new_libur = HariLibur(tanggal=tanggal_dt, keterangan=keterangan)
         db.session.add(new_libur)
+        sdm_log('TAMBAH_LIBUR', 'LIBUR', f"Tambah hari libur: '{keterangan}' pada tanggal {tanggal_dt}.")
         db.session.commit()
         
         MONTH_MAPPING_REV = {
@@ -2352,7 +2804,10 @@ def delete_libur(id):
     tahun_redirect = libur.tanggal.year
     
     try:
+        ket_libur = libur.keterangan
+        tgl_libur = str(libur.tanggal)
         db.session.delete(libur)
+        sdm_log('HAPUS_LIBUR', 'LIBUR', f"Hapus hari libur: '{ket_libur}' pada tanggal {tgl_libur}.")
         db.session.commit()
         flash("✅ Hari libur berhasil dihapus.", "success")
     except Exception as e:

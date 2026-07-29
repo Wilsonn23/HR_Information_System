@@ -5,17 +5,6 @@
 
 {% block content %}
 <div class="container mt-2">
-    <!-- Flashed Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert" style="border-radius: 12px;">
-            {{ message | safe }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
 
     <div class="row justify-content-center">
         <div class="col-lg-10 col-12">
@@ -40,15 +29,15 @@
                 <div class="card-body p-4 p-md-5 bg-white">
                     <!-- Toggle Mode Switcher -->
                     <div class="d-flex justify-content-center mb-5">
-                        <div class="btn-group p-1.5 bg-light rounded-3" role="group" style="border: 1px solid #dee2e6;">
-                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_bulk" value="bulk" autocomplete="off">
-                            <label class="btn btn-mode-toggle border-0 px-4 py-2.5 fw-bold text-secondary animate-btn" for="mode_bulk" style="border-radius: 8px; cursor: pointer;">
-                                ⚡ Mode Massal (Bulk Cuti Hangus)
+                        <div class="btn-group p-1 bg-light rounded-3" role="group" style="border: 1px solid #dee2e6;">
+                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_singular" value="singular" checked autocomplete="off">
+                            <label class="btn btn-mode-toggle border-0 px-4 py-2 fw-bold text-secondary animate-btn" for="mode_singular" style="border-radius: 8px; cursor: pointer;">
+                                👤 Mode Individu
                             </label>
 
-                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_singular" value="singular" checked autocomplete="off">
-                            <label class="btn btn-mode-toggle border-0 px-4 py-2.5 fw-bold text-secondary animate-btn" for="mode_singular" style="border-radius: 8px; cursor: pointer;">
-                                👤 Mode Individu (Cuti Manual)
+                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_bulk" value="bulk" autocomplete="off">
+                            <label class="btn btn-mode-toggle border-0 px-4 py-2 fw-bold text-secondary animate-btn" for="mode_bulk" style="border-radius: 8px; cursor: pointer;">
+                                ⚡ Mode Massal (Bulk)
                             </label>
                         </div>
                     </div>
@@ -125,82 +114,130 @@
 
                     <!-- CONTAINER 2: MODE SINGULAR (Shown by default) -->
                     <div id="singular-mode-container" class="mode-section" style="max-width: 650px; margin: 0 auto;">
-                        <form id="formHapusCutiManual" action="{{ url_for('hapus_cuti') }}" method="POST">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="action_type" value="manual">
 
-                            <!-- Pilih Karyawan -->
-                            <div class="mb-4">
-                                <label for="nik_select" class="form-label fw-bold text-secondary small">Karyawan</label>
-                                <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="nik_select" name="nik" required>
-                                    <option value="" disabled selected>-- Pilih Karyawan --</option>
-                                    {% for k in karyawan_list %}
-                                    <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <!-- Tipe Cuti -->
-                            <div class="mb-4">
-                                <label for="tipe_select" class="form-label fw-bold text-secondary small">Tipe Cuti Yang Dipotong</label>
-                                <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="tipe_select" name="tipe" required>
-                                    <option value="CT" selected>Cuti Tahunan (Annual Leave)</option>
-                                    <option value="CD">Cuti Dinas (Service Leave)</option>
-                                </select>
-                            </div>
-
-                            <!-- Balances Card (Hidden by default, shown when employee chosen) -->
-                            <div id="balance-card" class="card border-0 bg-light p-4 mb-4 d-none" style="border-radius: 12px;">
-                                <h6 class="fw-bold text-secondary small mb-3"><i class="fas fa-history me-1"></i> Ringkasan Saldo Cuti Karyawan</h6>
-                                <div class="row g-3">
-                                    <!-- Kolom Cuti Tahunan -->
-                                    <div class="col-md-6">
-                                        <div class="bg-white p-3 rounded-3 border h-100">
-                                            <div class="text-primary fw-bold small mb-2"><i class="fas fa-calendar-alt me-1"></i> Cuti Tahunan</div>
-                                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                                <span class="text-muted small">Sisa Aktif:</span>
-                                                <span id="val-tahunan-balance" class="fw-bold text-primary fs-5">0 hari</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <!-- Kolom Cuti Dinas -->
-                                    <div class="col-md-6">
-                                        <div class="bg-white p-3 rounded-3 border h-100">
-                                            <div class="text-info fw-bold small mb-2"><i class="fas fa-briefcase me-1"></i> Cuti Dinas</div>
-                                            <div class="d-flex justify-content-between align-items-center mt-1">
-                                                <span class="text-muted small" style="font-size: 0.8rem;">Kuota Dimiliki:</span>
-                                                <span id="val-dinas-total" class="fw-bold text-secondary" style="font-size: 0.85rem;">0 hari</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="text-muted small" style="font-size: 0.8rem;">Terpakai/Potong:</span>
-                                                <span id="val-dinas-used" class="fw-bold text-danger" style="font-size: 0.85rem;">0 hari</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
-                                                <span class="text-muted small" style="font-size: 0.8rem;">Sisa Aktif:</span>
-                                                <span id="val-dinas-balance" class="fw-bold text-info" style="font-size: 0.85rem;">0 hari</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <!-- Info Banner -->
+                        <div class="alert alert-warning border-0 rounded-3 py-3 px-4 mb-4" style="background: #fff8ec; border-left: 4px solid #f59e0b; border-left-style: solid;">
+                            <div class="d-flex align-items-start gap-2">
+                                <span style="font-size: 1.1rem;">⚠️</span>
+                                <div class="small text-dark">
+                                    <strong>Hanya cuti yang sudah hangus</strong> yang dapat dihapus. Pilih karyawan lalu pilih tipe cuti yang akan dihapus.
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- Jumlah Hari -->
-                            <div class="mb-4">
-                                <label for="jumlah_manual" class="form-label fw-bold text-secondary small">Jumlah Cuti Yang Dihapus</label>
-                                <input type="number" step="0.5" min="0.5" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah_manual" name="jumlah" value="1" required>
+                        <!-- Pilih Karyawan (shared) -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-secondary small">Karyawan</label>
+                            <select class="form-select bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="nik_select_individu">
+                                <option value="" disabled selected>-- Pilih Karyawan --</option>
+                                {% for k in karyawan_list %}
+                                <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Sub-tab nav -->
+                        <ul class="nav nav-tabs mb-0" id="hangusSubTab" role="tablist" style="border-bottom: 2px solid #e5e7eb;">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold px-4 py-2" id="tab-ct-btn" data-bs-toggle="tab" data-bs-target="#tab-ct" type="button" role="tab">
+                                    📅 Cuti Tahunan
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold px-4 py-2" id="tab-cd-btn" data-bs-toggle="tab" data-bs-target="#tab-cd" type="button" role="tab">
+                                    💼 Cuti Dinas
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content border border-top-0 rounded-bottom-3 p-4 bg-white mb-2" id="hangusSubTabContent" style="border-color: #e5e7eb !important;">
+
+                            <!-- TAB: Cuti Tahunan Hangus -->
+                            <div class="tab-pane fade show active" id="tab-ct" role="tabpanel">
+                                <form action="{{ url_for('hapus_cuti') }}" method="POST" id="form-ct-hangus">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action_type" value="manual_hangus">
+                                    <input type="hidden" name="nik" id="ct-nik-hidden">
+
+                                    <!-- Saldo hangus card -->
+                                    <div id="ct-balance-card" class="rounded-3 p-3 mb-4 d-none" style="background: #fff0f0; border: 1.5px solid #fca5a5;">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div>
+                                                <div class="small fw-bold text-danger mb-1">🔥 Saldo Cuti Tahunan Hangus</div>
+                                                <div class="text-muted" style="font-size: 0.8rem;">Cuti yang sudah melewati masa berlakunya</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span id="ct-val-hangus" class="fw-bold text-danger" style="font-size: 1.8rem;">0</span>
+                                                <span class="text-muted small ms-1">hari</span>
+                                            </div>
+                                        </div>
+                                        <div id="ct-no-hangus-msg" class="alert alert-success border-0 rounded-3 py-2 px-3 mt-3 mb-0 d-none" style="font-size: 0.85rem;">
+                                            ✅ Tidak ada cuti tahunan yang hangus untuk karyawan ini.
+                                        </div>
+                                    </div>
+
+                                    <div id="ct-form-fields">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-secondary small">Jumlah Hari Dihapus</label>
+                                            <input type="number" step="0.5" min="0.5" id="ct-jumlah" name="jumlah" value=""
+                                                   class="form-control bg-light border-0 py-2 rounded-3 shadow-none fw-bold text-danger"
+                                                   placeholder="Pilih karyawan dulu..." disabled required>
+                                            <div class="form-text text-muted small mt-1" id="ct-max-hint"></div>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold text-secondary small">Keterangan (Opsional)</label>
+                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="ct-keterangan" name="keterangan" rows="2" placeholder="Diisi otomatis jika dikosongkan..."></textarea>
+                                        </div>
+                                        <button type="submit" id="btn-ct-submit" class="btn btn-danger text-white w-100 py-3 fw-bold shadow-sm" style="border-radius: 8px; border: none;" disabled>
+                                            🗑️ Hapus Cuti Tahunan Hangus
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
 
-                            <!-- Keterangan -->
-                            <div class="mb-5">
-                                <label for="keterangan_manual" class="form-label fw-bold text-secondary small">Keterangan / Alasan (Opsional)</label>
-                                <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="keterangan_manual" name="keterangan" rows="3" placeholder="Pilih karyawan untuk melihat detail..."></textarea>
+                            <!-- TAB: Cuti Dinas Hangus -->
+                            <div class="tab-pane fade" id="tab-cd" role="tabpanel">
+                                <form action="{{ url_for('hapus_cuti') }}" method="POST" id="form-cd-hangus">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action_type" value="manual_hangus_cd">
+                                    <input type="hidden" name="nik" id="cd-nik-hidden">
+
+                                    <!-- Saldo dinas hangus per periode -->
+                                    <div id="cd-balance-card" class="rounded-3 p-3 mb-4 d-none" style="background: #f0f4ff; border: 1.5px solid #93c5fd;">
+                                        <div class="small fw-bold text-primary mb-2">💼 Saldo Cuti Dinas Hangus per Periode</div>
+                                        <div id="cd-no-hangus-msg" class="alert alert-success border-0 rounded-3 py-2 px-3 mb-0 d-none" style="font-size: 0.85rem;">
+                                            ✅ Tidak ada cuti dinas yang hangus untuk karyawan ini.
+                                        </div>
+                                        <div id="cd-periods-list" class="mt-1"></div>
+                                    </div>
+
+                                    <!-- Pilih periode -->
+                                    <div class="mb-3" id="cd-period-wrapper" style="display: none;">
+                                        <label class="form-label fw-bold text-secondary small">Periode Cuti Dinas Yang Dihapus</label>
+                                        <select id="cd-period-select" name="period" class="form-select bg-light border-0 py-2 rounded-3 shadow-none fw-bold text-primary" required>
+                                            <option value="" disabled selected>-- Pilih Periode --</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="cd-form-fields" style="display: none;">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-secondary small">Jumlah Hari Dihapus</label>
+                                            <input type="number" step="0.5" min="0.5" id="cd-jumlah" name="jumlah" value=""
+                                                   class="form-control bg-light border-0 py-2 rounded-3 shadow-none fw-bold text-primary" required>
+                                            <div class="form-text text-muted small mt-1" id="cd-max-hint"></div>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold text-secondary small">Keterangan (Opsional)</label>
+                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="cd-keterangan" name="keterangan" rows="2" placeholder="Diisi otomatis jika dikosongkan..."></textarea>
+                                        </div>
+                                        <button type="submit" id="btn-cd-submit" class="btn btn-primary text-white w-100 py-3 fw-bold shadow-sm" style="border-radius: 8px; border: none;">
+                                            🗑️ Hapus Cuti Dinas Hangus
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
 
-                            <!-- Submit Button -->
-                            <button type="submit" id="btn-submit-manual" class="btn btn-primary text-white w-100 py-3 fw-bold shadow-sm transition-all" style="border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none;">
-                                🗑️ Hapus Jatah Cuti
-                            </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -217,7 +254,7 @@
         const singularContainer = document.getElementById('singular-mode-container');
         const headerIcon = document.getElementById('header-icon');
 
-        // Check URL parameter or localStorage to persist toggle preference, default to 'singular'
+        // Default: individu (singular), saved preference from localStorage
         const savedMode = localStorage.getItem('hapus_cuti_mode') || 'singular';
         if (savedMode === 'bulk') {
             toggleBulk.checked = true;
@@ -311,76 +348,126 @@
             });
         }
 
-        // --- HAPUS CUTI MANUAL (TAHUNAN/DINAS) SCRIPT ---
-        const nikSelectManual        = document.getElementById('nik_select');
-        const tipeSelectManual       = document.getElementById('tipe_select');
-        const balanceCardManual      = document.getElementById('balance-card');
-        const valTahunanBalance      = document.getElementById('val-tahunan-balance');
-        const valDinasBalance        = document.getElementById('val-dinas-balance');
-        const valDinasTotal          = document.getElementById('val-dinas-total');
-        const valDinasUsed           = document.getElementById('val-dinas-used');
-        const inputJumlahManual      = document.getElementById('jumlah_manual');
-        const keteranganManual       = document.getElementById('keterangan_manual');
+        // --- HAPUS CUTI HANGUS INDIVIDU (DUA TAB: CT & CD) ---
+        const nikSelectIndividu = document.getElementById('nik_select_individu');
 
-        let currentTahunanBalance = 0;
-        let currentDinasBalance = 0;
+        // --- CT Hangus ---
+        const ctNikHidden   = document.getElementById('ct-nik-hidden');
+        const ctBalanceCard = document.getElementById('ct-balance-card');
+        const ctValHangus   = document.getElementById('ct-val-hangus');
+        const ctNoHangus    = document.getElementById('ct-no-hangus-msg');
+        const ctJumlah      = document.getElementById('ct-jumlah');
+        const ctMaxHint     = document.getElementById('ct-max-hint');
+        const ctBtnSubmit   = document.getElementById('btn-ct-submit');
 
-        function updateManualState() {
-            const nik = nikSelectManual.value || '...';
-            const tipe = tipeSelectManual.value; // 'CT' or 'CD'
-            const jumlah = inputJumlahManual.value || '0';
-            const systemDate = "{{ system_date }}";
+        let ctCurrentHangus = 0;
 
-            // Set max jatah berdasarkan tipe cuti terpilih
-            if (tipe === 'CT') {
-                inputJumlahManual.max = currentTahunanBalance;
-                if (parseFloat(inputJumlahManual.value) > currentTahunanBalance) {
-                    inputJumlahManual.value = currentTahunanBalance;
-                }
-                keteranganManual.placeholder = `Penghapusan cuti tahunan sebanyak ${jumlah} hari untuk NIK ${nik} pada ${systemDate}`;
-            } else {
-                inputJumlahManual.max = currentDinasBalance;
-                if (parseFloat(inputJumlahManual.value) > currentDinasBalance) {
-                    inputJumlahManual.value = currentDinasBalance;
-                }
-                keteranganManual.placeholder = `Penghapusan cuti dinas sebanyak ${jumlah} hari untuk NIK ${nik} pada ${systemDate}`;
+        function updateCtState() {
+            const val = parseFloat(ctJumlah.value) || 0;
+            ctBtnSubmit.disabled = !(nikSelectIndividu.value && ctCurrentHangus > 0 && val > 0 && val <= ctCurrentHangus);
+        }
+
+        // --- CD Hangus ---
+        const cdNikHidden    = document.getElementById('cd-nik-hidden');
+        const cdBalanceCard  = document.getElementById('cd-balance-card');
+        const cdNoHangus     = document.getElementById('cd-no-hangus-msg');
+        const cdPeriodsList  = document.getElementById('cd-periods-list');
+        const cdPeriodWrapper= document.getElementById('cd-period-wrapper');
+        const cdPeriodSelect = document.getElementById('cd-period-select');
+        const cdFormFields   = document.getElementById('cd-form-fields');
+        const cdJumlah       = document.getElementById('cd-jumlah');
+        const cdMaxHint      = document.getElementById('cd-max-hint');
+        let cdHangusDetail   = [];
+
+        function updateCdState() {
+            const sel = cdPeriodSelect.value;
+            const detail = cdHangusDetail.find(d => d.period === sel);
+            if (detail) {
+                cdJumlah.max = detail.expired_amount;
+                cdJumlah.value = detail.expired_amount % 1 === 0 ? detail.expired_amount : detail.expired_amount.toFixed(1);
+                cdMaxHint.textContent = `Maksimal ${detail.expired_amount} hari`;
+                cdFormFields.style.display = '';
             }
         }
 
-        if (nikSelectManual) {
-            nikSelectManual.addEventListener('change', function () {
+        if (cdPeriodSelect) {
+            cdPeriodSelect.addEventListener('change', updateCdState);
+        }
+
+        // Shared fetch when employee changes
+        if (nikSelectIndividu) {
+            nikSelectIndividu.addEventListener('change', function () {
                 const nik = this.value;
+
+                // Sync NIK hidden fields
+                ctNikHidden.value = nik;
+                cdNikHidden.value = nik;
+
                 if (!nik) {
-                    balanceCardManual.classList.add('d-none');
+                    ctBalanceCard.classList.add('d-none');
+                    ctJumlah.disabled = true; ctBtnSubmit.disabled = true;
+                    cdBalanceCard.classList.add('d-none');
+                    cdPeriodWrapper.style.display = 'none';
+                    cdFormFields.style.display = 'none';
                     return;
                 }
 
-                // Fetch remaining leave balance for display
                 fetch(`/master-cuti/api/balance/${encodeURIComponent(nik)}`)
                     .then(r => r.json())
                     .then(res => {
-                        if (res.success) {
-                            currentTahunanBalance = res.cuti_tahunan_balance || 0;
-                            currentDinasBalance = res.cuti_dinas_balance || 0;
+                        if (!res.success) return;
 
-                            valTahunanBalance.textContent = `${currentTahunanBalance} hari`;
-                            valDinasBalance.textContent = `${currentDinasBalance} hari`;
-                            valDinasTotal.textContent = `${res.cuti_dinas_total || 0} hari`;
-                            valDinasUsed.textContent = `${res.cuti_dinas_used || 0} hari`;
-
-                            balanceCardManual.classList.remove('d-none');
-                            updateManualState();
+                        // === CT hangus ===
+                        ctCurrentHangus = res.pending_expiration_amount || 0;
+                        ctValHangus.textContent = ctCurrentHangus % 1 === 0 ? ctCurrentHangus : ctCurrentHangus.toFixed(1);
+                        ctBalanceCard.classList.remove('d-none');
+                        if (ctCurrentHangus > 0) {
+                            ctNoHangus.classList.add('d-none');
+                            ctJumlah.disabled = false;
+                            ctJumlah.max = ctCurrentHangus;
+                            ctJumlah.value = ctCurrentHangus % 1 === 0 ? ctCurrentHangus : ctCurrentHangus.toFixed(1);
+                            ctMaxHint.textContent = `Maksimal ${ctCurrentHangus} hari`;
                         } else {
-                            balanceCardManual.classList.add('d-none');
+                            ctNoHangus.classList.remove('d-none');
+                            ctJumlah.disabled = true; ctJumlah.value = '';
+                            ctMaxHint.textContent = '';
+                        }
+                        updateCtState();
+
+                        // === CD hangus ===
+                        cdHangusDetail = res.dinas_hangus_detail || [];
+                        const totalCdHangus = res.pending_dinas_hangus || 0;
+                        cdBalanceCard.classList.remove('d-none');
+
+                        if (cdHangusDetail.length > 0) {
+                            cdNoHangus.classList.add('d-none');
+                            cdPeriodsList.innerHTML = cdHangusDetail.map(d =>
+                                `<div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="font-size:0.85rem;">`+
+                                `<span class="text-muted">${d.period} <small class="text-danger">(berakhir ${d.period_end})</small></span>`+
+                                `<span class="fw-bold text-primary">${d.expired_amount % 1 === 0 ? d.expired_amount : d.expired_amount.toFixed(1)} hari</span>`+
+                                `</div>`
+                            ).join('');
+                            // Populate period select
+                            cdPeriodSelect.innerHTML = '<option value="" disabled selected>-- Pilih Periode --</option>' +
+                                cdHangusDetail.map(d =>
+                                    `<option value="${d.period}">${d.period} — ${d.expired_amount % 1 === 0 ? d.expired_amount : d.expired_amount.toFixed(1)} hari</option>`
+                                ).join('');
+                            cdPeriodWrapper.style.display = '';
+                            cdFormFields.style.display = 'none';
+                        } else {
+                            cdNoHangus.classList.remove('d-none');
+                            cdPeriodsList.innerHTML = '';
+                            cdPeriodWrapper.style.display = 'none';
+                            cdFormFields.style.display = 'none';
                         }
                     })
                     .catch(() => {
-                        balanceCardManual.classList.add('d-none');
+                        ctBalanceCard.classList.add('d-none');
+                        cdBalanceCard.classList.add('d-none');
                     });
             });
 
-            tipeSelectManual.addEventListener('change', updateManualState);
-            inputJumlahManual.addEventListener('input', updateManualState);
+            ctJumlah && ctJumlah.addEventListener('input', updateCtState);
         }
     });
 </script>

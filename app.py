@@ -482,6 +482,18 @@ class Kehadiran(db.Model):
     def nama(self):
         return self.karyawan.nama if self.karyawan else ""
 
+class SdmActivityLog(db.Model):
+    __tablename__ = 'sdm_activity_logs'
+    
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    aksi: Mapped[str] = mapped_column(db.String(50), nullable=False)   # e.g. 'TAMBAH_KARYAWAN', 'RESIGN', 'UPLOAD_KEHADIRAN'
+    kategori: Mapped[str] = mapped_column(db.String(50), nullable=False) # e.g. 'KARYAWAN', 'CUTI', 'KEHADIRAN', 'LIBUR'
+    nik: Mapped[str] = mapped_column(db.String(50), nullable=True)       # NIK yang terlibat (bisa null untuk bulk)
+    nama_karyawan: Mapped[str] = mapped_column(db.String(150), nullable=True)
+    detail: Mapped[str] = mapped_column(db.Text, nullable=True)          # Deskripsi lengkap aksi
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
 # ===============================================================================================================
 # ROUTING
 # ===============================================================================================================

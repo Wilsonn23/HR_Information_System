@@ -1,0 +1,130 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Log Aktivitas SDM{% endblock %}
+
+{% block body_class %}dashboard-page bg-light{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <!-- Header Section -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">📜 Log Aktivitas SDM</h3>
+                    <p class="text-muted small m-0 mt-1">Riwayat seluruh transaksi dan aktivitas SDM yang dicatat oleh sistem (Total {{ total_count }} aktivitas)</p>
+                </div>
+                <!-- Search Input -->
+                <form action="{{ url_for('view_cuti_audit_logs') }}" method="GET" class="position-relative">
+                    <input type="text" name="q" class="form-control form-control-sm pe-5 rounded-pill border-2" style="min-width: 280px;" placeholder="🔍 Cari NIK, nama, aksi, detail..." value="{{ q or '' }}">
+                    {% if q %}
+                    <button type="button" class="btn btn-sm btn-link text-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0 p-0" onclick="window.location.href='{{ url_for('view_cuti_audit_logs') }}'" style="z-index: 10;">✕</button>
+                    {% endif %}
+                </form>
+            </div>
+
+            <!-- Tabel Log Aktivitas -->
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 620px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="logTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle">
+                            <th scope="col" class="text-center" style="width: 50px;">No</th>
+                            <th scope="col" class="text-center" style="width: 160px;">Waktu</th>
+                            <th scope="col" class="text-center" style="width: 200px;">Jenis Aksi</th>
+                            <th scope="col" style="width: 220px;">Karyawan Terlibat</th>
+                            <th scope="col">Detail Aktivitas</th>
+                            <th scope="col" class="text-center" style="width: 120px;">Petugas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="text-center text-muted small fw-bold">{{ loop.index + (page - 1) * 30 }}</td>
+                            <td class="text-center small text-muted fw-semibold">
+                                {{ log.tanggal_aksi.strftime('%d %b %Y') if log.tanggal_aksi else '-' }}<br>
+                                <span class="text-secondary" style="font-size: 0.75rem;">{{ log.tanggal_aksi.strftime('%H:%M:%S') if log.tanggal_aksi else '' }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% set aksi_map = {
+                                    'TAMBAH_KARYAWAN': ('success', 'TAMBAH KARYAWAN'),
+                                    'IMPORT_KARYAWAN': ('success', 'IMPOR KARYAWAN'),
+                                    'RESIGN': ('danger', 'RESIGN / NONAKTIF'),
+                                    'TAMBAH_CUTI_DINAS': ('success', 'TAMBAH CUTI DINAS'),
+                                    'POTONG_CUTI_TAHUNAN': ('warning', 'POTONG CUTI TAHUNAN'),
+                                    'POTONG_CUTI_DINAS': ('info', 'POTONG CUTI DINAS'),
+                                    'HAPUS_CUTI_HANGUS': ('danger', 'HAPUS CUTI HANGUS'),
+                                    'HAPUS_CUTI_DINAS_HANGUS': ('danger', 'HAPUS CUTI DINAS HANGUS'),
+                                    'UPLOAD_KEHADIRAN': ('primary', 'UPLOAD KEHADIRAN'),
+                                    'TAMBAH_LIBUR': ('success', 'TAMBAH HARI LIBUR'),
+                                    'HAPUS_LIBUR': ('danger', 'HAPUS HARI LIBUR')
+                                } %}
+                                {% if log.aksi in aksi_map %}
+                                <span class="badge bg-{{ aksi_map[log.aksi][0] }} rounded-pill py-1.5 px-3 fw-bold" style="font-size: 0.75rem; white-space: normal; display: inline-block;">{{ aksi_map[log.aksi][1] }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill py-1.5 px-3 fw-bold" style="font-size: 0.75rem;">{{ log.aksi }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.nama_karyawan %}
+                                <strong class="text-dark">{{ log.nama_karyawan }}</strong>
+                                {% if log.nik %}<div class="text-muted small">NIK: {{ log.nik }}</div>{% endif %}
+                                {% else %}
+                                <span class="text-muted small fst-italic">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted text-wrap">
+                                {{ log.detail or '—' }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary px-2.5 py-1">{{ log.dilakukan_oleh }}</span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                📁 Belum ada log aktivitas SDM yang tercatat.
+                                {% if q %}
+                                <br><span class="small">Coba ubah kata kunci pencarian.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Section -->
+            {% if total_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+                <div class="small text-muted fw-semibold">
+                    Menampilkan {{ logs|length }} dari total {{ total_count }} log aktivitas.
+                </div>
+                <nav aria-label="Navigasi Halaman Log">
+                    <ul class="pagination pagination-sm m-0">
+                        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page-1, q=q) }}">Sebelumnya</a>
+                        </li>
+                        
+                        {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=p, q=q) }}">{{ p }}</a>
+                        </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                        <li class="page-item disabled"><span class="page-link bg-light border-0">...</span></li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page+1, q=q) }}">Berikutnya</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

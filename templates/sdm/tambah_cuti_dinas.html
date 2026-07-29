@@ -1,0 +1,140 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Tambah Cuti Dinas{% endblock %}
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 col-md-9 col-12">
+            <div class="card shadow border-0" style="border-radius: 16px; overflow: hidden;">
+                
+                <!-- Card Header -->
+                <div class="card-header text-white p-4 border-0 d-flex align-items-center justify-content-between"
+                     style="background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-2 me-3">💼</span>
+                        <div>
+                            <h3 class="fw-bold m-0" style="font-size: 1.3rem;">Tambah Jatah Cuti Dinas</h3>
+                            <p class="small text-white-50 m-0">Menambahkan saldo cuti dinas untuk karyawan pada periode aktif</p>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-white-translucent text-white fw-bold py-2 px-3 fs-7" style="border-radius: 8px; background: rgba(255,255,255,0.15);">
+                            Periode: {{ current_period }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="card-body p-4 p-md-5 bg-white">
+                    <form id="formTambahCutiDinas" action="{{ url_for('tambah_cuti_dinas') }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Input Pilih Karyawan -->
+                        <div class="mb-4">
+                            <label for="nik_select" class="form-label fw-bold text-secondary small">Karyawan</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="nik_select" name="nik" required>
+                                <option value="" disabled selected>-- Pilih Karyawan --</option>
+                                {% for k in karyawan_list %}
+                                <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Balances Card (Hidden by default, shown when employee chosen) -->
+                        <div id="dinas-info-card" class="card border-0 bg-light p-4 mb-4 d-none" style="border-radius: 12px;">
+                            <h6 class="fw-bold text-secondary small mb-3"><i class="fas fa-history me-1"></i> Status Cuti Dinas Periode Ini</h6>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="bg-white p-3 rounded-3 border text-center">
+                                        <div class="text-muted small">Total Ditambahkan</div>
+                                        <div id="val-dinas-added" class="fw-bold text-primary fs-5 mt-1">0 hari</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-white p-3 rounded-3 border text-center">
+                                        <div class="text-muted small">Sisa Cuti Aktif</div>
+                                        <div id="val-dinas-active" class="fw-bold text-success fs-5 mt-1">0 hari</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Jumlah Hari -->
+                        <div class="mb-4">
+                            <label for="jumlah" class="form-label fw-bold text-secondary small">Jumlah Hari Yang Ditambahkan</label>
+                            <input type="number" step="0.5" min="0.5" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah" name="jumlah" value="1" required>
+                        </div>
+
+                        <!-- Keterangan -->
+                        <div class="mb-5">
+                            <label for="keterangan" class="form-label fw-bold text-secondary small">Keterangan / Alasan (Opsional)</label>
+                            <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="keterangan" name="keterangan" rows="3" placeholder="Contoh: Penambahan jatah cuti dinas luar kota..."></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('sdm_transaksi') }}" class="btn btn-light w-50 py-3 fw-bold border" style="border-radius: 8px;">
+                                Kembali
+                            </a>
+                            <button type="submit" class="btn btn-primary text-white w-50 py-3 fw-bold shadow-sm transition-all" style="border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none;">
+                                Simpan Transaksi
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const nikSelect = document.getElementById('nik_select');
+        const infoCard = document.getElementById('dinas-info-card');
+        const valAdded = document.getElementById('val-dinas-added');
+        const valActive = document.getElementById('val-dinas-active');
+
+        if (nikSelect) {
+            nikSelect.addEventListener('change', function () {
+                const nik = this.value;
+                if (!nik) {
+                    infoCard.classList.add('d-none');
+                    return;
+                }
+
+                // Fetch data cuti dinas untuk karyawan terpilih
+                fetch(`/master-cuti/api/balance/${encodeURIComponent(nik)}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            valAdded.textContent = `${res.cuti_dinas_total || 0} hari`;
+                            valActive.textContent = `${res.cuti_dinas_balance || 0} hari`;
+                            infoCard.classList.remove('d-none');
+                        } else {
+                            infoCard.classList.add('d-none');
+                        }
+                    })
+                    .catch(() => {
+                        infoCard.classList.add('d-none');
+                    });
+            });
+        }
+    });
+</script>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3) !important;
+    }
+    .fs-7 {
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
