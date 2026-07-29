@@ -8,6 +8,12 @@
         background-color: #8d6e63 !important;
         color: #ffffff !important;
     }
+    .bg-before-tmk {
+        background-color: #1e3a8a !important;
+        color: #1e3a8a !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+    }
 </style>
 <div class="container-fluid px-3 mt-5 pt-3">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5" style="overflow: hidden;">
@@ -46,11 +52,11 @@
             </div>
 
             <!-- Legenda Warna Status -->
-            <span class="mt-1 mb-1 px-1 small fw-semibold text-secondary">Keterangan: Hanya sel Pending yang bisa diedit</span>
+            <span class="mt-1 mb-1 px-1 small fw-semibold text-secondary">Keterangan: Hanya sel Pending dan Terlambat/Pulang Cepat yang bisa diedit</span>
             <div class="d-flex align-items-center gap-3 flex-wrap mb-3 px-1 small fw-semibold text-secondary">
                 <span>Panduan Status:</span>
                 <span><span class="badge bg-light text-dark px-2 border">M</span> Masuk</span>
-                <span><span class="badge bg-late-brown text-white px-2 border" style="background-color: #8d6e63 !important;">M</span> Terlambat (&gt; 08:30)</span>
+                <span><span class="badge bg-late-brown text-white px-2 border" style="background-color: #8d6e63 !important;">M</span> Terlambat/Pulang Cepat</span>
                 <span><span class="badge bg-light text-dark px-2 border">DL</span> Dinas Luar</span>
                 <span><span class="badge bg-light text-dark px-2 border">S</span> Sakit</span>
                 <span><span class="badge bg-light text-dark px-2 border">CT</span> Cuti Tahunan</span>
@@ -102,6 +108,7 @@
 
                             <!-- Daily Cells (Dapat Diklik untuk Mengedit) -->
                             {% for d in range_hari %}
+                                {% set is_before_tmk = d in entry.days_before_tmk if entry.days_before_tmk else false %}
                                 {% set is_holiday = d in holiday_days if holiday_days else false %}
                                 {% set is_weekend = d in weekends %}
                                 {% set db_status = entry.status_hari.get(d|string, '') %}
@@ -110,9 +117,14 @@
                                 {% if (is_holiday or is_weekend) and db_status != 'M' %}
                                     {% set status = 'L' %}
                                 {% endif %}
+                                {% if is_before_tmk %}
+                                    {% set status = '' %}
+                                {% endif %}
                                 
                                 {% set desc = 'Belum Diisi' %}
-                                {% if status == 'M' %}
+                                {% if is_before_tmk %}
+                                    {% set desc = 'Sebelum Tanggal Mulai Kerja (TMK: ' ~ (entry.karyawan.tmk or '-') ~ ')' %}
+                                {% elif status == 'M' %}
                                     {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
                                     {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
                                     {% set desc = 'Masuk (Masuk: ' ~ (masuk_time or '-') ~ ', Pulang: ' ~ (pulang_time or '-') ~ ')' %}
@@ -135,26 +147,46 @@
                                 {% endif %}
                                 
                                 {% set cell_class = '' %}
-                                {% if is_holiday and db_status != 'M' %}
-                                    {% set cell_class = 'bg-holiday-red' %}
-                                {% elif is_weekend and db_status != 'M' %}
-                                    {% set cell_class = 'bg-weekend-libur' %}
-                                {% elif status == 'M' %}
-                                    {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                {% set is_late = False %}
+                                {% set is_early = False %}
+                                {% if is_before_tmk %}
+                                    {% set cell_class = 'bg-before-tmk' %}
+                                {% else %}
                                     {% set is_izin = entry.izin_hari.get(d|string, False) if entry.izin_hari else False %}
-                                    {% if is_izin %}
-                                        {% set cell_class = 'bg-izin-green' %}
-                                    {% elif masuk_time|is_late_scan %}
-                                        {% set cell_class = 'bg-late-brown' %}
+                                    {% if status == 'M' %}
+                                        {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                        {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
+                                        {% if masuk_time|is_late_scan %}
+                                            {% set is_late = True %}
+                                        {% endif %}
+                                        {% if entry.karyawan and entry.karyawan.jam_pulang %}
+                                            {% if pulang_time|is_early_checkout(entry.karyawan.jam_pulang) %}
+                                                {% set is_early = True %}
+                                            {% endif %}
+                                        {% endif %}
+                                        
+                                        {% if is_izin %}
+                                            {% set cell_class = 'bg-izin-green' %}
+                                        {% elif is_late %}
+                                            {% set cell_class = 'bg-late-brown' %}
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    {% if is_holiday and db_status != 'M' %}
+                                        {% set cell_class = 'bg-holiday-red' %}
+                                    {% elif is_weekend and db_status != 'M' %}
+                                        {% set cell_class = 'bg-weekend-libur' %}
                                     {% endif %}
                                 {% endif %}
                                 
                                 {% set display_desc = desc %}
-                                {% if entry.izin_hari and entry.izin_hari.get(d|string, False) %}
+                                {% if not is_before_tmk and is_izin %}
                                     {% set display_desc = desc ~ ' (Disetujui Izin)' %}
                                 {% endif %}
                                 
-                                <td class="p-1 border-cell fw-bold text-center daily-status {{ cell_class }}" 
+                                {% set cell_clickable = (status == 'P' or (status == 'M' and (is_late or is_early) and not is_izin)) and not is_before_tmk %}
+                                
+                                <td class="p-1 border-cell fw-bold text-center daily-status {{ cell_class }} {% if cell_clickable %}cursor-pointer hover-cell-edit{% endif %}" 
                                     data-status="{{ status }}" 
                                     data-nik="{{ entry.nik }}"
                                     data-nama="{{ entry.nama }}"
@@ -162,9 +194,10 @@
                                     data-entry-id="{{ entry.id or '' }}"
                                     data-scan-masuk="{{ entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' }}"
                                     data-scan-pulang="{{ entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' }}"
+                                    data-scheduled-pulang="{{ entry.karyawan.jam_pulang.strftime('%H:%M') if entry.karyawan and entry.karyawan.jam_pulang else '' }}"
                                     data-keterangan="{{ entry.keterangan_hari.get(d|string, '') if entry.keterangan_hari else '' }}"
-                                    data-izin="{{ '1' if entry.izin_hari and entry.izin_hari.get(d|string, False) else '0' }}"
-                                    title="Tanggal {{ d }} {{ selected_bulan }} {{ selected_tahun }}: {{ display_desc }}{% if entry.keterangan_hari and entry.keterangan_hari.get(d|string) %}&#10;Keterangan: {{ entry.keterangan_hari.get(d|string) }}{% endif %}"
+                                    data-izin="{{ '1' if not is_before_tmk and is_izin else '0' }}"
+                                    title="Tanggal {{ d }} {{ selected_bulan }} {{ selected_tahun }}: {{ display_desc }}{% if not is_before_tmk and entry.keterangan_hari and entry.keterangan_hari.get(d|string) %}&#10;Keterangan: {{ entry.keterangan_hari.get(d|string) }}{% endif %}"
                                     style="height: 35px; min-width: 48px; width: 48px; line-height: 25px;">
                                     {{ status }}
                                 </td>
@@ -227,6 +260,7 @@
                     <div class="mb-3">
                         <label for="modal_status" class="form-label fw-bold text-secondary small">Status Kehadiran</label>
                         <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="modal_status" required style="box-shadow: none;">
+                            <option value="" disabled selected hidden>Pilih Status Kehadiran</option>
                             <option value="M">M - Masuk</option>
                             <option value="DL">DL - Dinas Luar</option>
                             <option value="S">S - Sakit</option>
@@ -236,6 +270,10 @@
                             <option value="A">A - Alpa</option>
                             <option value="P">P - Pending</option>
                         </select>
+                        <!-- Sisa Cuti Alert / Info -->
+                        <div id="modal_sisa_cuti_info" class="alert alert-info py-2 px-3 mt-2 d-none" style="font-size: 0.85rem; border-radius: 8px;">
+                            <span id="modal_sisa_cuti_text" class="fw-bold"></span>
+                        </div>
                     </div>
                     
                     <!-- Scan Times -->
@@ -275,23 +313,22 @@
 </div>
 
 <style>
-    /* Styling for daily status cell (only Pending 'P' is editable) */
+    /* Styling for daily status cell */
     td.border-cell.daily-status {
         transition: all 0.15s ease-in-out;
     }
-    td.border-cell.daily-status[data-status="P"] {
-        cursor: pointer;
+    td.border-cell.daily-status.cursor-pointer {
+        cursor: pointer !important;
     }
-    td.border-cell.daily-status[data-status="P"]:hover {
+    td.border-cell.daily-status.cursor-pointer:hover {
         background-color: #e0f2fe !important;
         color: #0369a1 !important;
-        box-shadow: inset 0 0 0 1.5px #0284c7, 0 4px 12px rgba(2, 132, 199, 0.15) !important;
-        transform: scale(1.15);
+        box-shadow: inset 0 0 0 2px #0284c7, 0 4px 12px rgba(2, 132, 199, 0.15) !important;
         z-index: 5;
         position: relative;
     }
-    td.border-cell.daily-status:not([data-status="P"]) {
-        cursor: not-allowed;
+    td.border-cell.daily-status:not(.cursor-pointer) {
+        cursor: not-allowed !important;
     }
 
     /* Shadow Efek Sticky Kanan-Kiri */
@@ -326,6 +363,13 @@
     .bg-izin-green {
         background-color: #d1e7dd !important;
         color: #0f5132 !important;
+    }
+    
+    .bg-before-tmk {
+        background-color: #1e3a8a !important;
+        color: #1e3a8a !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
     }
     
     .fs-7 {
@@ -377,6 +421,24 @@
         const modalScanMasuk = document.getElementById('modal_scan_masuk');
         const modalScanPulang = document.getElementById('modal_scan_pulang');
         let activeCell = null;
+        let currentTahunanBalance = 0;
+        let currentDinasBalance = 0;
+
+        function updateSisaCutiDisplay() {
+            const status = modalStatus.value;
+            const infoDiv = document.getElementById('modal_sisa_cuti_info');
+            const infoText = document.getElementById('modal_sisa_cuti_text');
+            
+            if (status === 'CT') {
+                infoDiv.classList.remove('d-none');
+                infoText.textContent = `💡 Sisa Cuti Tahunan: ${currentTahunanBalance} Hari`;
+            } else if (status === 'CD') {
+                infoDiv.classList.remove('d-none');
+                infoText.textContent = `💡 Sisa Cuti Dinas: ${currentDinasBalance} Hari`;
+            } else {
+                infoDiv.classList.add('d-none');
+            }
+        }
 
         function toggleModalScanInputs() {
             const scanRow = document.getElementById('scan_times_row');
@@ -401,18 +463,19 @@
             }
         }
 
-        modalStatus.addEventListener('change', toggleModalScanInputs);
+        modalStatus.addEventListener('change', () => {
+            toggleModalScanInputs();
+            updateSisaCutiDisplay();
+        });
 
-        // Click handler for daily status cells (only allows editing if status is Pending 'P')
+        // Click handler for daily status cells
         document.querySelectorAll('.daily-status').forEach(cell => {
             cell.addEventListener('click', function () {
-                const status = this.getAttribute('data-status');
-                if (status !== 'P') {
-                    return;
-                }
+                if (!this.classList.contains('cursor-pointer')) return;
                 
                 activeCell = this;
                 
+                const status = this.getAttribute('data-status');
                 const nik = this.getAttribute('data-nik');
                 const nama = this.getAttribute('data-nama');
                 const day = this.getAttribute('data-day');
@@ -430,13 +493,63 @@
                 document.getElementById('modal_keterangan').value = keterangan;
                 document.getElementById('modal_is_izin').checked = isIzin;
                 
-                modalStatus.value = 'P'; // Set dropdown default to P
+                // Reset select options state first
+                document.querySelectorAll('#modal_status option').forEach(opt => {
+                    if (opt.value === "") {
+                        opt.disabled = true;
+                        opt.style.display = 'none';
+                    } else {
+                        opt.disabled = false;
+                        opt.style.display = 'block';
+                    }
+                });
+
+                if (status === 'M') {
+                    modalStatus.value = 'M';
+                    modalStatus.disabled = true;
+                } else {
+                    modalStatus.disabled = false;
+                    // Disable and hide 'M' and 'P' option for pending cells
+                    document.querySelector('#modal_status option[value="M"]').disabled = true;
+                    document.querySelector('#modal_status option[value="M"]').style.display = 'none';
+                    document.querySelector('#modal_status option[value="P"]').disabled = true;
+                    document.querySelector('#modal_status option[value="P"]').style.display = 'none';
+                    
+                    // Set default selection to the placeholder
+                    modalStatus.value = '';
+                }
                 
                 // Format scan times to HH:MM if it has seconds
                 modalScanMasuk.value = scanMasuk ? scanMasuk.substring(0, 5) : '';
                 modalScanPulang.value = scanPulang ? scanPulang.substring(0, 5) : '';
 
                 toggleModalScanInputs();
+                
+                // Fetch dynamic remaining leave balances as of the clicked date
+                const bulanMap = {
+                    'Januari': '01', 'Februari': '02', 'Maret': '03', 'April': '04',
+                    'Mei': '05', 'Juni': '06', 'Juli': '07', 'Agustus': '08',
+                    'September': '09', 'Oktober': '10', 'November': '11', 'Desember': '12'
+                };
+                const padDay = day.padStart(2, '0');
+                const dateStr = `{{ selected_tahun }}-${bulanMap['{{ selected_bulan }}']}-${padDay}`;
+                
+                // Reset display first
+                currentTahunanBalance = 0;
+                currentDinasBalance = 0;
+                updateSisaCutiDisplay();
+
+                fetch(`/master-cuti/api/balance/${nik}?date=${dateStr}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            currentTahunanBalance = data.cuti_tahunan_balance;
+                            currentDinasBalance = data.cuti_dinas_balance;
+                            updateSisaCutiDisplay();
+                        }
+                    })
+                    .catch(err => console.error('Error fetching balance:', err));
+
                 editModal.show();
             });
         });
@@ -495,20 +608,46 @@
                     activeCell.setAttribute('data-izin', isIzin ? '1' : '0');
                     activeCell.textContent = status;
                     
+                    let isLate = false;
+                    let isEarly = false;
+                    
                     activeCell.classList.remove('bg-late-brown', 'bg-izin-green');
                     if (status === 'M') {
                         if (isIzin) {
                             activeCell.classList.add('bg-izin-green');
-                        } else if (scanMasuk) {
-                            const parts = scanMasuk.split(':');
-                            if (parts.length >= 2) {
-                                const hr = parseInt(parts[0], 10);
-                                const min = parseInt(parts[1], 10);
-                                if (hr > 8 || (hr === 8 && min > 30)) {
-                                    activeCell.classList.add('bg-late-brown');
+                        } else {
+                            if (scanMasuk) {
+                                const parts = scanMasuk.split(':');
+                                if (parts.length >= 2) {
+                                    const hr = parseInt(parts[0], 10);
+                                    const min = parseInt(parts[1], 10);
+                                    if (hr > 8 || (hr === 8 && min > 30)) {
+                                        activeCell.classList.add('bg-late-brown');
+                                        isLate = true;
+                                    }
                                 }
                             }
                         }
+                        
+                        const scheduledPulang = activeCell.getAttribute('data-scheduled-pulang');
+                        if (scanPulang && scheduledPulang) {
+                            const partsScan = scanPulang.split(':');
+                            const partsSched = scheduledPulang.split(':');
+                            if (partsScan.length >= 2 && partsSched.length >= 2) {
+                                const scanMin = parseInt(partsScan[0], 10) * 60 + parseInt(partsScan[1], 10);
+                                const schedMin = parseInt(partsSched[0], 10) * 60 + parseInt(partsSched[1], 10);
+                                if (scanMin < schedMin) {
+                                    isEarly = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Toggle cursor pointer and hover class
+                    if (status === 'P' || (status === 'M' && (isLate || isEarly) && !isIzin)) {
+                        activeCell.classList.add('cursor-pointer', 'hover-cell-edit');
+                    } else {
+                        activeCell.classList.remove('cursor-pointer', 'hover-cell-edit');
                     }
                     
                     // Update tooltip title

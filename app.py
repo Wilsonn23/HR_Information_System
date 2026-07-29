@@ -166,6 +166,20 @@ with app.app_context():
         print(f"Error checking/adding category column: {e}")
         
     try:
+        from sqlalchemy import text
+        # Check if 'cuti_dinas_period' column exists in 'cuti' table for PostgreSQL
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti' AND column_name='cuti_dinas_period'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE cuti ADD COLUMN cuti_dinas_period VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added cuti_dinas_period column to cuti table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding cuti_dinas_period column: {e}")
+        
+    try:
         cleanup_temp_uploads()
         print("Successfully cleaned up old temporary uploads.")
     except Exception as e:
@@ -411,6 +425,23 @@ class Cuti(db.Model):
     nik: Mapped[str] = mapped_column(db.ForeignKey('karyawan_entries.nik'), primary_key=True, nullable=False)
     cuti_tahunan: Mapped[float] = mapped_column(db.Float, default=0.0, nullable=False)
     cuti_dinas: Mapped[float] = mapped_column(db.Float, default=0.0, nullable=False)
+    cuti_dinas_period: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    
+    karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
+
+    @property
+    def nama(self):
+        return self.karyawan.nama if self.karyawan else ""
+
+class CutiManual(db.Model):
+    __tablename__ = "cuti_manual"
+    
+    id: Mapped[int] = mapped_column(Integer, Sequence("cuti_manual_id"), unique=True, primary_key=True, nullable=False)
+    nik: Mapped[str] = mapped_column(db.ForeignKey('karyawan_entries.nik'), nullable=False)
+    tanggal_input: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    jumlah: Mapped[float] = mapped_column(db.Float, nullable=False)
+    tipe: Mapped[str] = mapped_column(db.String(10), nullable=False) # 'CT', 'CD', 'HANGUS'
+    keterangan: Mapped[str] = mapped_column(db.String(255), nullable=True)
     
     karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
 
@@ -577,5 +608,5 @@ import aset
 import sdm
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    # app.run(host='0.0.0.0', port=5000, debug=True)
+    # app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

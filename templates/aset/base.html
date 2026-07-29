@@ -48,7 +48,9 @@
         {% endwith %}
     </div>
 
-    {% block content %}{% endblock %}
+    <div style="flex: 1;">
+        {% block content %}{% endblock %}
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -78,5 +80,17 @@
             });
         });
     </script>
+
+    <!--
+    <footer class="app-footer">
+        <div class="container">
+            <div class="app-footer-inner">
+                <span class="app-footer-brand"><i class="fas fa-cubes me-1"></i> HR Information System</span>
+                <span class="app-footer-divider">|</span>
+                <span class="app-footer-copy">&copy; 2026 Wilson. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+    -->
 </body>
 </html>

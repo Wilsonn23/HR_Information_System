@@ -1,0 +1,142 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Detail Jam Kerja Karyawan - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <!-- Back Link & Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <a href="/master-jam-kerja?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="btn btn-outline-secondary btn-sm mb-2 fw-bold">
+                        ← Kembali ke Rekap Bulanan
+                    </a>
+                    <h3 class="fw-bold text-primary m-0">🔍 Detail Harian Jam Kerja: {{ karyawan.nama }}</h3>
+                    <p class="text-muted small m-0">Periode: <strong>{{ selected_bulan }} {{ selected_tahun }}</strong> | NIK: <strong>{{ karyawan.nik }}</strong> | Shift: <strong>{{ karyawan.jam_masuk.strftime('%H:%M') }} - {{ karyawan.jam_pulang.strftime('%H:%M') }} (8 jam wajib setelah potong istirahat)</strong></p>
+                </div>
+            </div>
+
+            <!-- Summary Alert Info -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="p-3 border rounded-3 bg-light text-center h-100">
+                        <span class="text-secondary small fw-bold d-block mb-1">Hari Kerja Efektif</span>
+                        <h4 class="fw-bold text-success m-0">{{ summary.total_masuk }} hari</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 border rounded-3 bg-light text-center h-100">
+                        <span class="text-secondary small fw-bold d-block mb-1">Total Wajib Kerja</span>
+                        <h4 class="fw-bold text-dark m-0">{{ summary.wajib }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 border rounded-3 bg-light text-center h-100">
+                        <span class="text-secondary small fw-bold d-block mb-1">Total Aktual Kerja</span>
+                        <h4 class="fw-bold text-primary m-0">{{ summary.aktual }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 border rounded-3 bg-light text-center h-100">
+                        <span class="text-secondary small fw-bold d-block mb-2">Akumulasi Selisih</span>
+                        <div class="d-flex justify-content-center gap-3">
+                            <div>
+                                <span class="badge bg-success-subtle text-success fw-bold p-2" style="font-size: 0.85rem;">
+                                    ➕ {{ summary.kelebihan }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge bg-danger-subtle text-danger fw-bold p-2" style="font-size: 0.85rem;">
+                                    ⚠️ {{ summary.kekurangan }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 550px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="detailHariTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle text-center">
+                            <th scope="col" style="width: 70px;">Tanggal</th>
+                            <th scope="col" style="width: 100px;">Hari</th>
+                            <th scope="col" style="width: 90px;">Status</th>
+                            <th scope="col" style="width: 110px;">Scan Masuk</th>
+                            <th scope="col" style="width: 110px;">Scan Pulang</th>
+                            <th scope="col" style="width: 120px;">Wajib Kerja</th>
+                            <th scope="col" style="width: 120px;">Aktual Kerja</th>
+                            <th scope="col" style="width: 120px;" class="text-success">Kelebihan</th>
+                            <th scope="col" style="width: 120px;" class="text-danger">Kekurangan</th>
+                            <th scope="col" class="text-start">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in daily_details %}
+                        <tr class="{% if row.status == 'A' %}table-danger-bg{% elif row.status == '-' %}text-muted{% endif %}">
+                            <td class="text-center fw-bold">{{ row.tanggal }}</td>
+                            <td class="text-center text-muted small">{{ row.hari }}</td>
+                            <td class="text-center">
+                                {% if row.status == 'M' %}
+                                    <span class="badge bg-success-subtle text-success px-2 py-1 fw-bold">M</span>
+                                {% elif row.status == 'A' %}
+                                    <span class="badge bg-danger-subtle text-danger px-2 py-1 fw-bold">A</span>
+                                {% elif row.status == 'CT' %}
+                                    <span class="badge bg-info-subtle text-info px-2 py-1 fw-bold">CT</span>
+                                {% elif row.status == 'CD' %}
+                                    <span class="badge bg-warning-subtle text-warning px-2 py-1 fw-bold">CD</span>
+                                {% elif row.status == 'P' %}
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1 fw-bold">P</span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border px-2 py-1">{{ row.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ row.scan_masuk }}</td>
+                            <td class="text-center">{{ row.scan_pulang }}</td>
+                            <td class="text-center text-muted">{{ row.wajib }}</td>
+                            <td class="text-center fw-bold">{{ row.aktual }}</td>
+                            <td class="text-center text-success fw-semibold">{{ row.kelebihan }}</td>
+                            <td class="text-center text-danger fw-semibold">{{ row.kekurangan }}</td>
+                            <td class="text-start text-truncate" style="max-width: 250px;" title="{{ row.keterangan }}">{{ row.keterangan }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+    }
+    .bg-danger-subtle {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+    }
+    .bg-info-subtle {
+        background-color: rgba(13, 202, 240, 0.15) !important;
+    }
+    .bg-warning-subtle {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+    }
+    .table-danger-bg {
+        background-color: rgba(220, 53, 69, 0.03) !important;
+    }
+    #detailHariTable tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.02);
+    }
+    .position-sticky {
+        position: sticky !important;
+    }
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+</style>
+{% endblock %}

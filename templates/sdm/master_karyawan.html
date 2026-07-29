@@ -9,12 +9,24 @@
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <h3 class="fw-bold text-primary m-0">📁 Master Database Karyawan</h3>
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Toggle Aktif/Semua -->
+                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="toggleAktif" checked style="width: 2.5em; height: 1.3em; cursor: pointer;">
+                        <label class="form-check-label fw-semibold text-secondary small" for="toggleAktif">
+                            Hanya tampilkan karyawan aktif
+                        </label>
+                    </div>
+                    <!-- Counter badge -->
+                    <span id="rowCounter" class="badge bg-primary rounded-pill px-3 py-2" style="font-size: 0.8rem;"></span>
+                </div>
             </div>
+
             <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
-                <table class="table table-hover align-middle table-bordered text-nowrap m-0"
-                    id="masterTable">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="masterTable">
                     <thead class="table-dark position-sticky top-0 z-1">
                         <tr class="align-middle">
                             <th scope="col" class="text-center">No</th>
@@ -25,23 +37,41 @@
                             <th scope="col">TMK</th>
                             <th scope="col">Jam Masuk</th>
                             <th scope="col">Jam Pulang</th>
+                            <th scope="col" class="text-center">Status</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tableBody">
                         {% for entry in entries %}
-                        <tr>
-                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                        <tr data-resign="{{ 'true' if entry.tanggal_resign else 'false' }}"
+                            {% if entry.tanggal_resign %}class="text-muted"{% endif %}>
+                            <td class="text-center text-muted small fw-bold row-num"></td>
                             <td>{{ entry.absen }}</td>
-                            <td>{{ entry.nama }}</td>
+                            <td class="fw-semibold">{{ entry.nama }}</td>
                             <td>{{ entry.nik }}</td>
                             <td>{{ entry.jabatan }}</td>
                             <td>{{ entry.tmk }}</td>
                             <td>{{ entry.jam_masuk }}</td>
                             <td>{{ entry.jam_pulang }}</td>
+                            <td class="text-center">
+                                {% if entry.tanggal_resign %}
+                                    <span class="badge text-white fw-semibold px-2 py-1"
+                                          style="background-color: #dc3545; border-radius: 6px; font-size: 0.75rem;">
+                                        Resign
+                                    </span>
+                                    <div class="text-muted" style="font-size: 0.7rem; margin-top: 2px;">
+                                        {{ entry.tanggal_resign }}
+                                    </div>
+                                {% else %}
+                                    <span class="badge fw-semibold px-2 py-1"
+                                          style="background-color: #198754; color: white; border-radius: 6px; font-size: 0.75rem;">
+                                        Aktif
+                                    </span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="20" class="text-center text-muted py-5">
+                            <td colspan="9" class="text-center text-muted py-5">
                                 📁 Belum ada data yang tersimpan.
                             </td>
                         </tr>
@@ -49,25 +79,44 @@
                     </tbody>
                 </table>
             </div>
+
         </div>
     </div>
 </div>
 
 <script>
-    const searchInput = document.getElementById('SearchInput');
-    
-    // Prevent form submission when pressing Enter in search box
-    searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-        }
-    });
+    const toggle = document.getElementById('toggleAktif');
+    const tableBody = document.getElementById('tableBody');
+    const counter = document.getElementById('rowCounter');
 
-    document.querySelectorAll('.uppercase-input').forEach(input => {
-        input.addEventListener('input', function () {
-            this.value = this.value.toUpperCase();
+    function applyFilter() {
+        const onlyActive = toggle.checked;
+        const rows = tableBody.querySelectorAll('tr[data-resign]');
+        let visible = 0;
+
+        rows.forEach(row => {
+            const isResign = row.dataset.resign === 'true';
+            const show = !onlyActive || !isResign;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
         });
-    });
+
+        // Re-number visible rows
+        let num = 1;
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const numCell = row.querySelector('.row-num');
+                if (numCell) numCell.textContent = num++;
+            }
+        });
+
+        counter.textContent = visible + ' karyawan';
+    }
+
+    toggle.addEventListener('change', applyFilter);
+
+    // Run on page load
+    applyFilter();
 </script>
 
 <style>
@@ -78,17 +127,18 @@
     thead th {
         box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
     }
-    
+
     .cursor-pointer {
         cursor: pointer;
     }
 
-    .row-danger-strong td {
-        background-color: #fbc4c4 !important;
+    tr[data-resign="true"] td {
+        opacity: 0.65;
     }
 
-    .row-warning-strong td {
-        background-color: #ffe066 !important;
+    .form-switch .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
     }
 </style>
 {% endblock %}

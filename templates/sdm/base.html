@@ -18,7 +18,16 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
+                    <!-- Debugging Simulation Date Form -->
+                    <form action="/simulasi-tanggal" method="POST" class="d-flex align-items-center ms-auto me-3 mb-2 mb-lg-0 bg-dark bg-opacity-25 p-1 px-2 rounded">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <span class="text-white small fw-bold me-2 text-nowrap"><i class="fas fa-bug text-warning me-1"></i>Simulasi Hari Ini:</span>
+                        <input type="date" name="sim_date" class="form-control form-control-sm border-0 bg-white text-dark py-0 px-2 fw-semibold" style="width: 135px; height: 26px; font-size: 0.85rem;" value="{{ session.get('simulation_date', '') }}" onchange="this.form.submit()">
+                        {% if session.get('simulation_date') %}
+                            <a href="/simulasi-tanggal/reset" class="btn btn-sm btn-danger py-0 px-2 ms-1 fw-bold text-nowrap" style="height: 26px; line-height: 24px; font-size: 0.75rem;">Reset</a>
+                        {% endif %}
+                    </form>
+                    <ul class="navbar-nav ms-0">
                         {% if session.get('role') == 'admin' %}
                         <li class="nav-item"><a class="nav-link {% if active_page=='users' %}active{% endif %}" href="{{ url_for('manage_users') }}"><i class="fas fa-user-cog me-1"></i>Users</a></li>
                             <li class="nav-item"><a class="nav-link {% if active_page=='master-sdm' %}active{% endif %}" href="{{ url_for('master_sdm') }}"><i class="fas fa-database me-1"></i>Master</a></li>
@@ -49,8 +58,22 @@
         {% endwith %}
     </div>
 
-    {% block content %}{% endblock %}
+    <div style="flex: 1;">
+        {% block content %}{% endblock %}
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!--
+    <footer class="app-footer">
+        <div class="container">
+            <div class="app-footer-inner">
+                <span class="app-footer-brand"><i class="fas fa-users-cog me-1"></i> HR Information System</span>
+                <span class="app-footer-divider">|</span>
+                <span class="app-footer-copy">&copy; 2026 Wilson. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+    -->
 </body>
 </html>

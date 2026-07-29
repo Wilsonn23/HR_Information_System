@@ -1,0 +1,424 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Hapus Jatah Cuti{% endblock %}
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert" style="border-radius: 12px;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-12">
+            <div class="card shadow border-0" style="border-radius: 16px; overflow: hidden;">
+                <!-- Main Header -->
+                <div class="card-header text-white p-4 border-0 d-flex align-items-center justify-content-between"
+                     style="background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-2 me-3" id="header-icon">👤</span>
+                        <div>
+                            <h3 class="fw-bold m-0" style="font-size: 1.3rem;">Kelola Penghapusan Cuti</h3>
+                            <p class="small text-white-50 m-0">Kurangi jatah cuti karyawan secara massal (expired) atau individu (manual)</p>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-white-translucent text-white fw-bold py-2 px-3 fs-7" style="border-radius: 8px; background: rgba(255,255,255,0.15);">
+                            Hari Sistem: {{ system_date }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 p-md-5 bg-white">
+                    <!-- Toggle Mode Switcher -->
+                    <div class="d-flex justify-content-center mb-5">
+                        <div class="btn-group p-1.5 bg-light rounded-3" role="group" style="border: 1px solid #dee2e6;">
+                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_bulk" value="bulk" autocomplete="off">
+                            <label class="btn btn-mode-toggle border-0 px-4 py-2.5 fw-bold text-secondary animate-btn" for="mode_bulk" style="border-radius: 8px; cursor: pointer;">
+                                ⚡ Mode Massal (Bulk Cuti Hangus)
+                            </label>
+
+                            <input type="radio" class="btn-check" name="toggle_mode" id="mode_singular" value="singular" checked autocomplete="off">
+                            <label class="btn btn-mode-toggle border-0 px-4 py-2.5 fw-bold text-secondary animate-btn" for="mode_singular" style="border-radius: 8px; cursor: pointer;">
+                                👤 Mode Individu (Cuti Manual)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- CONTAINER 1: MODE BULK (Hidden by default) -->
+                    <div id="bulk-mode-container" class="mode-section d-none">
+                        <form id="formHapusCutiBulk" action="{{ url_for('hapus_cuti') }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action_type" value="hangus">
+
+                            {% if expired_employees %}
+                            <div class="table-responsive mb-4" style="max-height: 400px; overflow-y: auto; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <table class="table table-hover align-middle text-center m-0">
+                                    <thead class="table-light position-sticky top-0" style="z-index: 2;">
+                                        <tr class="text-muted fw-semibold" style="font-size: 0.85rem;">
+                                            <th style="width: 5%;">
+                                                <input type="checkbox" class="form-check-input" id="check-all" style="cursor: pointer;">
+                                            </th>
+                                            <th style="width: 10%;">No Absen</th>
+                                            <th style="width: 15%;">NIK</th>
+                                            <th class="text-start" style="width: 25%;">Nama Karyawan</th>
+                                            <th style="width: 15%;">Cuti Hangus Pending</th>
+                                            <th style="width: 10%;">Jumlah Dihapus</th>
+                                            <th class="text-start" style="width: 20%;">Keterangan / Alasan (Opsional)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for emp in expired_employees %}
+                                        <tr class="emp-row">
+                                            <td>
+                                                <input type="checkbox" name="niks" value="{{ emp.nik }}" class="form-check-input emp-checkbox" style="cursor: pointer;">
+                                            </td>
+                                            <td class="text-muted fw-bold">{{ emp.absen }}</td>
+                                            <td class="fw-bold">{{ emp.nik }}</td>
+                                            <td class="text-start text-dark fw-semibold">{{ emp.nama }}</td>
+                                            <td>
+                                                <span class="badge bg-danger-subtle text-danger fw-bold px-2.5 py-1.5" style="font-size: 0.85rem;">
+                                                    {{ emp.pending_hangus | int if emp.pending_hangus % 1 == 0 else emp.pending_hangus }} hari
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <input type="number" step="0.5" min="0.5" max="{{ emp.pending_hangus }}" 
+                                                       class="form-control form-control-sm text-center bg-light border-0 py-1.5 px-2 rounded-3 shadow-none input-jumlah" 
+                                                       id="jumlah_{{ emp.nik }}" name="jumlah_{{ emp.nik }}" 
+                                                       value="{{ emp.pending_hangus | int if emp.pending_hangus % 1 == 0 else emp.pending_hangus }}" 
+                                                       style="font-weight: bold; width: 80px; margin: 0 auto;" disabled>
+                                            </td>
+                                            <td class="text-start">
+                                                <input type="text" class="form-control form-control-sm bg-light border-0 py-1.5 px-3 rounded-3 shadow-none input-keterangan" 
+                                                       id="keterangan_{{ emp.nik }}" name="keterangan_{{ emp.nik }}"
+                                                       placeholder="Pilih baris ini untuk mengisi..." disabled>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" id="btn-submit-bulk" class="btn btn-danger py-2.5 px-5 fw-bold shadow-sm transition-all" 
+                                        style="border-radius: 8px; background: linear-gradient(135deg, #dc3545, #bd2130); border: none;" disabled>
+                                    🗑️ Hapus Jatah Cuti Hangus Terpilih
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <span style="font-size: 3rem;">🎉</span>
+                                <h4 class="fw-bold text-success mt-3">Semua Cuti Hangus Bersih!</h4>
+                                <p class="text-muted">Tidak ada karyawan yang memiliki saldo cuti hangus yang belum dihapus pada hari sistem.</p>
+                            </div>
+                            {% endif %}
+                        </form>
+                    </div>
+
+                    <!-- CONTAINER 2: MODE SINGULAR (Shown by default) -->
+                    <div id="singular-mode-container" class="mode-section" style="max-width: 650px; margin: 0 auto;">
+                        <form id="formHapusCutiManual" action="{{ url_for('hapus_cuti') }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action_type" value="manual">
+
+                            <!-- Pilih Karyawan -->
+                            <div class="mb-4">
+                                <label for="nik_select" class="form-label fw-bold text-secondary small">Karyawan</label>
+                                <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="nik_select" name="nik" required>
+                                    <option value="" disabled selected>-- Pilih Karyawan --</option>
+                                    {% for k in karyawan_list %}
+                                    <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Tipe Cuti -->
+                            <div class="mb-4">
+                                <label for="tipe_select" class="form-label fw-bold text-secondary small">Tipe Cuti Yang Dipotong</label>
+                                <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="tipe_select" name="tipe" required>
+                                    <option value="CT" selected>Cuti Tahunan (Annual Leave)</option>
+                                    <option value="CD">Cuti Dinas (Service Leave)</option>
+                                </select>
+                            </div>
+
+                            <!-- Balances Card (Hidden by default, shown when employee chosen) -->
+                            <div id="balance-card" class="card border-0 bg-light p-4 mb-4 d-none" style="border-radius: 12px;">
+                                <h6 class="fw-bold text-secondary small mb-3"><i class="fas fa-history me-1"></i> Ringkasan Saldo Cuti Karyawan</h6>
+                                <div class="row g-3">
+                                    <!-- Kolom Cuti Tahunan -->
+                                    <div class="col-md-6">
+                                        <div class="bg-white p-3 rounded-3 border h-100">
+                                            <div class="text-primary fw-bold small mb-2"><i class="fas fa-calendar-alt me-1"></i> Cuti Tahunan</div>
+                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <span class="text-muted small">Sisa Aktif:</span>
+                                                <span id="val-tahunan-balance" class="fw-bold text-primary fs-5">0 hari</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Kolom Cuti Dinas -->
+                                    <div class="col-md-6">
+                                        <div class="bg-white p-3 rounded-3 border h-100">
+                                            <div class="text-info fw-bold small mb-2"><i class="fas fa-briefcase me-1"></i> Cuti Dinas</div>
+                                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                                <span class="text-muted small" style="font-size: 0.8rem;">Kuota Dimiliki:</span>
+                                                <span id="val-dinas-total" class="fw-bold text-secondary" style="font-size: 0.85rem;">0 hari</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="text-muted small" style="font-size: 0.8rem;">Terpakai/Potong:</span>
+                                                <span id="val-dinas-used" class="fw-bold text-danger" style="font-size: 0.85rem;">0 hari</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                                                <span class="text-muted small" style="font-size: 0.8rem;">Sisa Aktif:</span>
+                                                <span id="val-dinas-balance" class="fw-bold text-info" style="font-size: 0.85rem;">0 hari</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Jumlah Hari -->
+                            <div class="mb-4">
+                                <label for="jumlah_manual" class="form-label fw-bold text-secondary small">Jumlah Cuti Yang Dihapus</label>
+                                <input type="number" step="0.5" min="0.5" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah_manual" name="jumlah" value="1" required>
+                            </div>
+
+                            <!-- Keterangan -->
+                            <div class="mb-5">
+                                <label for="keterangan_manual" class="form-label fw-bold text-secondary small">Keterangan / Alasan (Opsional)</label>
+                                <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="keterangan_manual" name="keterangan" rows="3" placeholder="Pilih karyawan untuk melihat detail..."></textarea>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <button type="submit" id="btn-submit-manual" class="btn btn-primary text-white w-100 py-3 fw-bold shadow-sm transition-all" style="border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none;">
+                                🗑️ Hapus Jatah Cuti
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // --- TOGGLE MODE SCRIPT ---
+        const toggleBulk = document.getElementById('mode_bulk');
+        const toggleSingular = document.getElementById('mode_singular');
+        const bulkContainer = document.getElementById('bulk-mode-container');
+        const singularContainer = document.getElementById('singular-mode-container');
+        const headerIcon = document.getElementById('header-icon');
+
+        // Check URL parameter or localStorage to persist toggle preference, default to 'singular'
+        const savedMode = localStorage.getItem('hapus_cuti_mode') || 'singular';
+        if (savedMode === 'bulk') {
+            toggleBulk.checked = true;
+            switchMode('bulk');
+        } else {
+            toggleSingular.checked = true;
+            switchMode('singular');
+        }
+
+        function switchMode(mode) {
+            localStorage.setItem('hapus_cuti_mode', mode);
+            if (mode === 'bulk') {
+                bulkContainer.classList.remove('d-none');
+                singularContainer.classList.add('d-none');
+                headerIcon.textContent = '⚡';
+            } else {
+                bulkContainer.classList.add('d-none');
+                singularContainer.classList.remove('d-none');
+                headerIcon.textContent = '👤';
+            }
+        }
+
+        toggleBulk.addEventListener('change', () => switchMode('bulk'));
+        toggleSingular.addEventListener('change', () => switchMode('singular'));
+
+        // --- BULK HAPUS CUTI HANGUS SCRIPT ---
+        const checkAll = document.getElementById('check-all');
+        const checkboxes = document.querySelectorAll('.emp-checkbox');
+        const btnSubmit = document.getElementById('btn-submit-bulk');
+        const systemDate = "{{ system_date }}";
+
+        if (checkAll) {
+            function updateRowInputs(row, isChecked) {
+                const checkbox = row.querySelector('.emp-checkbox');
+                const nik = checkbox.value;
+                const inputJumlah = row.querySelector('.input-jumlah');
+                const inputKeterangan = row.querySelector('.input-keterangan');
+
+                if (isChecked) {
+                    inputJumlah.disabled = false;
+                    inputKeterangan.disabled = false;
+                    inputJumlah.classList.remove('bg-light');
+                    inputJumlah.classList.add('bg-white', 'border');
+                    inputKeterangan.classList.remove('bg-light');
+                    inputKeterangan.classList.add('bg-white', 'border');
+                    
+                    const val = inputJumlah.value || '0';
+                    inputKeterangan.placeholder = `Penghapusan cuti hangus sebanyak ${val} hari untuk NIK ${nik} pada ${systemDate}`;
+                } else {
+                    inputJumlah.disabled = true;
+                    inputKeterangan.disabled = true;
+                    inputJumlah.classList.add('bg-light');
+                    inputJumlah.classList.remove('bg-white', 'border');
+                    inputKeterangan.classList.add('bg-light');
+                    inputKeterangan.classList.remove('bg-white', 'border');
+                    inputKeterangan.placeholder = "Pilih baris ini untuk mengisi...";
+                }
+            }
+
+            function updateSubmitButton() {
+                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                btnSubmit.disabled = !anyChecked;
+            }
+
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                updateRowInputs(row, cb.checked);
+
+                cb.addEventListener('change', function () {
+                    updateRowInputs(row, this.checked);
+                    updateSubmitButton();
+                });
+
+                const inputJumlah = row.querySelector('.input-jumlah');
+                const inputKeterangan = row.querySelector('.input-keterangan');
+                const nik = cb.value;
+                inputJumlah.addEventListener('input', function() {
+                    const val = this.value || '0';
+                    inputKeterangan.placeholder = `Penghapusan cuti hangus sebanyak ${val} hari untuk NIK ${nik} pada ${systemDate}`;
+                });
+            });
+
+            checkAll.addEventListener('change', function () {
+                const isChecked = this.checked;
+                checkboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                    const row = cb.closest('tr');
+                    updateRowInputs(row, isChecked);
+                });
+                updateSubmitButton();
+            });
+        }
+
+        // --- HAPUS CUTI MANUAL (TAHUNAN/DINAS) SCRIPT ---
+        const nikSelectManual        = document.getElementById('nik_select');
+        const tipeSelectManual       = document.getElementById('tipe_select');
+        const balanceCardManual      = document.getElementById('balance-card');
+        const valTahunanBalance      = document.getElementById('val-tahunan-balance');
+        const valDinasBalance        = document.getElementById('val-dinas-balance');
+        const valDinasTotal          = document.getElementById('val-dinas-total');
+        const valDinasUsed           = document.getElementById('val-dinas-used');
+        const inputJumlahManual      = document.getElementById('jumlah_manual');
+        const keteranganManual       = document.getElementById('keterangan_manual');
+
+        let currentTahunanBalance = 0;
+        let currentDinasBalance = 0;
+
+        function updateManualState() {
+            const nik = nikSelectManual.value || '...';
+            const tipe = tipeSelectManual.value; // 'CT' or 'CD'
+            const jumlah = inputJumlahManual.value || '0';
+            const systemDate = "{{ system_date }}";
+
+            // Set max jatah berdasarkan tipe cuti terpilih
+            if (tipe === 'CT') {
+                inputJumlahManual.max = currentTahunanBalance;
+                if (parseFloat(inputJumlahManual.value) > currentTahunanBalance) {
+                    inputJumlahManual.value = currentTahunanBalance;
+                }
+                keteranganManual.placeholder = `Penghapusan cuti tahunan sebanyak ${jumlah} hari untuk NIK ${nik} pada ${systemDate}`;
+            } else {
+                inputJumlahManual.max = currentDinasBalance;
+                if (parseFloat(inputJumlahManual.value) > currentDinasBalance) {
+                    inputJumlahManual.value = currentDinasBalance;
+                }
+                keteranganManual.placeholder = `Penghapusan cuti dinas sebanyak ${jumlah} hari untuk NIK ${nik} pada ${systemDate}`;
+            }
+        }
+
+        if (nikSelectManual) {
+            nikSelectManual.addEventListener('change', function () {
+                const nik = this.value;
+                if (!nik) {
+                    balanceCardManual.classList.add('d-none');
+                    return;
+                }
+
+                // Fetch remaining leave balance for display
+                fetch(`/master-cuti/api/balance/${encodeURIComponent(nik)}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            currentTahunanBalance = res.cuti_tahunan_balance || 0;
+                            currentDinasBalance = res.cuti_dinas_balance || 0;
+
+                            valTahunanBalance.textContent = `${currentTahunanBalance} hari`;
+                            valDinasBalance.textContent = `${currentDinasBalance} hari`;
+                            valDinasTotal.textContent = `${res.cuti_dinas_total || 0} hari`;
+                            valDinasUsed.textContent = `${res.cuti_dinas_used || 0} hari`;
+
+                            balanceCardManual.classList.remove('d-none');
+                            updateManualState();
+                        } else {
+                            balanceCardManual.classList.add('d-none');
+                        }
+                    })
+                    .catch(() => {
+                        balanceCardManual.classList.add('d-none');
+                    });
+            });
+
+            tipeSelectManual.addEventListener('change', updateManualState);
+            inputJumlahManual.addEventListener('input', updateManualState);
+        }
+    });
+</script>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    
+    /* Toggle switch styling */
+    .btn-check:checked + .btn-mode-toggle {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2) !important;
+    }
+    .btn-mode-toggle {
+        transition: all 0.2s ease-in-out;
+    }
+    .btn-mode-toggle:hover {
+        color: #2563eb !important;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3) !important;
+    }
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(220, 53, 69, 0.3) !important;
+    }
+    .fs-7 {
+        font-size: 0.75rem;
+    }
+    .emp-row {
+        transition: background-color 0.15s ease-in-out;
+    }
+    .emp-row:hover {
+        background-color: #f8fafc !important;
+    }
+</style>
+{% endblock %}

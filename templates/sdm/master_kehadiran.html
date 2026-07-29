@@ -86,10 +86,9 @@
                             <td class="text-muted small fw-bold position-sticky left-0 bg-white">{{ loop.index }}</td>
                             <td class="fw-bold position-sticky bg-white text-center" style="left: 40px;">{{ entry.karyawan.absen if entry.karyawan else '-' }}</td>
                             <td class="fw-bold position-sticky bg-white" style="left: 100px;">{{ entry.nik }}</td>
-                            <td class="text-start fw-bold text-dark position-sticky bg-white shadow-right" style="left: 190px;">{{ entry.nama }}</td>
-
-                            <!-- Daily Cells (Tampilan Saja / Read-Only) -->
+                            <td class="text-start fw-bold text-dark position-sticky bg-white shadow-right" style="left: 190px;">{{ entry.nama }}</td>                            <!-- Daily Cells (Tampilan Saja / Read-Only) -->
                             {% for d in range_hari %}
+                                {% set is_before_tmk = d in entry.days_before_tmk if entry.days_before_tmk else false %}
                                 {% set is_holiday = d in holiday_days if holiday_days else false %}
                                 {% set is_weekend = d in weekends %}
                                 {% set db_status = entry.status_hari.get(d|string, '') %}
@@ -98,9 +97,14 @@
                                 {% if (is_holiday or is_weekend) and db_status != 'M' %}
                                     {% set status = 'L' %}
                                 {% endif %}
+                                {% if is_before_tmk %}
+                                    {% set status = '' %}
+                                {% endif %}
                                 
                                 {% set desc = 'Belum Diisi' %}
-                                {% if status == 'M' %}
+                                {% if is_before_tmk %}
+                                    {% set desc = 'Sebelum Tanggal Mulai Kerja (TMK: ' ~ (entry.karyawan.tmk or '-') ~ ')' %}
+                                {% elif status == 'M' %}
                                     {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
                                     {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
                                     {% set desc = 'Masuk (Masuk: ' ~ (masuk_time or '-') ~ ', Pulang: ' ~ (pulang_time or '-') ~ ')' %}
@@ -123,28 +127,32 @@
                                 {% endif %}
                                 
                                 {% set cell_class = '' %}
-                                {% set is_izin = entry.izin_hari.get(d|string, False) if entry.izin_hari else False %}
-                                {% if is_holiday and db_status != 'M' %}
-                                    {% set cell_class = 'bg-holiday-red' %}
-                                {% elif is_weekend and db_status != 'M' %}
-                                    {% set cell_class = 'bg-weekend-libur' %}
-                                {% elif status == 'M' %}
-                                    {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
-                                    {% if is_izin %}
-                                        {% set cell_class = 'bg-izin-green' %}
-                                    {% elif masuk_time|is_late_scan %}
-                                        {% set cell_class = 'bg-late-brown' %}
+                                {% if is_before_tmk %}
+                                    {% set cell_class = 'bg-before-tmk' %}
+                                {% else %}
+                                    {% set is_izin = entry.izin_hari.get(d|string, False) if entry.izin_hari else False %}
+                                    {% if is_holiday and db_status != 'M' %}
+                                        {% set cell_class = 'bg-holiday-red' %}
+                                    {% elif is_weekend and db_status != 'M' %}
+                                        {% set cell_class = 'bg-weekend-libur' %}
+                                    {% elif status == 'M' %}
+                                        {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                        {% if is_izin %}
+                                            {% set cell_class = 'bg-izin-green' %}
+                                        {% elif masuk_time|is_late_scan %}
+                                            {% set cell_class = 'bg-late-brown' %}
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
                                 
                                 {% set display_desc = desc %}
-                                {% if is_izin %}
+                                {% if not is_before_tmk and is_izin %}
                                     {% set display_desc = desc ~ ' (Disetujui Izin)' %}
                                 {% endif %}
                                 
                                 <td class="p-1 border-cell fw-bold text-center daily-status {{ cell_class }}" 
                                     data-status="{{ status }}" 
-                                    title="Tanggal {{ d }} {{ selected_bulan }} {{ selected_tahun }}: {{ display_desc }}{% if entry.keterangan_hari and entry.keterangan_hari.get(d|string) %}&#10;Keterangan: {{ entry.keterangan_hari.get(d|string) }}{% endif %}"
+                                    title="Tanggal {{ d }} {{ selected_bulan }} {{ selected_tahun }}: {{ display_desc }}{% if not is_before_tmk and entry.keterangan_hari and entry.keterangan_hari.get(d|string) %}&#10;Keterangan: {{ entry.keterangan_hari.get(d|string) }}{% endif %}"
                                     style="height: 35px; min-width: 48px; width: 48px; line-height: 25px;">
                                     {{ status }}
                                 </td>
@@ -185,8 +193,7 @@
     td.border-cell.daily-status:hover {
         background-color: #f1f5f9 !important;
         color: #212529 !important;
-        box-shadow: inset 0 0 0 1px #cbd5e1, 0 4px 8px rgba(0, 0, 0, 0.1) !important;
-        transform: scale(1.1);
+        box-shadow: inset 0 0 0 2px #cbd5e1, 0 4px 8px rgba(0, 0, 0, 0.1) !important;
         z-index: 5;
         position: relative;
     }
@@ -223,6 +230,13 @@
     .bg-izin-green {
         background-color: #d1e7dd !important;
         color: #0f5132 !important;
+    }
+    
+    .bg-before-tmk {
+        background-color: #1e3a8a !important;
+        color: #1e3a8a !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
     }
     
     .fs-7 {

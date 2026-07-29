@@ -1,0 +1,136 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Rekap Jam Kerja Karyawan - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-5 pt-3">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <!-- Back Link & Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">⏱️ Rekap Kelebihan & Kekurangan Jam Kerja</h3>
+                    <p class="text-muted small m-0">Kalkulasi jam kerja aktual, kelebihan (lembur), dan kekurangan jam kerja</p>
+                </div>
+            </div>
+
+            <!-- Filter Form -->
+            <div class="p-3 border rounded-3 bg-light mb-4">
+                <form method="GET" action="{{ url_for('master_jam_kerja') }}" class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="filter_bulan" class="form-label fw-bold text-secondary small">Pilih Bulan</label>
+                        <select class="form-select border-2" id="filter_bulan" name="bulan">
+                            {% for b in list_bulan %}
+                                <option value="{{ b.nama }}" {% if b.nama == selected_bulan %}selected{% endif %}>{{ b.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="filter_tahun" class="form-label fw-bold text-secondary small">Pilih Tahun</label>
+                        <select class="form-select border-2" id="filter_tahun" name="tahun">
+                            {% for t in list_tahun %}
+                                <option value="{{ t }}" {% if t == selected_tahun %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-2">
+                            🔍 Tampilkan Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="jamKerjaTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle text-center">
+                            <th scope="col" style="width: 60px;">No</th>
+                            <th scope="col" style="width: 120px;">NIK</th>
+                            <th scope="col" class="text-start">Nama Karyawan</th>
+                            <th scope="col" style="width: 150px;">Hari Kerja Efektif</th>
+                            <th scope="col" style="width: 120px;">Hari Alpa</th>
+                            <th scope="col" style="width: 130px;">Wajib Kerja</th>
+                            <th scope="col" style="width: 130px;">Aktual Kerja</th>
+                            <th scope="col" style="width: 130px;" class="text-success">Kelebihan</th>
+                            <th scope="col" style="width: 130px;" class="text-danger">Kekurangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                            <td class="text-center fw-bold">{{ entry.nik }}</td>
+                            <td class="fw-bold">
+                                <a href="/master-jam-kerja/detail/{{ entry.nik }}?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="text-decoration-none text-primary d-flex align-items-center gap-1">
+                                    <span>🔍</span>
+                                    <span class="hover-underline">{{ entry.nama }}</span>
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">
+                                    {{ entry.total_masuk }} hari
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger-subtle text-danger px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">
+                                    {{ entry.total_alpa }} hari
+                                </span>
+                            </td>
+                            <td class="text-center fw-semibold text-muted">{{ entry.wajib }}</td>
+                            <td class="text-center fw-bold text-dark">{{ entry.aktual }}</td>
+                            <td class="text-center fw-bold text-success">
+                                {% if entry.kelebihan != "0m" %}
+                                    ➕ {{ entry.kelebihan }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.kekurangan != "0m" %}
+                                    ⚠️ {{ entry.kekurangan }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                📁 Tidak ada data jam kerja untuk periode terpilih.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+    }
+    .bg-danger-subtle {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+    }
+    #jamKerjaTable tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.02);
+    }
+    .position-sticky {
+        position: sticky !important;
+    }
+    .hover-underline:hover {
+        text-decoration: underline !important;
+    }
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+</style>
+{% endblock %}

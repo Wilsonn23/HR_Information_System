@@ -34,9 +34,9 @@
                 <!-- Tanggal Resign -->
                 <div class="mb-4">
                     <label for="tanggal_resign" class="form-label fw-bold text-secondary small">Tanggal Resign Efektif</label>
-                    <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="tanggal_resign" name="tanggal_resign" required>
+                    <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none" id="tanggal_resign" name="tanggal_resign" min="{{ min_date }}" required>
                     <div class="form-text text-muted small mt-2">
-                        Status kehadiran karyawan akan otomatis diatur menjadi <strong>R (Resign)</strong> mulai dari tanggal ini sampai akhir bulan, dan tidak akan dimunculkan di bulan-bulan berikutnya.
+                        Tanggal resign tidak boleh sebelum hari ini (<strong>{{ min_date | replace('-', '/') }}</strong>). Status kehadiran karyawan akan otomatis diatur menjadi <strong>R (Resign)</strong> mulai dari tanggal ini sampai akhir bulan, dan tidak akan dimunculkan di bulan-bulan berikutnya.
                     </div>
                 </div>
                 

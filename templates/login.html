@@ -115,5 +115,38 @@
     .tracking-wider {
         letter-spacing: 1px;
     }
+
+    /* Footer styles for login page */
+    .login-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 0.75rem 1rem;
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        z-index: 1060;
+    }
+    .login-footer-brand {
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+    .login-footer-divider {
+        color: rgba(255, 255, 255, 0.2);
+    }
 </style>
+
+<!--
+<footer class="login-footer">
+    <span class="login-footer-brand"><i class="fas fa-shield-alt me-1"></i> HR Information System</span>
+    <span class="login-footer-divider">|</span>
+    <span>&copy; 2026 Wilson. All rights reserved.</span>
+</footer>
+-->
 {% endblock %}

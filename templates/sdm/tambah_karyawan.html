@@ -5,7 +5,7 @@
 {% block body_class %}dashboard-page bg-light text-dark{% endblock %}
 
 {% block content %}
-<div class="container py-5 mt-4">
+<div class="container mt-2">
     <div class="card shadow-lg border-0 mx-auto" style="border-radius: 16px; max-width: 700px; overflow: hidden;">
         <!-- Header Card dengan Gradient Premium -->
         <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
@@ -33,9 +33,8 @@
 
                     <!-- No Absen -->
                     <div class="col-md-6">
-                        <label for="input_absen" class="form-label fw-bold text-secondary small">Nomor Absen</label>
-                        <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_absen" name="absen" placeholder="Contoh: 101" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap masukkan nomor absen yang unik.</div>
+                        <label for="input_absen" class="form-label fw-bold text-secondary small">Nomor Absen (Otomatis)</label>
+                        <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_absen" name="absen" value="{{ next_absen }}" readonly style="box-shadow: none; cursor: not-allowed;">
                     </div>
 
                     <!-- Nama Lengkap -->

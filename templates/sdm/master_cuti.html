@@ -6,6 +6,18 @@
 
 {% block content %}
 <div class="container-fluid px-4 mt-5 pt-3">
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert" style="border-radius: 12px;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
@@ -13,6 +25,7 @@
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div>
                     <h3 class="fw-bold text-primary m-0">📁 Master Data Jatah Cuti Karyawan</h3>
+                    <p class="text-muted small m-0 mt-1">Menampilkan data cuti tahunan dan cuti dinas aktif untuk periode <strong>{{ current_period }}</strong> (Hari Sistem: {{ system_date }})</p>
                 </div>
             </div>
 
@@ -24,10 +37,9 @@
                             <th scope="col" class="text-center" style="width: 60px;">No</th>
                             <th scope="col" style="width: 120px;">NIK</th>
                             <th scope="col">Nama Karyawan</th>
+                            <th scope="col" class="text-center" style="width: 150px;">TMK</th>
                             <th scope="col" class="text-center" style="width: 150px;">Cuti Tahunan</th>
-                            <th scope="col" class="text-center" style="width: 150px;">Cuti Normatif</th>
-                            <th scope="col" class="text-center" style="width: 150px;">Cuti Dinas</th>
-                            <th scope="col" class="text-center" style="width: 120px;">Aksi</th>
+                            <th scope="col" class="text-center" style="width: 220px;">Cuti Dinas ({{ current_period }})</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -36,31 +48,19 @@
                             <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
                             <td class="fw-bold">{{ entry.nik }}</td>
                             <td>{{ entry.nama }}</td>
+                            <td class="text-center fw-semibold text-muted">
+                                {{ entry.karyawan.tmk if entry.karyawan else '-' }}
+                            </td>
                             <td class="text-center fw-bold text-primary">
                                 {{ entry.cuti_tahunan | int if entry.cuti_tahunan % 1 == 0 else entry.cuti_tahunan }} hari
-                            </td>
-                            <td class="text-center fw-bold text-success">
-                                {{ entry.cuti_normatif | int if entry.cuti_normatif % 1 == 0 else entry.cuti_normatif }} hari
                             </td>
                             <td class="text-center fw-bold text-info">
                                 {{ entry.cuti_dinas | int if entry.cuti_dinas % 1 == 0 else entry.cuti_dinas }} hari
                             </td>
-                            <td class="text-center">
-                                <button class="btn btn-sm btn-primary rounded-pill px-3 edit-cuti-btn" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#editCutiModal"
-                                        data-nik="{{ entry.nik }}"
-                                        data-nama="{{ entry.nama }}"
-                                        data-tahunan="{{ entry.cuti_tahunan }}"
-                                        data-normatif="{{ entry.cuti_normatif }}"
-                                        data-dinas="{{ entry.cuti_dinas }}">
-                                    ✏️ Edit
-                                </button>
-                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
+                            <td colspan="6" class="text-center text-muted py-5">
                                 📁 Belum ada data karyawan terdaftar.
                             </td>
                         </tr>
@@ -72,86 +72,6 @@
         </div>
     </div>
 </div>
-
-<!-- Modal Edit Jatah Cuti -->
-<div class="modal fade" id="editCutiModal" tabindex="-1" aria-labelledby="editCutiModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
-            <div class="modal-header bg-primary text-white py-3">
-                <h5 class="modal-title fw-bold" id="editCutiModalLabel">✏️ Edit Jatah Cuti</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ url_for('update_cuti') }}" method="POST" id="editCutiForm">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="edit_nik_hidden" name="nik">
-                
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label for="edit_nik" class="form-label fw-semibold text-muted small">NIK</label>
-                        <input type="text" class="form-control bg-light border-2" id="edit_nik" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_nama" class="form-label fw-semibold text-muted small">Nama Karyawan</label>
-                        <input type="text" class="form-control bg-light border-2" id="edit_nama" readonly>
-                    </div>
-                    
-                    <hr class="my-4">
-                    
-                    <div class="mb-3">
-                        <label for="edit_tahunan" class="form-label fw-bold text-dark">Jatah Cuti Tahunan (Hari)</label>
-                        <input type="number" step="0.5" min="0" class="form-control border-2 border-primary" id="edit_tahunan" name="cuti_tahunan" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_normatif" class="form-label fw-bold text-dark">Jatah Cuti Normatif (Hari)</label>
-                        <input type="number" step="0.5" min="0" class="form-control border-2 border-success" id="edit_normatif" name="cuti_normatif" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_dinas" class="form-label fw-bold text-dark">Jatah Cuti Dinas (Hari)</label>
-                        <input type="number" step="0.5" min="0" class="form-control border-2 border-info" id="edit_dinas" name="cuti_dinas" required>
-                    </div>
-                </div>
-                <div class="modal-footer p-3 bg-light border-top">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">💾 Simpan Perubahan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const editCutiModal = document.getElementById('editCutiModal');
-        if (editCutiModal) {
-            editCutiModal.addEventListener('show.bs.modal', function (event) {
-                // Button yang memicu modal
-                const button = event.relatedTarget;
-                
-                // Ambil data atribut dari tombol
-                const nik = button.getAttribute('data-nik');
-                const nama = button.getAttribute('data-nama');
-                const tahunan = button.getAttribute('data-tahunan');
-                const normatif = button.getAttribute('data-normatif');
-                const dinas = button.getAttribute('data-dinas');
-
-                // Isi nilai ke input form modal
-                const modalNik = editCutiModal.querySelector('#edit_nik');
-                const modalNikHidden = editCutiModal.querySelector('#edit_nik_hidden');
-                const modalNama = editCutiModal.querySelector('#edit_nama');
-                const modalTahunan = editCutiModal.querySelector('#edit_tahunan');
-                const modalNormatif = editCutiModal.querySelector('#edit_normatif');
-                const modalDinas = editCutiModal.querySelector('#edit_dinas');
-
-                if (modalNik) modalNik.value = nik;
-                if (modalNikHidden) modalNikHidden.value = nik;
-                if (modalNama) modalNama.value = nama;
-                if (modalTahunan) modalTahunan.value = tahunan;
-                if (modalNormatif) modalNormatif.value = normatif;
-                if (modalDinas) modalDinas.value = dinas;
-            });
-        }
-    });
-</script>
 
 <style>
     .position-sticky {
