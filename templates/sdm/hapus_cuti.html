@@ -19,11 +19,6 @@
                             <p class="small text-white-50 m-0">Kurangi jatah cuti karyawan secara massal (expired) atau individu (manual)</p>
                         </div>
                     </div>
-                    <div class="text-end">
-                        <span class="badge bg-white-translucent text-white fw-bold py-2 px-3 fs-7" style="border-radius: 8px; background: rgba(255,255,255,0.15);">
-                            Hari Sistem: {{ system_date }}
-                        </span>
-                    </div>
                 </div>
 
                 <div class="card-body p-4 p-md-5 bg-white">
@@ -59,8 +54,8 @@
                                             <th style="width: 10%;">No Absen</th>
                                             <th style="width: 15%;">NIK</th>
                                             <th class="text-start" style="width: 25%;">Nama Karyawan</th>
-                                            <th style="width: 15%;">Cuti Hangus Pending</th>
-                                            <th style="width: 10%;">Jumlah Dihapus</th>
+                                            <th style="width: 15%;">Cuti Tahunan Hangus</th>
+                                            <th style="width: 15%;">Cuti Dinas Hangus</th>
                                             <th class="text-start" style="width: 20%;">Keterangan / Alasan (Opsional)</th>
                                         </tr>
                                     </thead>
@@ -74,16 +69,22 @@
                                             <td class="fw-bold">{{ emp.nik }}</td>
                                             <td class="text-start text-dark fw-semibold">{{ emp.nama }}</td>
                                             <td>
+                                                {% if emp.pending_hangus > 0 %}
                                                 <span class="badge bg-danger-subtle text-danger fw-bold px-2.5 py-1.5" style="font-size: 0.85rem;">
                                                     {{ emp.pending_hangus | int if emp.pending_hangus % 1 == 0 else emp.pending_hangus }} hari
                                                 </span>
+                                                {% else %}
+                                                <span class="text-muted small">—</span>
+                                                {% endif %}
                                             </td>
                                             <td>
-                                                <input type="number" step="0.5" min="0.5" max="{{ emp.pending_hangus }}" 
-                                                       class="form-control form-control-sm text-center bg-light border-0 py-1.5 px-2 rounded-3 shadow-none input-jumlah" 
-                                                       id="jumlah_{{ emp.nik }}" name="jumlah_{{ emp.nik }}" 
-                                                       value="{{ emp.pending_hangus | int if emp.pending_hangus % 1 == 0 else emp.pending_hangus }}" 
-                                                       style="font-weight: bold; width: 80px; margin: 0 auto;" disabled>
+                                                {% if emp.pending_dinas > 0 %}
+                                                <span class="badge bg-primary-subtle text-primary fw-bold px-2.5 py-1.5" style="font-size: 0.85rem;">
+                                                    {{ emp.pending_dinas | int if emp.pending_dinas % 1 == 0 else emp.pending_dinas }} hari
+                                                </span>
+                                                {% else %}
+                                                <span class="text-muted small">—</span>
+                                                {% endif %}
                                             </td>
                                             <td class="text-start">
                                                 <input type="text" class="form-control form-control-sm bg-light border-0 py-1.5 px-3 rounded-3 shadow-none input-keterangan" 
@@ -202,21 +203,22 @@
                                     <input type="hidden" name="action_type" value="manual_hangus_cd">
                                     <input type="hidden" name="nik" id="cd-nik-hidden">
 
-                                    <!-- Saldo dinas hangus per periode -->
+                                    <!-- Saldo dinas hangus total -->
                                     <div id="cd-balance-card" class="rounded-3 p-3 mb-4 d-none" style="background: #f0f4ff; border: 1.5px solid #93c5fd;">
-                                        <div class="small fw-bold text-primary mb-2">💼 Saldo Cuti Dinas Hangus per Periode</div>
-                                        <div id="cd-no-hangus-msg" class="alert alert-success border-0 rounded-3 py-2 px-3 mb-0 d-none" style="font-size: 0.85rem;">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div>
+                                                <div class="small fw-bold text-primary mb-1">💼 Saldo Cuti Dinas Hangus</div>
+                                                <div class="text-muted" style="font-size: 0.8rem;">Cuti dinas yang sudah melewati masa berlakunya</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span id="cd-val-hangus" class="fw-bold text-primary" style="font-size: 1.8rem;">0</span>
+                                                <span class="text-muted small ms-1">hari</span>
+                                            </div>
+                                        </div>
+                                        <div id="cd-expiry-list" class="mt-2" style="font-size: 0.8rem;"></div>
+                                        <div id="cd-no-hangus-msg" class="alert alert-success border-0 rounded-3 py-2 px-3 mt-2 mb-0 d-none" style="font-size: 0.85rem;">
                                             ✅ Tidak ada cuti dinas yang hangus untuk karyawan ini.
                                         </div>
-                                        <div id="cd-periods-list" class="mt-1"></div>
-                                    </div>
-
-                                    <!-- Pilih periode -->
-                                    <div class="mb-3" id="cd-period-wrapper" style="display: none;">
-                                        <label class="form-label fw-bold text-secondary small">Periode Cuti Dinas Yang Dihapus</label>
-                                        <select id="cd-period-select" name="period" class="form-select bg-light border-0 py-2 rounded-3 shadow-none fw-bold text-primary" required>
-                                            <option value="" disabled selected>-- Pilih Periode --</option>
-                                        </select>
                                     </div>
 
                                     <div id="cd-form-fields" style="display: none;">
@@ -290,24 +292,15 @@
             function updateRowInputs(row, isChecked) {
                 const checkbox = row.querySelector('.emp-checkbox');
                 const nik = checkbox.value;
-                const inputJumlah = row.querySelector('.input-jumlah');
                 const inputKeterangan = row.querySelector('.input-keterangan');
 
                 if (isChecked) {
-                    inputJumlah.disabled = false;
                     inputKeterangan.disabled = false;
-                    inputJumlah.classList.remove('bg-light');
-                    inputJumlah.classList.add('bg-white', 'border');
                     inputKeterangan.classList.remove('bg-light');
                     inputKeterangan.classList.add('bg-white', 'border');
-                    
-                    const val = inputJumlah.value || '0';
-                    inputKeterangan.placeholder = `Penghapusan cuti hangus sebanyak ${val} hari untuk NIK ${nik} pada ${systemDate}`;
+                    inputKeterangan.placeholder = `Penghapusan cuti hangus untuk NIK ${nik} pada ${systemDate}`;
                 } else {
-                    inputJumlah.disabled = true;
                     inputKeterangan.disabled = true;
-                    inputJumlah.classList.add('bg-light');
-                    inputJumlah.classList.remove('bg-white', 'border');
                     inputKeterangan.classList.add('bg-light');
                     inputKeterangan.classList.remove('bg-white', 'border');
                     inputKeterangan.placeholder = "Pilih baris ini untuk mengisi...";
@@ -326,14 +319,6 @@
                 cb.addEventListener('change', function () {
                     updateRowInputs(row, this.checked);
                     updateSubmitButton();
-                });
-
-                const inputJumlah = row.querySelector('.input-jumlah');
-                const inputKeterangan = row.querySelector('.input-keterangan');
-                const nik = cb.value;
-                inputJumlah.addEventListener('input', function() {
-                    const val = this.value || '0';
-                    inputKeterangan.placeholder = `Penghapusan cuti hangus sebanyak ${val} hari untuk NIK ${nik} pada ${systemDate}`;
                 });
             });
 
@@ -370,29 +355,13 @@
         // --- CD Hangus ---
         const cdNikHidden    = document.getElementById('cd-nik-hidden');
         const cdBalanceCard  = document.getElementById('cd-balance-card');
+        const cdValHangus    = document.getElementById('cd-val-hangus');
+        const cdExpiryList   = document.getElementById('cd-expiry-list');
         const cdNoHangus     = document.getElementById('cd-no-hangus-msg');
-        const cdPeriodsList  = document.getElementById('cd-periods-list');
-        const cdPeriodWrapper= document.getElementById('cd-period-wrapper');
-        const cdPeriodSelect = document.getElementById('cd-period-select');
         const cdFormFields   = document.getElementById('cd-form-fields');
         const cdJumlah       = document.getElementById('cd-jumlah');
         const cdMaxHint      = document.getElementById('cd-max-hint');
-        let cdHangusDetail   = [];
-
-        function updateCdState() {
-            const sel = cdPeriodSelect.value;
-            const detail = cdHangusDetail.find(d => d.period === sel);
-            if (detail) {
-                cdJumlah.max = detail.expired_amount;
-                cdJumlah.value = detail.expired_amount % 1 === 0 ? detail.expired_amount : detail.expired_amount.toFixed(1);
-                cdMaxHint.textContent = `Maksimal ${detail.expired_amount} hari`;
-                cdFormFields.style.display = '';
-            }
-        }
-
-        if (cdPeriodSelect) {
-            cdPeriodSelect.addEventListener('change', updateCdState);
-        }
+        let cdTotalHangus    = 0;
 
         // Shared fetch when employee changes
         if (nikSelectIndividu) {
@@ -407,7 +376,6 @@
                     ctBalanceCard.classList.add('d-none');
                     ctJumlah.disabled = true; ctBtnSubmit.disabled = true;
                     cdBalanceCard.classList.add('d-none');
-                    cdPeriodWrapper.style.display = 'none';
                     cdFormFields.style.display = 'none';
                     return;
                 }
@@ -434,30 +402,31 @@
                         }
                         updateCtState();
 
-                        // === CD hangus ===
-                        cdHangusDetail = res.dinas_hangus_detail || [];
-                        const totalCdHangus = res.pending_dinas_hangus || 0;
+                        // === CD hangus (total only, grouped by expiry date) ===
+                        const cdHangusDetail = res.dinas_hangus_detail || [];
+                        cdTotalHangus = res.pending_dinas_hangus || 0;
                         cdBalanceCard.classList.remove('d-none');
 
-                        if (cdHangusDetail.length > 0) {
+                        if (cdTotalHangus > 0) {
                             cdNoHangus.classList.add('d-none');
-                            cdPeriodsList.innerHTML = cdHangusDetail.map(d =>
-                                `<div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="font-size:0.85rem;">`+
-                                `<span class="text-muted">${d.period} <small class="text-danger">(berakhir ${d.period_end})</small></span>`+
+                            cdValHangus.textContent = cdTotalHangus % 1 === 0 ? cdTotalHangus : cdTotalHangus.toFixed(1);
+
+                            // Show expiry breakdown without period labels
+                            cdExpiryList.innerHTML = cdHangusDetail.map(d =>
+                                `<div class="d-flex justify-content-between align-items-center py-1 border-bottom">`+
+                                `<span class="text-danger small">⏱ Berakhir: ${d.period_end}</span>`+
                                 `<span class="fw-bold text-primary">${d.expired_amount % 1 === 0 ? d.expired_amount : d.expired_amount.toFixed(1)} hari</span>`+
                                 `</div>`
                             ).join('');
-                            // Populate period select
-                            cdPeriodSelect.innerHTML = '<option value="" disabled selected>-- Pilih Periode --</option>' +
-                                cdHangusDetail.map(d =>
-                                    `<option value="${d.period}">${d.period} — ${d.expired_amount % 1 === 0 ? d.expired_amount : d.expired_amount.toFixed(1)} hari</option>`
-                                ).join('');
-                            cdPeriodWrapper.style.display = '';
-                            cdFormFields.style.display = 'none';
+
+                            cdJumlah.max = cdTotalHangus;
+                            cdJumlah.value = cdTotalHangus % 1 === 0 ? cdTotalHangus : cdTotalHangus.toFixed(1);
+                            cdMaxHint.textContent = `Maksimal ${cdTotalHangus} hari`;
+                            cdFormFields.style.display = '';
                         } else {
                             cdNoHangus.classList.remove('d-none');
-                            cdPeriodsList.innerHTML = '';
-                            cdPeriodWrapper.style.display = 'none';
+                            cdValHangus.textContent = '0';
+                            cdExpiryList.innerHTML = '';
                             cdFormFields.style.display = 'none';
                         }
                     })

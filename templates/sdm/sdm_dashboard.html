@@ -219,11 +219,11 @@
                                 <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
                                     <th style="width: 5%;">No</th>
                                     <th style="width: 12%;">NIK</th>
-                                    <th class="text-start" style="width: 20%">Nama Karyawan</th>
-                                    <th style="width: 13%;">Cuti Dinas</th>
-                                    <th style="width: 13%;">Cuti Tahunan</th>
-                                    <th style="width: 22%;">Tanggal Hangus</th>
-                                    <th style="width: 15%;">Jumlah Akan Hangus</th>
+                                    <th class="text-start" style="width: 25%">Nama Karyawan</th>
+                                    <th style="width: 15%;">Jenis Cuti</th>
+                                    <th style="width: 13%;">Sisa Saldo</th>
+                                    <th style="width: 18%;">Tanggal Hangus</th>
+                                    <th style="width: 12%;">Jumlah Akan Hangus</th>
                                 </tr>
                             </thead>
                             <tbody id="tabelCutiBody" style="border-top: none;">
@@ -232,10 +232,10 @@
                                     <td class="text-muted small fw-bold">{{ loop.index }}</td>
                                     <td class="fw-bold text-dark">{{ c.nik }}</td>
                                     <td class="text-start text-dark fw-semibold">{{ c.nama }}</td>
-                                    <td class="fw-bold text-info">{{ c.cuti_dinas | int if c.cuti_dinas % 1 == 0 else c.cuti_dinas }} hari</td>
-                                    <td class="fw-bold text-primary">{{ c.cuti_tahunan | int if c.cuti_tahunan % 1 == 0 else c.cuti_tahunan }} hari</td>
-                                    <td class="fw-bold text-danger">{{ c.next_expiration_date.strftime('%d-%m-%Y') if c.next_expiration_date else '-' }}</td>
-                                    <td class="fw-bold text-danger">{{ (c.next_expiration_amount | int if c.next_expiration_amount % 1 == 0 else c.next_expiration_amount) ~ ' hari' if c.next_expiration_date else '-' }}</td>
+                                    <td class="fw-bold {% if c.jenis_cuti == 'Cuti Dinas' %}text-info{% else %}text-primary{% endif %}">{{ c.jenis_cuti }}</td>
+                                    <td class="fw-bold text-dark">{{ c.sisa_saldo | int if c.sisa_saldo % 1 == 0 else c.sisa_saldo }} hari</td>
+                                    <td class="fw-bold text-danger">{{ c.tanggal_hangus.strftime('%d-%m-%Y') if c.tanggal_hangus else '-' }}</td>
+                                    <td class="fw-bold text-danger">{{ (c.jumlah_akan_hangus | int if c.jumlah_akan_hangus % 1 == 0 else c.jumlah_akan_hangus) ~ ' hari' if c.tanggal_hangus else '-' }}</td>
                                 </tr>
                                 {% else %}
                                 <tr>

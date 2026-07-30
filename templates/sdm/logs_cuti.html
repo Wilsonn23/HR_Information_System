@@ -13,19 +13,49 @@
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div>
                     <h3 class="fw-bold text-primary m-0">📜 Log Aktivitas SDM</h3>
-                    <p class="text-muted small m-0 mt-1">Riwayat seluruh transaksi dan aktivitas SDM yang dicatat oleh sistem (Total {{ total_count }} aktivitas)</p>
+                    <p class="text-muted small m-0 mt-1">
+                        Riwayat seluruh transaksi dan aktivitas SDM
+                        {% if q %}
+                        — hasil pencarian "<strong>{{ q }}</strong>"
+                        {% endif %}
+                    </p>
                 </div>
                 <!-- Search Input -->
-                <form action="{{ url_for('view_cuti_audit_logs') }}" method="GET" class="position-relative">
-                    <input type="text" name="q" class="form-control form-control-sm pe-5 rounded-pill border-2" style="min-width: 280px;" placeholder="🔍 Cari NIK, nama, aksi, detail..." value="{{ q or '' }}">
-                    {% if q %}
-                    <button type="button" class="btn btn-sm btn-link text-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0 p-0" onclick="window.location.href='{{ url_for('view_cuti_audit_logs') }}'" style="z-index: 10;">✕</button>
-                    {% endif %}
+                <form action="{{ url_for('view_cuti_audit_logs') }}" method="GET" class="d-flex gap-2 align-items-center">
+                    <div class="position-relative">
+                        <input type="text" name="q" id="search_log"
+                               class="form-control form-control-sm rounded-pill border-2 pe-5"
+                               style="min-width: 280px;"
+                               placeholder="🔍 Cari NIK, nama, aksi, detail..."
+                               value="{{ q or '' }}">
+                        {% if q %}
+                        <a href="{{ url_for('view_cuti_audit_logs') }}"
+                           class="position-absolute end-0 top-50 translate-middle-y me-2 text-muted text-decoration-none"
+                           style="z-index: 10; font-size: 1rem; line-height: 1;">✕</a>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">Cari</button>
                 </form>
             </div>
 
+            <!-- Info bar -->
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="small text-muted fw-semibold">
+                    {% if total_count == 0 %}
+                        Tidak ada hasil ditemukan.
+                    {% else %}
+                        Menampilkan
+                        <strong>{{ (page - 1) * 30 + 1 }}–{{ [(page - 1) * 30 + logs|length, total_count]|min }}</strong>
+                        dari total <strong>{{ total_count }}</strong> log aktivitas.
+                    {% endif %}
+                </div>
+                {% if total_pages > 1 %}
+                <div class="text-muted small">Halaman <strong>{{ page }}</strong> / <strong>{{ total_pages }}</strong></div>
+                {% endif %}
+            </div>
+
             <!-- Tabel Log Aktivitas -->
-            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 620px; overflow-y: auto;">
+            <div class="table-responsive border rounded-3 shadow-sm">
                 <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="logTable">
                     <thead class="table-dark position-sticky top-0 z-1">
                         <tr class="align-middle">
@@ -94,31 +124,55 @@
                 </table>
             </div>
 
-            <!-- Pagination Section -->
+            <!-- Pagination -->
             {% if total_pages > 1 %}
-            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
-                <div class="small text-muted fw-semibold">
-                    Menampilkan {{ logs|length }} dari total {{ total_count }} log aktivitas.
-                </div>
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+
+                <!-- Jump to page -->
+                <form method="GET" action="{{ url_for('view_cuti_audit_logs') }}" class="d-flex align-items-center gap-2">
+                    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+                    <label class="text-muted small fw-semibold mb-0 text-nowrap">Pergi ke halaman:</label>
+                    <input type="number" name="page" min="1" max="{{ total_pages }}"
+                           value="{{ page }}"
+                           class="form-control form-control-sm text-center fw-bold"
+                           style="width: 70px; border-radius: 8px;">
+                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold px-3" style="border-radius: 8px;">Go</button>
+                </form>
+
+                <!-- Page buttons -->
                 <nav aria-label="Navigasi Halaman Log">
-                    <ul class="pagination pagination-sm m-0">
+                    <ul class="pagination pagination-sm m-0 gap-1">
+
+                        <!-- First & Prev -->
                         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page-1, q=q) }}">Sebelumnya</a>
+                            <a class="page-link fw-bold rounded-2 border-0 shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=1, q=q) }}" title="Pertama">«</a>
                         </li>
-                        
+                        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                            <a class="page-link rounded-2 border-0 shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page-1, q=q) }}">‹ Sebelumnya</a>
+                        </li>
+
+                        <!-- Page numbers with ellipsis -->
                         {% for p in range(1, total_pages + 1) %}
-                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
-                        <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=p, q=q) }}">{{ p }}</a>
-                        </li>
-                        {% elif p == page - 3 or p == page + 3 %}
-                        <li class="page-item disabled"><span class="page-link bg-light border-0">...</span></li>
-                        {% endif %}
+                            {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                                <li class="page-item {% if p == page %}active{% endif %}">
+                                    <a class="page-link rounded-2 border-0 shadow-sm fw-bold"
+                                       href="{{ url_for('view_cuti_audit_logs', page=p, q=q) }}">{{ p }}</a>
+                                </li>
+                            {% elif p == page - 3 or p == page + 3 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link border-0 bg-transparent text-muted">…</span>
+                                </li>
+                            {% endif %}
                         {% endfor %}
-                        
+
+                        <!-- Next & Last -->
                         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page+1, q=q) }}">Berikutnya</a>
+                            <a class="page-link rounded-2 border-0 shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=page+1, q=q) }}">Berikutnya ›</a>
                         </li>
+                        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                            <a class="page-link fw-bold rounded-2 border-0 shadow-sm" href="{{ url_for('view_cuti_audit_logs', page=total_pages, q=q) }}" title="Terakhir">»</a>
+                        </li>
+
                     </ul>
                 </nav>
             </div>
@@ -127,4 +181,21 @@
         </div>
     </div>
 </div>
+
+<style>
+    .pagination .page-item.active .page-link {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+    }
+    .pagination .page-link {
+        color: #2563eb;
+        transition: all 0.15s ease;
+        padding: 0.35rem 0.65rem;
+    }
+    .pagination .page-link:hover:not(.disabled) {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+</style>
 {% endblock %}
+

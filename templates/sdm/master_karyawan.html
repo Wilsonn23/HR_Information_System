@@ -42,8 +42,8 @@
                     </thead>
                     <tbody id="tableBody">
                         {% for entry in entries %}
-                        <tr data-resign="{{ 'true' if entry.tanggal_resign else 'false' }}"
-                            {% if entry.tanggal_resign %}class="text-muted"{% endif %}>
+                        <tr data-resign="{{ 'true' if entry.is_actually_resigned else 'false' }}"
+                            {% if entry.is_actually_resigned %}class="text-muted"{% endif %}>
                             <td class="text-center text-muted small fw-bold row-num"></td>
                             <td>{{ entry.absen }}</td>
                             <td class="fw-semibold">{{ entry.nama }}</td>
@@ -54,10 +54,17 @@
                             <td>{{ entry.jam_pulang }}</td>
                             <td class="text-center">
                                 {% if entry.tanggal_resign %}
-                                    <span class="badge text-white fw-semibold px-2 py-1"
-                                          style="background-color: #dc3545; border-radius: 6px; font-size: 0.75rem;">
-                                        Resign
-                                    </span>
+                                    {% if entry.is_actually_resigned %}
+                                        <span class="badge text-white fw-semibold px-2 py-1"
+                                              style="background-color: #dc3545; border-radius: 6px; font-size: 0.75rem;">
+                                            Resign
+                                        </span>
+                                    {% else %}
+                                        <span class="badge fw-semibold px-2 py-1"
+                                              style="background-color: #ffc107; color: black; border-radius: 6px; font-size: 0.75rem;">
+                                            Akan Resign
+                                        </span>
+                                    {% endif %}
                                     <div class="text-muted" style="font-size: 0.7rem; margin-top: 2px;">
                                         {{ entry.tanggal_resign }}
                                     </div>

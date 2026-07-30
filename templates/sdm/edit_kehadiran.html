@@ -14,6 +14,44 @@
         cursor: not-allowed !important;
         pointer-events: none !important;
     }
+    .bg-pending-red {
+        background-color: #dc3545 !important;
+        color: #ffffff !important;
+    }
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus,
+    input:focus,
+    select:focus,
+    textarea:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: #cbd5e1 !important;
+    }
+    .search-container {
+        position: relative;
+        width: 100%;
+    }
+    .search-container .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .search-container input {
+        padding-left: 36px !important;
+        border-radius: 8px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #dee2e6 !important;
+        transition: all 0.2s ease-in-out;
+    }
+    .search-container input:focus {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
+    }
 </style>
 <div class="container-fluid px-3 mt-5 pt-3">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5" style="overflow: hidden;">
@@ -48,6 +86,13 @@
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="col-md-4 col-sm-12 ms-auto">
+                        <label class="form-label fw-bold text-secondary small">Cari Karyawan (Nama / NIK)</label>
+                        <div class="search-container shadow-sm">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="search_karyawan" class="form-control" placeholder="Ketik nama atau NIK..." onkeydown="if(event.key === 'Enter') { event.preventDefault(); }">
+                        </div>
+                    </div>
                 </form>
             </div>
 
@@ -65,7 +110,7 @@
                 <span><span class="badge bg-light text-dark px-2 border">A</span> Alpa</span>
                 <span><span class="badge bg-light text-dark px-2 border">L</span> Libur</span>
                 <span><span class="badge bg-light text-dark px-2 border">R</span> Resign</span>
-                <span><span class="badge bg-light text-dark px-2 border">P</span> Pending</span>
+                <span><span class="badge bg-pending-red text-white px-2 border">P</span> Pending</span>
             </div>
 
             <!-- Spreadsheet Table Container -->
@@ -94,7 +139,7 @@
                             <th style="min-width: 40px;" class="bg-white text-black" title="Cuti Dinas">CD</th>
                             <th style="min-width: 40px;" class="bg-white text-black" title="Alpa">A</th>
                             <th style="min-width: 40px;" class="bg-white text-black" title="Libur">L</th>
-                            <th style="min-width: 40px;" class="bg-white text-black" title="Pending">P</th>
+                            <th style="min-width: 40px;" class="bg-danger text-white" title="Pending">P</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -124,6 +169,7 @@
                                 {% set desc = 'Belum Diisi' %}
                                 {% if is_before_tmk %}
                                     {% set desc = 'Sebelum Tanggal Mulai Kerja (TMK: ' ~ (entry.karyawan.tmk or '-') ~ ')' %}
+                                    {% set cell_clickable = false %}
                                 {% elif status == 'M' %}
                                     {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
                                     {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
@@ -176,6 +222,8 @@
                                         {% set cell_class = 'bg-holiday-red' %}
                                     {% elif is_weekend and db_status != 'M' %}
                                         {% set cell_class = 'bg-weekend-libur' %}
+                                    {% elif status == 'P' %}
+                                        {% set cell_class = 'bg-pending-red' %}
                                     {% endif %}
                                 {% endif %}
                                 
@@ -212,7 +260,7 @@
                             <td class="fw-bold text-black total-cd">0</td>
                             <td class="fw-bold text-black total-alpa">0</td>
                             <td class="fw-bold text-black total-libur">0</td>
-                            <td class="fw-bold text-black total-pending">0</td>
+                            <td class="fw-bold text-white total-pending bg-pending-red">0</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -276,6 +324,21 @@
                         </div>
                     </div>
                     
+                    <!-- Toggle Batch Edit -->
+                    <div class="mb-3 form-check form-switch d-none" id="batch_toggle_container">
+                        <input class="form-check-input" type="checkbox" id="modal_is_batch" style="cursor: pointer;">
+                        <label class="form-check-label fw-bold text-secondary small" for="modal_is_batch" style="cursor: pointer;">
+                            Aktifkan Batch Edit (Ubah banyak hari sekaligus)
+                        </label>
+                    </div>
+                    
+                    <!-- Batch Edit End Date -->
+                    <div id="batch_edit_row" class="mb-3 d-none">
+                        <label for="modal_tanggal_selesai" id="modal_tanggal_selesai_label" class="form-label fw-bold text-secondary small">Tanggal Selesai (Batch Edit)</label>
+                        <input type="date" class="form-control bg-light border-0 py-2" id="modal_tanggal_selesai">
+                        <div id="batch_helper_text" class="form-text text-muted small mt-1">Batch edit akan diterapkan dari tanggal mulai sampai tanggal selesai pilihan.</div>
+                    </div>
+                    
                     <!-- Scan Times -->
                     <div class="row g-2" id="scan_times_row">
                         <div class="col-6">
@@ -299,7 +362,8 @@
                     <!-- Keterangan -->
                     <div class="mb-3 mt-3">
                         <label for="modal_keterangan" class="form-label fw-bold text-secondary small">Keterangan / Catatan</label>
-                        <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3" id="modal_keterangan" rows="2" placeholder="Masukkan keterangan tambahan jika diperlukan..." style="box-shadow: none;"></textarea>
+                        <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3" id="modal_keterangan" rows="2" placeholder="Keterangan wajib diisi..." style="box-shadow: none;" required></textarea>
+                        <div class="invalid-feedback small">Keterangan wajib diisi.</div>
                     </div>
                 </div>
                 
@@ -463,10 +527,57 @@
             }
         }
 
+        function toggleBatchEditRow() {
+            const batchToggleContainer = document.getElementById('batch_toggle_container');
+            const batchRow = document.getElementById('batch_edit_row');
+            const dateInput = document.getElementById('modal_tanggal_selesai');
+            const status = modalStatus.value;
+            const multiDayStatuses = ['DL', 'S', 'CT', 'CN', 'CD'];
+            
+            if (multiDayStatuses.includes(status)) {
+                // Show the Aktifkan Batch Edit toggle switch container
+                batchToggleContainer.classList.remove('d-none');
+                
+                const isBatchActive = document.getElementById('modal_is_batch').checked;
+                if (isBatchActive) {
+                    batchRow.classList.remove('d-none');
+                    dateInput.required = true;
+                    
+                    const label = document.getElementById('modal_tanggal_selesai_label');
+                    if (status === 'DL') {
+                        label.textContent = 'Tanggal Pulang Dinas (Batch Edit)';
+                    } else if (status === 'S') {
+                        label.textContent = 'Tanggal Selesai Sakit (Batch Edit)';
+                    } else {
+                        label.textContent = 'Tanggal Selesai Cuti (Batch Edit)';
+                    }
+                } else {
+                    batchRow.classList.add('d-none');
+                    dateInput.required = false;
+                    dateInput.value = '';
+                }
+            } else {
+                // Hide both the switch and the date input
+                batchToggleContainer.classList.add('d-none');
+                document.getElementById('modal_is_batch').checked = false;
+                batchRow.classList.add('d-none');
+                dateInput.required = false;
+                dateInput.value = '';
+            }
+        }
+
         modalStatus.addEventListener('change', () => {
             toggleModalScanInputs();
             updateSisaCutiDisplay();
+            toggleBatchEditRow();
         });
+
+        const batchSwitch = document.getElementById('modal_is_batch');
+        if (batchSwitch) {
+            batchSwitch.addEventListener('change', () => {
+                toggleBatchEditRow();
+            });
+        }
 
         // Click handler for daily status cells
         document.querySelectorAll('.daily-status').forEach(cell => {
@@ -504,6 +615,8 @@
                     }
                 });
 
+                document.getElementById('modal_is_batch').checked = false;
+
                 if (status === 'M') {
                     modalStatus.value = 'M';
                     modalStatus.disabled = true;
@@ -515,17 +628,19 @@
                     document.querySelector('#modal_status option[value="P"]').disabled = true;
                     document.querySelector('#modal_status option[value="P"]').style.display = 'none';
                     
-                    // Set default selection to the placeholder
-                    modalStatus.value = '';
+                    if (status === 'CD') {
+                        modalStatus.value = 'CD';
+                    } else if (status === 'P') {
+                        modalStatus.value = '';
+                    } else {
+                        modalStatus.value = status;
+                    }
                 }
                 
                 // Format scan times to HH:MM if it has seconds
                 modalScanMasuk.value = scanMasuk ? scanMasuk.substring(0, 5) : '';
                 modalScanPulang.value = scanPulang ? scanPulang.substring(0, 5) : '';
 
-                toggleModalScanInputs();
-                
-                // Fetch dynamic remaining leave balances as of the clicked date
                 const bulanMap = {
                     'Januari': '01', 'Februari': '02', 'Maret': '03', 'April': '04',
                     'Mei': '05', 'Juni': '06', 'Juli': '07', 'Agustus': '08',
@@ -534,12 +649,21 @@
                 const padDay = day.padStart(2, '0');
                 const dateStr = `{{ selected_tahun }}-${bulanMap['{{ selected_bulan }}']}-${padDay}`;
                 
+                toggleModalScanInputs();
+                 
+                // Reset/setup batch edit date input
+                const modalTanggalSelesai = document.getElementById('modal_tanggal_selesai');
+                modalTanggalSelesai.min = dateStr;
+                modalTanggalSelesai.value = '';
+                document.getElementById('batch_helper_text').textContent = `Batch edit akan diterapkan dari tanggal ${day} {{ selected_bulan }} {{ selected_tahun }} sampai tanggal selesai pilihan.`;
+                toggleBatchEditRow();
+                
                 // Reset display first
                 currentTahunanBalance = 0;
                 currentDinasBalance = 0;
                 updateSisaCutiDisplay();
 
-                fetch(`/master-cuti/api/balance/${nik}?date=${dateStr}`)
+                fetch(`/master-cuti/api/balance/${nik}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
@@ -577,6 +701,7 @@
             const keterangan = document.getElementById('modal_keterangan').value;
             const isIzin = document.getElementById('modal_is_izin').checked;
             const csrfToken = document.getElementById('modal_csrf').value;
+            const tanggalSelesai = document.getElementById('modal_tanggal_selesai').value;
 
             fetch('/master-kehadiran/update-cell', {
                 method: 'POST',
@@ -594,12 +719,17 @@
                     scan_masuk: scanMasuk,
                     scan_pulang: scanPulang,
                     keterangan: keterangan,
-                    is_izin: isIzin
+                    is_izin: isIzin,
+                    tanggal_selesai: tanggalSelesai
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    if (tanggalSelesai) {
+                        window.location.reload();
+                        return;
+                    }
                     // Update cell state in UI
                     activeCell.setAttribute('data-status', status);
                     activeCell.setAttribute('data-scan-masuk', scanMasuk);
@@ -611,8 +741,10 @@
                     let isLate = false;
                     let isEarly = false;
                     
-                    activeCell.classList.remove('bg-late-brown', 'bg-izin-green');
-                    if (status === 'M') {
+                    activeCell.classList.remove('bg-late-brown', 'bg-izin-green', 'bg-pending-red');
+                    if (status === 'P') {
+                        activeCell.classList.add('bg-pending-red');
+                    } else if (status === 'M') {
                         if (isIzin) {
                             activeCell.classList.add('bg-izin-green');
                         } else {
@@ -691,6 +823,31 @@
                 btnSave.textContent = 'Simpan';
             });
         });
+
+        // Client-side search logic
+        const searchInput = document.getElementById('search_karyawan');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                const rows = document.querySelectorAll('#spreadsheetTable tbody tr');
+                
+                rows.forEach(row => {
+                    if (row.querySelector('td[colspan]')) return;
+                    
+                    const nikCell = row.cells[2];
+                    const namaCell = row.cells[3];
+                    if (nikCell && namaCell) {
+                        const nik = nikCell.textContent.toLowerCase();
+                        const nama = namaCell.textContent.toLowerCase();
+                        if (nik.includes(query) || nama.includes(query)) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        }
     });
 </script>
 

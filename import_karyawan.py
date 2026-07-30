@@ -88,7 +88,7 @@ def import_karyawan_excel(filepath):
                 else:
                     tmk_str = str(val_tmk).strip()
                     parsed = False
-                    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y"):
+                    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y", "%m-%d-%Y"):
                         try:
                             dt = datetime.strptime(tmk_str.split()[0], fmt)
                             tmk_str = dt.strftime("%Y-%m-%d")

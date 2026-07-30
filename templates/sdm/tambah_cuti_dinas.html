@@ -67,6 +67,12 @@
                             <input type="number" step="0.5" min="0.5" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah" name="jumlah" value="1" required>
                         </div>
 
+                        <!-- Tanggal Kadaluarsa -->
+                        <div class="mb-4">
+                            <label for="tanggal_kadaluarsa" class="form-label fw-bold text-secondary small">Tanggal Kadaluarsa / Hangus</label>
+                            <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa" name="tanggal_kadaluarsa" min="{{ system_date }}" required>
+                        </div>
+
                         <!-- Keterangan -->
                         <div class="mb-5">
                             <label for="keterangan" class="form-label fw-bold text-secondary small">Keterangan / Alasan (Opsional)</label>
