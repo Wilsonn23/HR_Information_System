@@ -189,9 +189,20 @@ with app.app_context():
             db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN tanggal_kadaluarsa VARCHAR(50)"))
             db.session.commit()
             print("Successfully added tanggal_kadaluarsa column to cuti_manual table.")
+            
+        # Check if 'ba_nomor' column exists
+        result_ba = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti_manual' AND column_name='ba_nomor'"
+        )).fetchone()
+        if not result_ba:
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_nomor VARCHAR(100)"))
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_tanggal VARCHAR(50)"))
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_keterangan VARCHAR(255)"))
+            db.session.commit()
+            print("Successfully added ba_nomor, ba_tanggal, and ba_keterangan columns to cuti_manual table.")
     except Exception as e:
         db.session.rollback()
-        print(f"Error checking/adding tanggal_kadaluarsa column: {e}")
+        print(f"Error checking/adding cuti_manual columns: {e}")
         
     try:
         cleanup_temp_uploads()
@@ -457,6 +468,9 @@ class CutiManual(db.Model):
     tipe: Mapped[str] = mapped_column(db.String(10), nullable=False) # 'CT', 'CD', 'HANGUS'
     keterangan: Mapped[str] = mapped_column(db.String(255), nullable=True)
     tanggal_kadaluarsa: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    ba_nomor: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    ba_tanggal: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    ba_keterangan: Mapped[str] = mapped_column(db.String(255), nullable=True)
     
     karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
 

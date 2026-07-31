@@ -19,11 +19,6 @@
                             <p class="small text-white-50 m-0">Menambahkan saldo cuti dinas untuk karyawan pada periode aktif</p>
                         </div>
                     </div>
-                    <div class="text-end">
-                        <span class="badge bg-white-translucent text-white fw-bold py-2 px-3 fs-7" style="border-radius: 8px; background: rgba(255,255,255,0.15);">
-                            Periode: {{ current_period }}
-                        </span>
-                    </div>
                 </div>
 
                 <!-- Card Body -->
@@ -70,7 +65,7 @@
                         <!-- Tanggal Kadaluarsa -->
                         <div class="mb-4">
                             <label for="tanggal_kadaluarsa" class="form-label fw-bold text-secondary small">Tanggal Kadaluarsa / Hangus</label>
-                            <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa" name="tanggal_kadaluarsa" min="{{ system_date }}" required>
+                            <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa" name="tanggal_kadaluarsa" min="{{ min_kadaluarsa }}" required>
                         </div>
 
                         <!-- Keterangan -->

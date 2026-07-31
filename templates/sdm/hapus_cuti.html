@@ -70,18 +70,24 @@
                                             <td class="text-start text-dark fw-semibold">{{ emp.nama }}</td>
                                             <td>
                                                 {% if emp.pending_hangus > 0 %}
-                                                <span class="badge bg-danger-subtle text-danger fw-bold px-2.5 py-1.5" style="font-size: 0.85rem;">
-                                                    {{ emp.pending_hangus | int if emp.pending_hangus % 1 == 0 else emp.pending_hangus }} hari
-                                                </span>
+                                                <div class="input-group input-group-sm justify-content-center mx-auto" style="max-width: 100px;">
+                                                    <input type="number" step="0.5" min="0" max="{{ emp.pending_hangus }}" 
+                                                           name="jumlah_hangus_{{ emp.nik }}" id="jumlah_hangus_{{ emp.nik }}"
+                                                           class="form-control text-center fw-bold text-danger border-danger-subtle rounded-3 input-jumlah-hangus" 
+                                                           value="{{ emp.pending_hangus }}" disabled>
+                                                </div>
                                                 {% else %}
                                                 <span class="text-muted small">—</span>
                                                 {% endif %}
                                             </td>
                                             <td>
                                                 {% if emp.pending_dinas > 0 %}
-                                                <span class="badge bg-primary-subtle text-primary fw-bold px-2.5 py-1.5" style="font-size: 0.85rem;">
-                                                    {{ emp.pending_dinas | int if emp.pending_dinas % 1 == 0 else emp.pending_dinas }} hari
-                                                </span>
+                                                <div class="input-group input-group-sm justify-content-center mx-auto" style="max-width: 100px;">
+                                                    <input type="number" step="0.5" min="0" max="{{ emp.pending_dinas }}" 
+                                                           name="jumlah_dinas_{{ emp.nik }}" id="jumlah_dinas_{{ emp.nik }}"
+                                                           class="form-control text-center fw-bold text-primary border-primary-subtle rounded-3 input-jumlah-dinas" 
+                                                           value="{{ emp.pending_dinas }}" disabled>
+                                                </div>
                                                 {% else %}
                                                 <span class="text-muted small">—</span>
                                                 {% endif %}
@@ -293,17 +299,33 @@
                 const checkbox = row.querySelector('.emp-checkbox');
                 const nik = checkbox.value;
                 const inputKeterangan = row.querySelector('.input-keterangan');
+                const inputJumlahHangus = row.querySelector('.input-jumlah-hangus');
+                const inputJumlahDinas = row.querySelector('.input-jumlah-dinas');
 
                 if (isChecked) {
                     inputKeterangan.disabled = false;
                     inputKeterangan.classList.remove('bg-light');
                     inputKeterangan.classList.add('bg-white', 'border');
                     inputKeterangan.placeholder = `Penghapusan cuti hangus untuk NIK ${nik} pada ${systemDate}`;
+                    
+                    if (inputJumlahHangus) {
+                        inputJumlahHangus.disabled = false;
+                    }
+                    if (inputJumlahDinas) {
+                        inputJumlahDinas.disabled = false;
+                    }
                 } else {
                     inputKeterangan.disabled = true;
                     inputKeterangan.classList.add('bg-light');
                     inputKeterangan.classList.remove('bg-white', 'border');
                     inputKeterangan.placeholder = "Pilih baris ini untuk mengisi...";
+                    
+                    if (inputJumlahHangus) {
+                        inputJumlahHangus.disabled = true;
+                    }
+                    if (inputJumlahDinas) {
+                        inputJumlahDinas.disabled = true;
+                    }
                 }
             }
 

@@ -22,25 +22,25 @@
 
             <!-- Summary Alert Info -->
             <div class="row g-3 mb-4">
-                <div class="col-md-3">
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
                     <div class="p-3 border rounded-3 bg-light text-center h-100">
                         <span class="text-secondary small fw-bold d-block mb-1">Hari Kerja Efektif</span>
                         <h4 class="fw-bold text-success m-0">{{ summary.total_masuk }} hari</h4>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
                     <div class="p-3 border rounded-3 bg-light text-center h-100">
                         <span class="text-secondary small fw-bold d-block mb-1">Total Wajib Kerja</span>
                         <h4 class="fw-bold text-dark m-0">{{ summary.wajib }}</h4>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
                     <div class="p-3 border rounded-3 bg-light text-center h-100">
                         <span class="text-secondary small fw-bold d-block mb-1">Total Aktual Kerja</span>
                         <h4 class="fw-bold text-primary m-0">{{ summary.aktual }}</h4>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
                     <div class="p-3 border rounded-3 bg-light text-center h-100">
                         <span class="text-secondary small fw-bold d-block mb-2">Akumulasi Selisih</span>
                         <div class="d-flex justify-content-center gap-3">
@@ -55,6 +55,54 @@
                                 </span>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-danger-subtle text-center h-100">
+                        <span class="text-danger small fw-bold d-block mb-1">Penalti Bulan Sebelumnya</span>
+                        <h4 class="fw-bold text-danger m-0">
+                            {% if summary.penalti_sebelumnya != "0m" %}
+                                ⚠️ {{ summary.penalti_sebelumnya }}
+                            {% else %}
+                                0m
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-danger-subtle text-center h-100">
+                        <span class="text-danger small fw-bold d-block mb-1">Total Penalti Terlambat</span>
+                        <h4 class="fw-bold text-danger m-0">
+                            {% if summary.penalti != "0m" %}
+                                ⚠️ {{ summary.penalti }}
+                            {% else %}
+                                0m
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-danger-subtle text-center h-100">
+                        <span class="text-danger small fw-bold d-block mb-1">Total Kumulatif</span>
+                        <h4 class="fw-bold text-danger m-0">
+                            {% if summary.total != "0m" %}
+                                ⚠️ {{ summary.total }}
+                            {% else %}
+                                0m
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-danger-subtle text-center h-100">
+                        <span class="text-danger small fw-bold d-block mb-1">Potong Cuti</span>
+                        <h4 class="fw-bold text-danger m-0">
+                            {% if summary.potong_cuti != "0" %}
+                                ⚠️ {{ summary.potong_cuti }}
+                            {% else %}
+                                0 hari
+                            {% endif %}
+                        </h4>
                     </div>
                 </div>
             </div>
@@ -73,6 +121,8 @@
                             <th scope="col" style="width: 120px;">Aktual Kerja</th>
                             <th scope="col" style="width: 120px;" class="text-success">Kelebihan</th>
                             <th scope="col" style="width: 120px;" class="text-danger">Kekurangan</th>
+                            <th scope="col" style="width: 120px;" class="text-danger">Penalti</th>
+                            <th scope="col" style="width: 120px;" class="text-danger">Total</th>
                             <th scope="col" class="text-start">Keterangan</th>
                         </tr>
                     </thead>
@@ -102,6 +152,20 @@
                             <td class="text-center fw-bold">{{ row.aktual }}</td>
                             <td class="text-center text-success fw-semibold">{{ row.kelebihan }}</td>
                             <td class="text-center text-danger fw-semibold">{{ row.kekurangan }}</td>
+                            <td class="text-center text-danger fw-semibold">
+                                {% if row.penalti != "-" %}
+                                    ⚠️ {{ row.penalti }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-danger fw-semibold">
+                                {% if row.total != "-" %}
+                                    ⚠️ {{ row.total }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td class="text-start text-truncate" style="max-width: 250px;" title="{{ row.keterangan }}">{{ row.keterangan }}</td>
                         </tr>
                         {% endfor %}

@@ -1,0 +1,255 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Upload Form BA Cuti Dinas{% endblock %}
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10 col-12">
+            
+            <!-- Alert Section for Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card shadow border-0" style="border-radius: 16px; overflow: hidden;">
+                
+                <!-- Card Header -->
+                <div class="card-header text-white p-4 border-0 d-flex align-items-center justify-content-between"
+                     style="background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-2 me-3">📤</span>
+                        <div>
+                            <h3 class="fw-bold m-0" style="font-size: 1.3rem;">Upload Form BA Cuti Dinas</h3>
+                            <p class="small text-white-50 m-0">Perpanjang umur cuti dinas karyawan menggunakan Berita Acara resmi</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="card-body p-4 p-md-5 bg-white">
+                    <form id="formBaCutiDinas" action="{{ url_for('form_ba') }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Input Pilih Karyawan -->
+                        <div class="mb-4">
+                            <label for="nik_select" class="form-label fw-bold text-secondary small">Pilih Karyawan</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="nik_select" name="nik" required>
+                                <option value="" disabled selected>-- Pilih Karyawan --</option>
+                                {% for k in karyawan_list %}
+                                <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Cuti Dinas Transactions List -->
+                        <div id="entries-section" class="mb-4 d-none">
+                            <label class="form-label fw-bold text-secondary small mb-2">Pilih Transaksi Cuti Dinas yang Ingin Diperpanjang</label>
+                            <div id="entries-container" class="list-group gap-2" style="max-height: 250px; overflow-y: auto;">
+                                <!-- Dynamic radio lists loaded by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Extension details & BA Form (Hidden until transaction selected) -->
+                        <div id="ba-form-details" class="d-none">
+                            
+                            <!-- Information Block -->
+                            <div class="card border-0 bg-light p-4 mb-4" style="border-radius: 12px;">
+                                <h6 class="fw-bold text-secondary small mb-3"><i class="fas fa-info-circle me-1"></i> Informasi Batas Perpanjangan</h6>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="bg-white p-3 rounded-3 border text-center">
+                                            <div class="text-muted small">Masa Berlaku Saat Ini</div>
+                                            <div id="val-curr-expiration" class="fw-bold text-dark fs-6 mt-1">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="bg-white p-3 rounded-3 border text-center">
+                                            <div class="text-muted/75 small">Batas Maksimal Cuti Tahunan</div>
+                                            <div id="val-max-expiration" class="fw-bold text-danger fs-6 mt-1">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hidden field to store selected CutiManual ID -->
+                            <input type="hidden" id="selected_entry_id" name="entry_id">
+
+                            <!-- Tanggal Kadaluarsa Baru -->
+                            <div class="mb-4">
+                                <label for="tanggal_kadaluarsa_baru" class="form-label fw-bold text-secondary small">Tanggal Kadaluarsa Baru</label>
+                                <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa_baru" name="tanggal_kadaluarsa_baru" required>
+                                <div class="form-text text-muted small mt-1">Tanggal harus di antara masa berlaku saat ini dan batas maksimal cuti tahunan periode tersebut.</div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <h5 class="fw-bold text-primary mb-3">Rincian Berita Acara (BA)</h5>
+
+                            <!-- BA Nomor -->
+                            <div class="mb-4">
+                                <label for="ba_nomor" class="form-label fw-bold text-secondary small">Nomor Berita Acara (BA)</label>
+                                <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="ba_nomor" name="ba_nomor" placeholder="Contoh: BA/SDM/2026/001" required>
+                            </div>
+
+                            <!-- BA Tanggal -->
+                            <div class="mb-4">
+                                <label for="ba_tanggal" class="form-label fw-bold text-secondary small">Tanggal Berita Acara (BA)</label>
+                                <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="ba_tanggal" name="ba_tanggal" required>
+                            </div>
+
+                            <!-- BA Keterangan -->
+                            <div class="mb-5">
+                                <label for="ba_keterangan" class="form-label fw-bold text-secondary small">Keterangan / Catatan BA (Opsional)</label>
+                                <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="ba_keterangan" name="ba_keterangan" rows="3" placeholder="Tambahkan catatan khusus tentang persetujuan perpanjangan ini..."></textarea>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('sdm_transaksi') }}" class="btn btn-light w-50 py-3 fw-bold border" style="border-radius: 8px;">
+                                    Kembali
+                                </a>
+                                <button type="submit" class="btn btn-primary text-white w-50 py-3 fw-bold shadow-sm transition-all" style="border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none;">
+                                    Simpan Perpanjangan
+                                </button>
+                            </div>
+
+                        </div>
+
+                        <!-- Empty state when no entries found -->
+                        <div id="no-entries-alert" class="alert alert-warning border-0 shadow-none rounded-3 d-none text-center p-4">
+                            <span class="fs-4 d-block mb-2">📁</span>
+                            <strong>Karyawan ini belum memiliki riwayat penambahan cuti dinas.</strong>
+                        </div>
+
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const nikSelect = document.getElementById('nik_select');
+        const entriesSection = document.getElementById('entries-section');
+        const entriesContainer = document.getElementById('entries-container');
+        const baFormDetails = document.getElementById('ba-form-details');
+        const noEntriesAlert = document.getElementById('no-entries-alert');
+        
+        const selectedEntryIdInput = document.getElementById('selected_entry_id');
+        const valCurrExpiration = document.getElementById('val-curr-expiration');
+        const valMaxExpiration = document.getElementById('val-max-expiration');
+        const tanggalKadaluarsaBaru = document.getElementById('tanggal_kadaluarsa_baru');
+        
+        let loadedEntries = [];
+
+        if (nikSelect) {
+            nikSelect.addEventListener('change', function () {
+                const nik = this.value;
+                
+                // Reset state
+                entriesSection.classList.add('d-none');
+                baFormDetails.classList.add('d-none');
+                noEntriesAlert.classList.add('d-none');
+                entriesContainer.innerHTML = '';
+                loadedEntries = [];
+                selectedEntryIdInput.value = '';
+
+                if (!nik) return;
+
+                // Fetch Cuti Dinas additions
+                fetch(`/form-ba/api/cuti-dinas/${encodeURIComponent(nik)}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success && res.entries.length > 0) {
+                            loadedEntries = res.entries;
+                            
+                            res.entries.forEach(entry => {
+                                const item = document.createElement('label');
+                                item.className = 'list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3 rounded-3 border mb-2 cursor-pointer';
+                                item.style.cursor = 'pointer';
+                                item.innerHTML = `
+                                    <div class="d-flex align-items-center gap-3">
+                                        <input class="form-check-input mt-0" type="radio" name="entry_radio" value="${entry.id}">
+                                        <div>
+                                            <strong class="text-primary">${entry.jumlah} hari</strong>
+                                            <span class="text-muted small mx-2">|</span>
+                                            <span class="small text-secondary fw-semibold">Tanggal Input: ${entry.tanggal_input}</span>
+                                            ${entry.keterangan ? `<div class="text-muted small mt-1">${entry.keterangan}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-secondary-subtle text-secondary py-1 px-2.5 rounded-pill small">Berlaku s.d: ${entry.tanggal_kadaluarsa}</span>
+                                    </div>
+                                `;
+                                entriesContainer.appendChild(item);
+                            });
+                            
+                            entriesSection.classList.remove('d-none');
+                            
+                            // Add click handler to radio buttons
+                            const radios = entriesContainer.querySelectorAll('input[type="radio"]');
+                            radios.forEach(radio => {
+                                radio.addEventListener('change', function() {
+                                    const entryId = parseInt(this.value);
+                                    const entry = loadedEntries.find(e => e.id === entryId);
+                                    if (entry) {
+                                        selectedEntryIdInput.value = entry.id;
+                                        valCurrExpiration.textContent = entry.tanggal_kadaluarsa;
+                                        valMaxExpiration.textContent = entry.max_extension_date;
+                                        
+                                        // Set bounds for date input
+                                        tanggalKadaluarsaBaru.min = entry.tanggal_kadaluarsa;
+                                        tanggalKadaluarsaBaru.max = entry.max_extension_date;
+                                        tanggalKadaluarsaBaru.value = entry.tanggal_kadaluarsa;
+                                        
+                                        // Fill BA details if they exist
+                                        document.getElementById('ba_nomor').value = entry.ba_nomor;
+                                        document.getElementById('ba_tanggal').value = entry.ba_tanggal;
+                                        document.getElementById('ba_keterangan').value = entry.ba_keterangan;
+
+                                        baFormDetails.classList.remove('d-none');
+                                    }
+                                });
+                            });
+                            
+                        } else {
+                            noEntriesAlert.classList.remove('d-none');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        noEntriesAlert.classList.remove('d-none');
+                    });
+            });
+        }
+    });
+</script>
+
+<style>
+    .transition-all {
+        transition: all 0.25s ease-in-out;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3) !important;
+    }
+    .list-group-item:hover {
+        background-color: rgba(37, 99, 235, 0.03) !important;
+        border-color: rgba(37, 99, 235, 0.2) !important;
+    }
+    .list-group-item input[type="radio"]:checked + div {
+        font-weight: bold;
+    }
+</style>
+{% endblock %}

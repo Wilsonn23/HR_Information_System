@@ -249,11 +249,21 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
             if acc['expiration'] == next_expiration_date
         )
 
+    # Hitung pemotongan cuti akibat penalti jam kerja
+    history = get_karyawan_jam_kerja_history(karyawan)
+    total_potong_cuti = 0
+    ref_month_start = datetime.date(ref_date.year, ref_date.month, 1)
+    
+    for (thn, bln), info in history.items():
+        p_month_start = datetime.date(thn, MONTH_NUMBERS.get(bln, 1), 1)
+        if p_month_start < ref_month_start:
+            total_potong_cuti += info['potong_cuti']
+
     return {
         'accrued': total_accrued,
-        'used': used_leaves_count,
+        'used': used_leaves_count + total_potong_cuti,
         'expired': total_expired,
-        'balance': active_balance,
+        'balance': max(0.0, active_balance - total_potong_cuti),
         'pending_expiration_amount': pending_expiration_amount,
         'leaves': leaves,
         'next_expiration_date': next_expiration_date,
@@ -1251,15 +1261,31 @@ def hapus_cuti():
                 deleted_any = False
 
                 # 1. Hapus Cuti Tahunan Hangus
+                jumlah_hangus_raw = request.form.get(f'jumlah_hangus_{nik}', '').strip()
                 tahunan_info = get_cuti_tahunan_balance(karyawan, system_date)
                 pending_hangus = tahunan_info['pending_expiration_amount']
-                if pending_hangus > 0:
+                
+                jumlah_hangus = pending_hangus
+                if pending_hangus > 0 and jumlah_hangus_raw:
                     try:
-                        ct_keterangan = keterangan or f"Penghapusan cuti hangus massal sebanyak {pending_hangus} hari untuk NIK {nik} pada {tanggal_input}"
+                        jh = float(jumlah_hangus_raw)
+                        if jh < 0:
+                            raise ValueError
+                        if jh > pending_hangus:
+                            error_messages.append(f"NIK {nik}: Jumlah cuti tahunan hangus ({jh}) melebihi batas maksimal ({pending_hangus}).")
+                            continue
+                        jumlah_hangus = jh
+                    except ValueError:
+                        error_messages.append(f"NIK {nik}: Jumlah cuti tahunan hangus tidak valid.")
+                        continue
+
+                if jumlah_hangus > 0:
+                    try:
+                        ct_keterangan = keterangan or f"Penghapusan cuti hangus massal sebanyak {jumlah_hangus} hari untuk NIK {nik} pada {tanggal_input}"
                         new_hangus = CutiManual(
                             nik=nik,
                             tanggal_input=tanggal_input,
-                            jumlah=pending_hangus,
+                            jumlah=jumlah_hangus,
                             tipe='HANGUS',
                             keterangan=ct_keterangan
                         )
@@ -1269,22 +1295,44 @@ def hapus_cuti():
                         error_messages.append(f"NIK {nik}: Gagal menghapus cuti tahunan hangus ({str(e)}).")
 
                 # 2. Hapus Cuti Dinas Hangus
+                jumlah_dinas_raw = request.form.get(f'jumlah_dinas_{nik}', '').strip()
                 dinas_info = get_cuti_dinas_balance(karyawan, system_date)
-                if dinas_info['pending_expiration_amount'] > 0:
+                pending_dinas = dinas_info['pending_expiration_amount']
+                
+                jumlah_dinas = pending_dinas
+                if pending_dinas > 0 and jumlah_dinas_raw:
+                    try:
+                        jd = float(jumlah_dinas_raw)
+                        if jd < 0:
+                            raise ValueError
+                        if jd > pending_dinas:
+                            error_messages.append(f"NIK {nik}: Jumlah cuti dinas hangus ({jd}) melebihi batas maksimal ({pending_dinas}).")
+                            continue
+                        jumlah_dinas = jd
+                    except ValueError:
+                        error_messages.append(f"NIK {nik}: Jumlah cuti dinas hangus tidak valid.")
+                        continue
+
+                if jumlah_dinas > 0:
+                    remaining_to_delete = jumlah_dinas
                     for d in dinas_info['detail']:
+                        if remaining_to_delete <= 0:
+                            break
                         period = d['period']
                         expired_amt = d['expired_amount']
                         if expired_amt > 0:
+                            to_delete_this_period = min(expired_amt, remaining_to_delete)
                             try:
-                                cd_keterangan = f"{period}|{keterangan or f'Penghapusan cuti dinas hangus massal sebanyak {expired_amt} hari untuk NIK {nik} periode {period} pada {tanggal_input}'}"
+                                cd_keterangan = f"{period}|{keterangan or f'Penghapusan cuti dinas hangus massal sebanyak {to_delete_this_period} hari untuk NIK {nik} periode {period} pada {tanggal_input}'}"
                                 new_cd_hangus = CutiManual(
                                     nik=nik,
                                     tanggal_input=tanggal_input,
-                                    jumlah=expired_amt,
+                                    jumlah=to_delete_this_period,
                                     tipe='HANGUS_CD',
                                     keterangan=cd_keterangan
                                 )
                                 db.session.add(new_cd_hangus)
+                                remaining_to_delete -= to_delete_this_period
                                 deleted_any = True
                             except Exception as e:
                                 error_messages.append(f"NIK {nik} (Periode {period}): Gagal menghapus cuti dinas hangus ({str(e)}).")
@@ -1726,8 +1774,9 @@ def tambah_cuti_dinas():
         try:
             dt_kadaluarsa = dt_module.datetime.strptime(tanggal_kadaluarsa, "%Y-%m-%d").date()
             dt_input = dt_module.datetime.strptime(tanggal_input, "%Y-%m-%d").date()
-            if dt_kadaluarsa < dt_input:
-                flash("⚠️ Tanggal kadaluarsa tidak boleh sebelum tanggal input!", "danger")
+            min_allowed = dt_input + dt_module.timedelta(days=30)
+            if dt_kadaluarsa < min_allowed:
+                flash(f"⚠️ Tanggal kadaluarsa tidak boleh kurang dari 30 hari dari tanggal input (minimal {min_allowed.strftime('%Y-%m-%d')})!", "danger")
                 return redirect(url_for('tambah_cuti_dinas'))
         except ValueError:
             flash("⚠️ Format tanggal kadaluarsa tidak valid!", "danger")
@@ -1777,13 +1826,198 @@ def tambah_cuti_dinas():
                 pass
         karyawan_list.append(k)
     
+    min_kadaluarsa = (system_date + dt_module.timedelta(days=30)).strftime("%Y-%m-%d")
+    
     return render_template(
         'sdm/tambah_cuti_dinas.html',
         karyawan_list=karyawan_list,
         system_date=tanggal_input,
+        min_kadaluarsa=min_kadaluarsa,
         current_period=ref_period,
         active_page='sdm-transaksi'
     )
+
+@app.route('/form-ba', methods=['GET', 'POST'])
+def form_ba():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    # Resolve system/simulation date
+    import datetime as dt_module
+    if 'simulation_date' in session:
+        try:
+            system_date = dt_module.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+        except ValueError:
+            system_date = dt_module.date.today()
+    else:
+        system_date = dt_module.date.today()
+        
+    tanggal_input = system_date.strftime("%Y-%m-%d")
+
+    if request.method == 'POST':
+        entry_id_raw = request.form.get('entry_id')
+        tanggal_kadaluarsa_baru = request.form.get('tanggal_kadaluarsa_baru')
+        ba_nomor = request.form.get('ba_nomor', '').strip()
+        ba_tanggal = request.form.get('ba_tanggal', '').strip()
+        ba_keterangan = request.form.get('ba_keterangan', '').strip()
+        
+        if not (entry_id_raw and tanggal_kadaluarsa_baru and ba_nomor and ba_tanggal):
+            flash("⚠️ Kolom ID Transaksi, Tanggal Kadaluarsa Baru, Nomor BA, dan Tanggal BA wajib diisi!", "danger")
+            return redirect(url_for('form_ba'))
+            
+        try:
+            entry_id = int(entry_id_raw)
+        except ValueError:
+            flash("⚠️ ID transaksi tidak valid!", "danger")
+            return redirect(url_for('form_ba'))
+            
+        entry = db.session.get(CutiManual, entry_id)
+        if not entry or entry.tipe != 'ADD_CD':
+            flash("⚠️ Transaksi cuti dinas tidak ditemukan!", "danger")
+            return redirect(url_for('form_ba'))
+            
+        karyawan = db.session.execute(
+            db.select(KaryawanEntry).where(KaryawanEntry.nik == entry.nik)
+        ).scalar_one_or_none()
+        if not karyawan:
+            flash("⚠️ Karyawan tidak ditemukan!", "danger")
+            return redirect(url_for('form_ba'))
+            
+        # Parse TMK date
+        raw_tmk = None
+        for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+            try:
+                raw_tmk = dt_module.datetime.strptime(karyawan.tmk.strip(), fmt).date()
+                break
+            except (ValueError, AttributeError):
+                continue
+                
+        if not raw_tmk:
+            flash("⚠️ Data TMK karyawan tidak valid untuk perhitungan batas!", "danger")
+            return redirect(url_for('form_ba'))
+            
+        tmk_date = dt_module.date(raw_tmk.year, raw_tmk.month, 1)
+        try:
+            m_date = dt_module.datetime.strptime(entry.tanggal_input, "%Y-%m-%d").date()
+        except Exception:
+            m_date = system_date
+            
+        # Cari E_n (batas maksimum umur cuti tahunan periode tersebut)
+        n = 1
+        while True:
+            max_limit = add_months(tmk_date, 28 + 12 * (n - 1))
+            if max_limit >= m_date:
+                break
+            n += 1
+            
+        try:
+            dt_baru = dt_module.datetime.strptime(tanggal_kadaluarsa_baru, "%Y-%m-%d").date()
+            if dt_baru > max_limit:
+                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh melebihi batas masa berlaku cuti tahunan periode tersebut ({max_limit.strftime('%Y-%m-%d')})!", "danger")
+                return redirect(url_for('form_ba'))
+        except ValueError:
+            flash("⚠️ Format tanggal kadaluarsa baru tidak valid!", "danger")
+            return redirect(url_for('form_ba'))
+
+        try:
+            entry.tanggal_kadaluarsa = tanggal_kadaluarsa_baru
+            entry.ba_nomor = ba_nomor
+            entry.ba_tanggal = ba_tanggal
+            entry.ba_keterangan = ba_keterangan
+            db.session.commit()
+            
+            # Log action
+            from sdm import sdm_log
+            sdm_log('PERPANJANG_CUTI_DINAS', 'CUTI', f"Perpanjang cuti dinas {karyawan.nama} ({entry.nik}) s.d. {tanggal_kadaluarsa_baru} dengan BA No. {ba_nomor}.", nik=entry.nik, nama_karyawan=karyawan.nama)
+            
+            flash(f"🎉 Sukses memperpanjang cuti dinas {karyawan.nama} s.d. {tanggal_kadaluarsa_baru} berdasarkan BA No. {ba_nomor}!", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"⚠️ Gagal menyimpan perpanjangan: {str(e)}", "danger")
+            
+        return redirect(url_for('form_ba'))
+
+    # GET: Get all active employees (excluding resigned ones)
+    all_k = db.session.execute(
+        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+    ).scalars().all()
+    karyawan_list = []
+    for k in all_k:
+        if k.tanggal_resign:
+            try:
+                dt_resign = dt_module.datetime.strptime(k.tanggal_resign, "%Y-%m-%d").date()
+                if dt_resign <= system_date:
+                    continue
+            except ValueError:
+                pass
+        karyawan_list.append(k)
+        
+    return render_template(
+        'sdm/form_ba.html',
+        karyawan_list=karyawan_list,
+        system_date=tanggal_input,
+        active_page='sdm-transaksi'
+    )
+
+@app.route('/form-ba/api/cuti-dinas/<nik>')
+def form_ba_api_cuti_dinas(nik):
+    if 'logged_user' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    karyawan = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.nik == nik)
+    ).scalar_one_or_none()
+    if not karyawan:
+        return jsonify({'success': False, 'message': 'Karyawan tidak ditemukan'}), 404
+        
+    add_manuals = db.session.execute(
+        db.select(CutiManual).where(
+            CutiManual.nik == nik,
+            CutiManual.tipe == 'ADD_CD'
+        ).order_by(CutiManual.tanggal_input.desc())
+    ).scalars().all()
+    
+    import datetime as dt_module
+    raw_tmk = None
+    for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+        try:
+            raw_tmk = dt_module.datetime.strptime(karyawan.tmk.strip(), fmt).date()
+            break
+        except (ValueError, AttributeError):
+            continue
+            
+    if not raw_tmk:
+        return jsonify({'success': True, 'entries': []})
+        
+    tmk_date = dt_module.date(raw_tmk.year, raw_tmk.month, 1)
+    
+    entries_data = []
+    for m in add_manuals:
+        try:
+            m_date = dt_module.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
+        except Exception:
+            continue
+            
+        n = 1
+        while True:
+            max_limit = add_months(tmk_date, 28 + 12 * (n - 1))
+            if max_limit >= m_date:
+                break
+            n += 1
+            
+        entries_data.append({
+            'id': m.id,
+            'tanggal_input': m.tanggal_input,
+            'jumlah': m.jumlah,
+            'keterangan': m.keterangan or '',
+            'tanggal_kadaluarsa': m.tanggal_kadaluarsa or max_limit.strftime("%Y-%m-%d"),
+            'max_extension_date': max_limit.strftime("%Y-%m-%d"),
+            'ba_nomor': m.ba_nomor or '',
+            'ba_tanggal': m.ba_tanggal or '',
+            'ba_keterangan': m.ba_keterangan or ''
+        })
+        
+    return jsonify({'success': True, 'entries': entries_data})
 
 @app.route('/master-cuti/update', methods=['POST'])
 def update_cuti():
@@ -3345,6 +3579,94 @@ def time_to_minutes(t_obj):
         return 0
     return t_obj.hour * 60 + t_obj.minute
 
+def get_karyawan_jam_kerja_history(karyawan):
+    presences = db.session.execute(
+        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
+    ).scalars().all()
+    
+    MONTH_NUMBERS = {
+        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+    }
+    
+    presences.sort(key=lambda p: (p.tahun, MONTH_NUMBERS.get(p.bulan, 0)))
+    
+    carry_over_penalty = 0
+    history = {}
+    
+    s_start = time_to_minutes(karyawan.jam_masuk)
+    s_end = time_to_minutes(karyawan.jam_pulang)
+    s_dur = max(0, s_end - s_start - 60) if s_end > s_start else 0
+
+    for p in presences:
+        m_num = MONTH_NUMBERS.get(p.bulan)
+        if not m_num:
+            continue
+            
+        bulan_db = db.session.execute(
+            db.select(Bulan).where(Bulan.nama == p.bulan)
+        ).scalar_one_or_none()
+        jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
+        if p.bulan == 'Februari':
+            is_leap = (p.tahun % 4 == 0 and (p.tahun % 100 != 0 or p.tahun % 400 == 0))
+            jumlah_hari = 29 if is_leap else 28
+
+        total_kekurangan_menit = 0
+        total_penalti_menit = 0
+        
+        if p.status_hari:
+            for d in range(1, jumlah_hari + 1):
+                status = p.status_hari.get(str(d))
+                if status == 'M':
+                    scan_in = p.scan_masuk_hari.get(str(d))
+                    scan_out = p.scan_pulang_hari.get(str(d))
+                    
+                    in_mins = parse_time_str_to_minutes(scan_in)
+                    out_mins = parse_time_str_to_minutes(scan_out)
+                    
+                    if in_mins and in_mins > s_start + 30:
+                        is_izin = bool(p.izin_hari.get(str(d))) if p.izin_hari else False
+                        if not is_izin:
+                            total_penalti_menit += (in_mins - s_start)
+                    
+                    if in_mins and out_mins:
+                        if in_mins < s_start:
+                            in_mins = s_start
+                            
+                    if in_mins and out_mins and out_mins > in_mins:
+                        if in_mins < 13 * 60:
+                            a_dur = max(0, (out_mins - in_mins) - 60)
+                        else:
+                            a_dur = max(0, out_mins - in_mins)
+                        if a_dur < s_dur:
+                            total_kekurangan_menit += (s_dur - a_dur)
+                    else:
+                        total_kekurangan_menit += s_dur
+                        
+        net_deficit = total_kekurangan_menit + total_penalti_menit
+        total_combined = net_deficit + carry_over_penalty
+        
+        deduction = 0.5 * (total_combined // 240)
+        
+        if deduction > 0:
+            next_carry_over = 0
+        else:
+            next_carry_over = total_combined
+            
+        history[(p.tahun, p.bulan)] = {
+            'penalti_sebelumnya': carry_over_penalty,
+            'kekurangan': total_kekurangan_menit,
+            'penalti_terlambat': total_penalti_menit,
+            'total': total_combined,
+            'potong_cuti': deduction,
+            'next_carry_over': next_carry_over
+        }
+        
+        carry_over_penalty = next_carry_over
+        
+    return history
+
 @app.route('/master-jam-kerja')
 def master_jam_kerja():
     if 'logged_user' not in session:
@@ -3425,6 +3747,7 @@ def master_jam_kerja():
         total_aktual_menit = 0
         total_kelebihan_menit = 0
         total_kekurangan_menit = 0
+        total_penalti_menit = 0
 
         presence = db.session.execute(
             db.select(Kehadiran).where(
@@ -3450,6 +3773,11 @@ def master_jam_kerja():
                     
                     in_mins = parse_time_str_to_minutes(scan_in)
                     out_mins = parse_time_str_to_minutes(scan_out)
+                    
+                    if in_mins and in_mins > s_start + 30:
+                        is_izin = bool(presence.izin_hari.get(str(d))) if (presence and presence.izin_hari) else False
+                        if not is_izin:
+                            total_penalti_menit += (in_mins - s_start)
                     
                     if in_mins and out_mins:
                         if in_mins < s_start:
@@ -3483,6 +3811,12 @@ def master_jam_kerja():
             else:
                 return f"{h}j {m}m"
 
+        history = get_karyawan_jam_kerja_history(k)
+        info = history.get((selected_tahun, selected_bulan), {})
+        penalti_sebelumnya_menit = info.get('penalti_sebelumnya', 0)
+        total_gabungan_menit = info.get('total', total_kekurangan_menit + total_penalti_menit)
+        potong_cuti = info.get('potong_cuti', 0.0)
+
         entries.append({
             'nik': k.nik,
             'nama': k.nama,
@@ -3491,7 +3825,11 @@ def master_jam_kerja():
             'wajib': format_mins(total_wajib_menit),
             'aktual': format_mins(total_aktual_menit),
             'kelebihan': format_mins(total_kelebihan_menit),
-            'kekurangan': format_mins(total_kekurangan_menit)
+            'kekurangan': format_mins(total_kekurangan_menit),
+            'penalti': format_mins(total_penalti_menit),
+            'penalti_sebelumnya': format_mins(penalti_sebelumnya_menit),
+            'total': format_mins(total_gabungan_menit),
+            'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "-"
         })
 
     list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
@@ -3587,6 +3925,7 @@ def master_jam_kerja_detail(nik):
     total_aktual_menit = 0
     total_kelebihan_menit = 0
     total_kekurangan_menit = 0
+    total_penalti_menit = 0
 
     for d in range(1, jumlah_hari + 1):
         try:
@@ -3604,6 +3943,9 @@ def master_jam_kerja_detail(nik):
         aktual_str = "-"
         kelebihan_str = "-"
         kekurangan_str = "-"
+        penalti_str = "-"
+        diff_kekurangan = 0
+        diff_penalti = 0
         
         if status == 'M':
             total_masuk += 1
@@ -3612,6 +3954,14 @@ def master_jam_kerja_detail(nik):
             
             in_mins = parse_time_str_to_minutes(scan_in)
             out_mins = parse_time_str_to_minutes(scan_out)
+            
+            # Hitung penalti jam terlambat yang belum izin
+            if in_mins and in_mins > s_start + 30:
+                is_izin = bool(presence.izin_hari.get(str(d))) if (presence and presence.izin_hari) else False
+                if not is_izin:
+                    diff_penalti = in_mins - s_start
+                    total_penalti_menit += diff_penalti
+                    penalti_str = f"{diff_penalti // 60}j {diff_penalti % 60}m" if diff_penalti >= 60 else f"{diff_penalti}m"
             
             if in_mins and out_mins:
                 if in_mins < s_start:
@@ -3630,14 +3980,21 @@ def master_jam_kerja_detail(nik):
                     total_kelebihan_menit += diff
                     kelebihan_str = f"{diff // 60}j {diff % 60}m"
                 elif a_dur < s_dur:
-                    diff = s_dur - a_dur
-                    total_kekurangan_menit += diff
-                    kekurangan_str = f"{diff // 60}j {diff % 60}m"
+                    diff_kekurangan = s_dur - a_dur
+                    total_kekurangan_menit += diff_kekurangan
+                    kekurangan_str = f"{diff_kekurangan // 60}j {diff_kekurangan % 60}m"
             else:
-                total_kekurangan_menit += s_dur
+                diff_kekurangan = s_dur
+                total_kekurangan_menit += diff_kekurangan
                 kekurangan_str = f"{s_dur // 60}j {s_dur % 60}m"
         elif status == 'A':
             total_alpa += 1
+
+        daily_total_menit = diff_kekurangan + diff_penalti
+        if daily_total_menit > 0:
+            daily_total_str = f"{daily_total_menit // 60}j {daily_total_menit % 60}m" if daily_total_menit >= 60 else f"{daily_total_menit}m"
+        else:
+            daily_total_str = "-"
 
         daily_details.append({
             'tanggal': d,
@@ -3649,6 +4006,8 @@ def master_jam_kerja_detail(nik):
             'aktual': aktual_str,
             'kelebihan': kelebihan_str,
             'kekurangan': kekurangan_str,
+            'penalti': penalti_str,
+            'total': daily_total_str,
             'keterangan': keterangan or '-'
         })
 
@@ -3664,13 +4023,23 @@ def master_jam_kerja_detail(nik):
         else:
             return f"{h}j {m}m"
 
+    history = get_karyawan_jam_kerja_history(karyawan)
+    info = history.get((selected_tahun, selected_bulan), {})
+    penalti_sebelumnya = info.get('penalti_sebelumnya', 0)
+    total_gabungan_menit = info.get('total', total_kekurangan_menit + total_penalti_menit)
+    potong_cuti = info.get('potong_cuti', 0.0)
+
     summary = {
         'total_masuk': total_masuk,
         'total_alpa': total_alpa,
         'wajib': format_mins(total_wajib_menit),
         'aktual': format_mins(total_aktual_menit),
         'kelebihan': format_mins(total_kelebihan_menit),
-        'kekurangan': format_mins(total_kekurangan_menit)
+        'kekurangan': format_mins(total_kekurangan_menit),
+        'penalti': format_mins(total_penalti_menit),
+        'penalti_sebelumnya': format_mins(penalti_sebelumnya),
+        'total': format_mins(total_gabungan_menit),
+        'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "0"
     }
 
     return render_template(
