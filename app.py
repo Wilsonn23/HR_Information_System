@@ -200,6 +200,23 @@ with app.app_context():
             db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_keterangan VARCHAR(255)"))
             db.session.commit()
             print("Successfully added ba_nomor, ba_tanggal, and ba_keterangan columns to cuti_manual table.")
+            
+        # Clean up duplicate cache rows from saldo_cuti_bulanan
+        try:
+            db.session.execute(text("""
+                DELETE FROM saldo_cuti_bulanan a
+                USING saldo_cuti_bulanan b
+                WHERE a.id > b.id
+                  AND a.nik = b.nik
+                  AND a.tahun = b.tahun
+                  AND a.bulan = b.bulan;
+            """))
+            db.session.commit()
+            print("Successfully deduplicated saldo_cuti_bulanan table.")
+        except Exception as ex_dedup:
+            db.session.rollback()
+            print(f"No dedup or table not yet created: {ex_dedup}")
+            
     except Exception as e:
         db.session.rollback()
         print(f"Error checking/adding cuti_manual columns: {e}")
@@ -477,6 +494,26 @@ class CutiManual(db.Model):
     @property
     def nama(self):
         return self.karyawan.nama if self.karyawan else ""
+
+class SaldoCutiBulanan(db.Model):
+    __tablename__ = "saldo_cuti_bulanan"
+    
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nik: Mapped[str] = mapped_column(db.ForeignKey('karyawan_entries.nik'), nullable=False)
+    tahun: Mapped[int] = mapped_column(db.Integer, nullable=False)
+    bulan: Mapped[int] = mapped_column(db.Integer, nullable=False)
+    
+    # Saldo cuti tahunan di akhir bulan ini
+    tahunan_balance: Mapped[float] = mapped_column(db.Float, default=0.0)
+    tahunan_used: Mapped[float] = mapped_column(db.Float, default=0.0)
+    tahunan_expired: Mapped[float] = mapped_column(db.Float, default=0.0)
+    tahunan_accruals_json: Mapped[str] = mapped_column(db.Text, nullable=True) # JSON status accruals aktif
+    
+    # Saldo cuti dinas di akhir bulan ini
+    dinas_balance: Mapped[float] = mapped_column(db.Float, default=0.0)
+    dinas_detail_json: Mapped[str] = mapped_column(db.Text, nullable=True) # JSON status cuti dinas detail aktif
+    
+    karyawan: Mapped["KaryawanEntry"] = db.relationship("KaryawanEntry")
 
 class Bulan(db.Model):
     __tablename__ = "bulan"
