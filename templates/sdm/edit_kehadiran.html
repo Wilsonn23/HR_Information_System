@@ -213,7 +213,7 @@
                                         
                                         {% if is_izin %}
                                             {% set cell_class = 'bg-izin-green' %}
-                                        {% elif is_late %}
+                                        {% elif is_late or is_early %}
                                             {% set cell_class = 'bg-late-brown' %}
                                         {% endif %}
                                     {% endif %}

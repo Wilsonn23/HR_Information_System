@@ -60,6 +60,9 @@ def import_karyawan_excel(filepath):
     error_count = 0
     
     with app.app_context():
+        existing_niks = set(db.session.execute(db.select(KaryawanEntry.nik)).scalars().all())
+        existing_absens = set(db.session.execute(db.select(KaryawanEntry.absen)).scalars().all())
+        
         for idx, row in df.iterrows():
             try:
                 # Absen
@@ -118,17 +121,8 @@ def import_karyawan_excel(filepath):
                 jam_masuk = parse_time(row[col_masuk])
                 jam_pulang = parse_time(row[col_pulang])
                 
-                # Cek duplikat NIK
-                exists_nik = db.session.execute(
-                    db.select(KaryawanEntry).where(KaryawanEntry.nik == val_nik)
-                ).scalar_one_or_none()
-                
-                # Cek duplikat Absen
-                exists_absen = db.session.execute(
-                    db.select(KaryawanEntry).where(KaryawanEntry.absen == absen)
-                ).scalar_one_or_none()
-                
-                if exists_nik or exists_absen:
+                # Cek duplikat NIK & Absen
+                if val_nik in existing_niks or absen in existing_absens:
                     print(f"⚠️ Baris {idx+2}: NIK '{val_nik}' atau Absen '{absen}' sudah digunakan, dilewati.")
                     skip_count += 1
                     continue
@@ -151,6 +145,8 @@ def import_karyawan_excel(filepath):
                 
                 db.session.add(new_k)
                 db.session.add(new_c)
+                existing_niks.add(val_nik)
+                existing_absens.add(absen)
                 success_count += 1
                 
             except Exception as e:

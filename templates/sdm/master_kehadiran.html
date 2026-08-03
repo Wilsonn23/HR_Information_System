@@ -184,9 +184,17 @@
                                         {% set cell_class = 'bg-weekend-libur' %}
                                     {% elif status == 'M' %}
                                         {% set masuk_time = entry.scan_masuk_hari.get(d|string, '') if entry.scan_masuk_hari else '' %}
+                                        {% set pulang_time = entry.scan_pulang_hari.get(d|string, '') if entry.scan_pulang_hari else '' %}
+                                        {% set is_late = masuk_time|is_late_scan %}
+                                        {% set is_early = False %}
+                                        {% if entry.karyawan and entry.karyawan.jam_pulang %}
+                                            {% if pulang_time|is_early_checkout(entry.karyawan.jam_pulang) %}
+                                                {% set is_early = True %}
+                                            {% endif %}
+                                        {% endif %}
                                         {% if is_izin %}
                                             {% set cell_class = 'bg-izin-green' %}
-                                        {% elif masuk_time|is_late_scan %}
+                                        {% elif is_late or is_early %}
                                             {% set cell_class = 'bg-late-brown' %}
                                         {% endif %}
                                     {% elif status == 'P' %}

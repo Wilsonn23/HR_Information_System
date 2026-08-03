@@ -2935,10 +2935,11 @@ def export_excel():
         out_buffer.seek(0)
         
         filename = f"DatabaseMasterExport_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        return Response(
-            out_buffer.getvalue(),
+        return send_file(
+            out_buffer,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            as_attachment=True,
+            download_name=filename
         )
         
     except Exception as e:
@@ -3059,10 +3060,11 @@ def export_lokasi_kerja():
         out_buffer.seek(0)
         
         filename = f"Data_Lokasi_Kerja_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        return Response(
-            out_buffer.getvalue(),
+        return send_file(
+            out_buffer,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            as_attachment=True,
+            download_name=filename
         )
     except Exception as e:
         return f"Terjadi kesalahan saat mengekspor Lokasi Kerja ke Excel: {str(e)}", 500
@@ -3233,10 +3235,11 @@ def export_unit_excel():
         out_buffer.seek(0)
         
         filename = f"Laporan_Unit_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        return Response(
-            out_buffer.getvalue(),
+        return send_file(
+            out_buffer,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            as_attachment=True,
+            download_name=filename
         )
         
     except Exception as e:
@@ -3347,10 +3350,11 @@ def export_transaksi_excel():
         
         groupby_camel = "".join(word.capitalize() for word in group_by.replace("_", " ").split())
         filename = f"Laporan_Transaksi_Berdasarkan_{groupby_camel}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        return Response(
-            out_buffer.getvalue(),
+        return send_file(
+            out_buffer,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            as_attachment=True,
+            download_name=filename
         )
         
     except Exception as e:

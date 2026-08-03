@@ -27,9 +27,12 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <!-- Input Pilih Karyawan -->
-                        <div class="mb-4">
-                            <label for="nik_select" class="form-label fw-bold text-secondary small">Karyawan</label>
-                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="nik_select" name="nik" required>
+                        <div class="mb-4 position-relative">
+                            <label for="employee_search_suggest" class="form-label fw-bold text-secondary small">Karyawan</label>
+                            <input type="text" id="employee_search_suggest" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" placeholder="Ketik nama, NIK, atau nomor absen..." autocomplete="off" required>
+                            <div id="suggestions_list" class="list-group shadow-lg position-absolute w-100 d-none" style="z-index: 1050; max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid #e5e7eb; background: white; margin-top: 5px;"></div>
+                            
+                            <select class="form-select d-none" id="nik_select" name="nik" required>
                                 <option value="" disabled selected>-- Pilih Karyawan --</option>
                                 {% for k in karyawan_list %}
                                 <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
@@ -94,6 +97,71 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const nikSelect = document.getElementById('nik_select');
+        const searchInput = document.getElementById('employee_search_suggest');
+        const suggestionsList = document.getElementById('suggestions_list');
+        
+        if (searchInput && nikSelect && suggestionsList) {
+            const employees = Array.from(nikSelect.options)
+                .filter(opt => opt.value !== "")
+                .map(opt => ({
+                    value: opt.value,
+                    text: opt.text
+                }));
+                
+            function showSuggestions(filterText) {
+                const filter = filterText.toLowerCase().trim();
+                suggestionsList.innerHTML = '';
+                
+                const matches = employees.filter(emp => emp.text.toLowerCase().includes(filter));
+                
+                if (matches.length === 0) {
+                    const noMatchItem = document.createElement('div');
+                    noMatchItem.className = 'list-group-item text-muted small py-3 px-4';
+                    noMatchItem.textContent = '❌ Karyawan tidak ditemukan';
+                    suggestionsList.appendChild(noMatchItem);
+                } else {
+                    matches.forEach(emp => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'list-group-item list-group-item-action border-0 py-2.5 px-4 text-start small fw-semibold';
+                        item.style.outline = 'none';
+                        item.textContent = emp.text;
+                        
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            searchInput.value = emp.text;
+                            nikSelect.value = emp.value;
+                            suggestionsList.classList.add('d-none');
+                            
+                            nikSelect.dispatchEvent(new Event('change'));
+                        });
+                        
+                        suggestionsList.appendChild(item);
+                    });
+                }
+                suggestionsList.classList.remove('d-none');
+            }
+            
+            searchInput.addEventListener('focus', function() {
+                showSuggestions(this.value);
+            });
+            
+            searchInput.addEventListener('input', function() {
+                showSuggestions(this.value);
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+                    suggestionsList.classList.add('d-none');
+                    const currentOption = nikSelect.options[nikSelect.selectedIndex];
+                    if (currentOption && currentOption.value !== "") {
+                        searchInput.value = currentOption.text;
+                    } else {
+                        searchInput.value = '';
+                    }
+                }
+            });
+        }
         const infoCard = document.getElementById('dinas-info-card');
         const valAdded = document.getElementById('val-dinas-added');
         const valActive = document.getElementById('val-dinas-active');

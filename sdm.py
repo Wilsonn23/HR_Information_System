@@ -8,7 +8,7 @@ from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional, Length
 from werkzeug.security import generate_password_hash
 
-from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog, SaldoCutiBulanan
+from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog
 
 def sdm_log(aksi: str, kategori: str, detail: str, nik: str = None, nama_karyawan: str = None):
     """Helper untuk mencatat log aktivitas SDM ke tabel sdm_activity_logs."""
@@ -73,384 +73,7 @@ def add_months(start_date, months):
     month = (start_date.month + months - 1) % 12 + 1
     return datetime.date(year, month, 1)
 
-def invalidate_saldo_cuti_cache(nik, tahun, bulan):
-    """
-    Menghapus seluruh cache saldo_cuti_bulanan karyawan (nik)
-    mulai dari tahun/bulan yang diberikan ke depan.
-    """
-    try:
-        db.session.execute(
-            db.delete(SaldoCutiBulanan).where(
-                SaldoCutiBulanan.nik == nik,
-                (SaldoCutiBulanan.tahun > int(tahun)) |
-                ((SaldoCutiBulanan.tahun == int(tahun)) & (SaldoCutiBulanan.bulan >= int(bulan)))
-            )
-        )
-    except Exception as e:
-        print(f"Error invalidating cache for {nik}: {e}")
-
-def populate_saldo_cuti_cache_up_to(karyawan, limit_date):
-    """
-    Kalkulasi kronologis satu kali jalan (single-pass) sejak TMK sampai limit_date.
-    Menyimpan cache bulanan ke database dalam satu transaksi.
-    """
-    import datetime
-    import json
-    
-    raw_tmk = None
-    for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
-        try:
-            raw_tmk = datetime.datetime.strptime(karyawan.tmk.strip(), fmt).date()
-            break
-        except (ValueError, AttributeError):
-            continue
-    if not raw_tmk:
-        return
-        
-    tmk_date = datetime.date(raw_tmk.year, raw_tmk.month, 1)
-    
-    # ------------------ PRE-FETCH DATA ------------------
-    kehadiran_entries = db.session.execute(
-        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
-    ).scalars().all()
-    
-    MONTH_NUMBERS = {
-        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
-        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
-        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
-    }
-    
-    # Leaves & Usages CD
-    leaves = []
-    usages_cd = []
-    for entry in kehadiran_entries:
-        m_num = MONTH_NUMBERS.get(entry.bulan)
-        if not m_num:
-            continue
-        if entry.status_hari:
-            for d_str, status in entry.status_hari.items():
-                if status == 'CT':
-                    try:
-                        leaves.append(datetime.date(entry.tahun, m_num, int(d_str)))
-                    except ValueError:
-                        pass
-                elif status == 'CD':
-                    try:
-                        usages_cd.append({
-                            'date': datetime.date(entry.tahun, m_num, int(d_str)),
-                            'amount': 1.0
-                        })
-                    except ValueError:
-                        pass
-    leaves.sort()
-    
-    # CutiManual entries
-    manual_leaves_all = db.session.execute(
-        db.select(CutiManual).where(CutiManual.nik == karyawan.nik)
-    ).scalars().all()
-    
-    manual_ct = sorted([m for m in manual_leaves_all if m.tipe == 'CT'], key=lambda x: x.tanggal_input)
-    manual_hangus = sorted([m for m in manual_leaves_all if m.tipe == 'HANGUS'], key=lambda x: x.tanggal_input)
-    
-    manual_add_cd = sorted([m for m in manual_leaves_all if m.tipe == 'ADD_CD'], key=lambda x: x.tanggal_input)
-    manual_cd_use = sorted([m for m in manual_leaves_all if m.tipe == 'CD'], key=lambda x: x.tanggal_input)
-    manual_hangus_cd = sorted([m for m in manual_leaves_all if m.tipe == 'HANGUS_CD'], key=lambda x: x.tanggal_input)
-    
-    # ------------------ RESOLVE START DATE ------------------
-    # We simulate month-by-month starting from TMK
-    start_sim_date = tmk_date
-    
-    # Find latest cache before limit_date
-    latest_cache = db.session.execute(
-        db.select(SaldoCutiBulanan)
-        .where(
-            SaldoCutiBulanan.nik == karyawan.nik,
-            (SaldoCutiBulanan.tahun < limit_date.year) | 
-            ((SaldoCutiBulanan.tahun == limit_date.year) & (SaldoCutiBulanan.bulan < limit_date.month))
-        )
-        .order_by(SaldoCutiBulanan.tahun.desc(), SaldoCutiBulanan.bulan.desc())
-    ).scalars().first()
-    
-    accruals = []
-    used_leaves_count = 0
-    tahunan_total_expired = 0
-    
-    dinas_allocations = []
-    dinas_total_deleted = 0
-    
-    if latest_cache:
-        # Load tahunan state
-        used_leaves_count = latest_cache.tahunan_used
-        tahunan_total_expired = latest_cache.tahunan_expired
-        accruals_data = json.loads(latest_cache.tahunan_accruals_json or "[]")
-        for acc in accruals_data:
-            accruals.append({
-                'date': datetime.datetime.strptime(acc['date'], "%Y-%m-%d").date(),
-                'amount': float(acc['amount']),
-                'expiration': datetime.datetime.strptime(acc['expiration'], "%Y-%m-%d").date(),
-                'remaining': float(acc['remaining'])
-            })
-            
-        # Load dinas state
-        dinas_allocs_data = json.loads(latest_cache.dinas_detail_json or "[]")
-        for a in dinas_allocs_data:
-            dinas_allocations.append({
-                'date': datetime.datetime.strptime(a['date'], "%Y-%m-%d").date(),
-                'amount': float(a['amount']),
-                'expiration': datetime.datetime.strptime(a['expiration'], "%Y-%m-%d").date(),
-                'remaining': float(a['remaining'])
-            })
-        
-        # Calculate HANGUS_CD sum up to the cache date
-        prev_month_end_cache = datetime.date(latest_cache.tahun, latest_cache.bulan, 28)
-        dinas_total_deleted = sum(m.jumlah for m in manual_hangus_cd if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date() <= prev_month_end_cache)
-        
-        if latest_cache.bulan == 12:
-            curr_sim_year = latest_cache.tahun + 1
-            curr_sim_month = 1
-        else:
-            curr_sim_year = latest_cache.tahun
-            curr_sim_month = latest_cache.bulan + 1
-        curr_sim_date = datetime.date(curr_sim_year, curr_sim_month, 1)
-    else:
-        curr_sim_date = start_sim_date
-
-    # Loop month-by-month
-    while curr_sim_date <= limit_date:
-        import calendar
-        _, last_day = calendar.monthrange(curr_sim_date.year, curr_sim_date.month)
-        month_end_date = datetime.date(curr_sim_date.year, curr_sim_date.month, last_day)
-        
-        # ======================================================
-        # 1. CUTI TAHUNAN CALCULATIONS
-        # ======================================================
-        if month_end_date >= add_months(tmk_date, 12):
-            max_accrual_date = month_end_date
-            last_accrual_date = max(acc['date'] for acc in accruals) if accruals else add_months(tmk_date, 11)
-            m = 12
-            while True:
-                accrual_date = add_months(tmk_date, m)
-                if accrual_date <= last_accrual_date:
-                    m += 1
-                    continue
-                if accrual_date > max_accrual_date:
-                    break
-                    
-                if m < 24:
-                    amount = 12 if m == 12 else 1
-                    expiration_date = add_months(tmk_date, 28)
-                else:
-                    amount = 1
-                    year_idx = m // 12
-                    expiration_date = add_months(tmk_date, 12 * year_idx + 16)
-
-                accruals.append({
-                    'date': accrual_date,
-                    'amount': amount,
-                    'expiration': expiration_date,
-                    'remaining': amount
-                })
-                m += 1
-                
-            # Deduct leaves
-            leaves_this_month = [l for l in leaves if l.year == curr_sim_date.year and l.month == curr_sim_date.month]
-            for leave_date in leaves_this_month:
-                for acc in accruals:
-                    if acc['date'] <= leave_date and acc['expiration'] > leave_date and acc['remaining'] > 0:
-                        acc['remaining'] -= 1
-                        used_leaves_count += 1
-                        break
-                        
-            # Deduct Manual CT
-            manual_ct_this_month = [m for m in manual_ct if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().year == curr_sim_date.year and datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().month == curr_sim_date.month]
-            manual_used_sum = sum(m.jumlah for m in manual_ct_this_month)
-            
-            remaining_manual_to_consume = manual_used_sum
-            for acc in accruals:
-                if remaining_manual_to_consume <= 0:
-                    break
-                if acc['remaining'] > 0:
-                    consume_amount = min(acc['remaining'], remaining_manual_to_consume)
-                    acc['remaining'] -= consume_amount
-                    remaining_manual_to_consume -= consume_amount
-                    used_leaves_count += consume_amount
-                    
-            # Deduct Manual HANGUS
-            manual_hangus_this_month = [m for m in manual_hangus if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().year == curr_sim_date.year and datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().month == curr_sim_date.month]
-            manual_expired_sum = sum(m.jumlah for m in manual_hangus_this_month)
-            tahunan_total_expired += manual_expired_sum
-            
-            remaining_expired_to_consume = manual_expired_sum
-            for acc in accruals:
-                if remaining_expired_to_consume <= 0:
-                    break
-                if acc['expiration'] <= month_end_date and acc['remaining'] > 0:
-                    consume_amount = min(acc['remaining'], remaining_expired_to_consume)
-                    acc['remaining'] -= consume_amount
-                    remaining_expired_to_consume -= consume_amount
-
-            for acc in accruals:
-                if remaining_expired_to_consume <= 0:
-                    break
-                if acc['remaining'] > 0:
-                    consume_amount = min(acc['remaining'], remaining_expired_to_consume)
-                    acc['remaining'] -= consume_amount
-                    remaining_expired_to_consume -= consume_amount
-                    
-            # Calculate active_balance
-            active_balance = sum(acc['remaining'] for acc in accruals if acc['date'] <= month_end_date)
-            
-            # Jam kerja penalties
-            history = get_karyawan_jam_kerja_history(karyawan)
-            total_potong_cuti = 0
-            ref_month_start = datetime.date(curr_sim_date.year, curr_sim_date.month, 1)
-            for (thn, bln), info in history.items():
-                p_month_start = datetime.date(thn, MONTH_NUMBERS.get(bln, 1), 1)
-                if p_month_start < ref_month_start:
-                    total_potong_cuti += info['potong_cuti']
-            tahunan_final_balance = max(0.0, active_balance - total_potong_cuti)
-        else:
-            tahunan_final_balance = 0.0
-            used_leaves_count = 0
-            tahunan_total_expired = 0
-
-        # ======================================================
-        # 2. CUTI DINAS CALCULATIONS
-        # ======================================================
-        add_manuals_this_month = [m for m in manual_add_cd if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().year == curr_sim_date.year and datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().month == curr_sim_date.month]
-        for m in add_manuals_this_month:
-            m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
-            if m.tanggal_kadaluarsa:
-                try:
-                    expiration_date = datetime.datetime.strptime(m.tanggal_kadaluarsa, "%Y-%m-%d").date()
-                except Exception:
-                    n = 1
-                    while True:
-                        expiration_date = add_months(tmk_date, 28 + 12 * (n - 1))
-                        if expiration_date >= m_date:
-                            break
-                        n += 1
-            else:
-                n = 1
-                while True:
-                    expiration_date = add_months(tmk_date, 28 + 12 * (n - 1))
-                    if expiration_date >= m_date:
-                        break
-                    n += 1
-            dinas_allocations.append({
-                'date': m_date,
-                'amount': m.jumlah,
-                'expiration': expiration_date,
-                'remaining': m.jumlah
-            })
-            
-        dinas_allocations.sort(key=lambda x: (x['expiration'], x['date']))
-        
-        usages_this_month = [u for u in usages_cd if u['date'].year == curr_sim_date.year and u['date'].month == curr_sim_date.month]
-        manual_usages_cd_this_month = [m for m in manual_cd_use if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().year == curr_sim_date.year and datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().month == curr_sim_date.month]
-        for mu in manual_usages_cd_this_month:
-            usages_this_month.append({
-                'date': datetime.datetime.strptime(mu.tanggal_input, "%Y-%m-%d").date(),
-                'amount': mu.jumlah
-            })
-        usages_this_month.sort(key=lambda x: x['date'])
-        
-        for u in usages_this_month:
-            use_date = u['date']
-            use_amt = u['amount']
-            for acc in dinas_allocations:
-                if use_amt <= 0:
-                    break
-                if acc['expiration'] > use_date and acc['remaining'] > 0:
-                    consume = min(acc['remaining'], use_amt)
-                    acc['remaining'] -= consume
-                    use_amt -= consume
-                    
-        manual_hangus_cd_this_month = [m for m in manual_hangus_cd if datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().year == curr_sim_date.year and datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date().month == curr_sim_date.month]
-        dinas_manual_expired_sum = sum(m.jumlah for m in manual_hangus_cd_this_month)
-        dinas_total_deleted += dinas_manual_expired_sum
-        
-        remaining_hangus = dinas_manual_expired_sum
-        for acc in dinas_allocations:
-            if remaining_hangus <= 0:
-                break
-            if acc['expiration'] <= month_end_date and acc['remaining'] > 0:
-                consume = min(acc['remaining'], remaining_hangus)
-                acc['remaining'] -= consume
-                remaining_hangus -= consume
-
-        for acc in dinas_allocations:
-            if remaining_hangus <= 0:
-                break
-            if acc['remaining'] > 0:
-                consume = min(acc['remaining'], remaining_hangus)
-                acc['remaining'] -= consume
-                remaining_hangus -= consume
-                
-        dinas_final_balance = sum(acc['remaining'] for acc in dinas_allocations if acc['date'] <= month_end_date)
-
-        # ======================================================
-        # 3. SAVE CACHE TO DATABASE
-        # ======================================================
-        existing_cache = db.session.execute(
-            db.select(SaldoCutiBulanan).where(
-                SaldoCutiBulanan.nik == karyawan.nik,
-                SaldoCutiBulanan.tahun == curr_sim_date.year,
-                SaldoCutiBulanan.bulan == curr_sim_date.month
-            )
-        ).scalars().first()
-        
-        tahunan_json_str = json.dumps([
-            {
-                'date': a['date'].strftime("%Y-%m-%d"),
-                'amount': a['amount'],
-                'expiration': a['expiration'].strftime("%Y-%m-%d"),
-                'remaining': a['remaining']
-            } for a in accruals
-        ])
-        
-        dinas_json_str = json.dumps([
-            {
-                'date': a['date'].strftime("%Y-%m-%d"),
-                'amount': a['amount'],
-                'expiration': a['expiration'].strftime("%Y-%m-%d"),
-                'remaining': a['remaining']
-            } for a in dinas_allocations
-        ])
-        
-        if existing_cache:
-            existing_cache.tahunan_balance = tahunan_final_balance
-            existing_cache.tahunan_used = used_leaves_count
-            existing_cache.tahunan_expired = tahunan_total_expired
-            existing_cache.tahunan_accruals_json = tahunan_json_str
-            existing_cache.dinas_balance = dinas_final_balance
-            existing_cache.dinas_detail_json = dinas_json_str
-        else:
-            new_cache = SaldoCutiBulanan(
-                nik=karyawan.nik,
-                tahun=curr_sim_date.year,
-                bulan=curr_sim_date.month,
-                tahunan_balance=tahunan_final_balance,
-                tahunan_used=used_leaves_count,
-                tahunan_expired=tahunan_total_expired,
-                tahunan_accruals_json=tahunan_json_str,
-                dinas_balance=dinas_final_balance,
-                dinas_detail_json=dinas_json_str
-            )
-            db.session.add(new_cache)
-            
-        if curr_sim_date.month == 12:
-            curr_sim_date = datetime.date(curr_sim_date.year + 1, 1, 1)
-        else:
-            curr_sim_date = datetime.date(curr_sim_date.year, curr_sim_date.month + 1, 1)
-            
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error committing chronological cache: {e}")
-
-def get_cuti_tahunan_balance(karyawan, ref_date=None):
+def get_cuti_tahunan_balance(karyawan, ref_date=None, kehadiran_entries=None, cuti_manual_entries=None, bulan_days_map=None):
     if not ref_date:
         if 'simulation_date' in session:
             try:
@@ -463,7 +86,8 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
     # Force ref_date to be compared at month start level or using first day of month
     ref_month_start = datetime.date(ref_date.year, ref_date.month, 1)
         
-    # Parse TMK
+    # Parse TMK — semua jalur input (tambah_karyawan & upload_karyawan) menyimpan format YYYY-MM-DD.
+    # Fallback ke format lama untuk kompatibilitas data sebelumnya.
     raw_tmk = None
     for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
         try:
@@ -474,66 +98,20 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
 
     if not raw_tmk:
         return {
-            'accrued': 0, 'used': 0, 'expired': 0, 'balance': 0, 'leaves': [],
-            'used_raw': 0, 'raw_accruals': []
+            'accrued': 0,
+            'used': 0,
+            'expired': 0,
+            'balance': 0,
+            'leaves': []
         }
 
     tmk_date = datetime.date(raw_tmk.year, raw_tmk.month, 1)
-    
-    # Calculate previous month info
-    if ref_date.month == 1:
-        prev_month = 12
-        prev_year = ref_date.year - 1
-    else:
-        prev_month = ref_date.month - 1
-        prev_year = ref_date.year
         
-    import calendar
-    _, last_day = calendar.monthrange(prev_year, prev_month)
-    prev_month_end = datetime.date(prev_year, prev_month, last_day)
-
-    accruals = []
-    used_leaves_count = 0
     leaves = []
-    
-    # Check cache
-    cache = None
-    import json
-    if prev_month_end >= add_months(tmk_date, 12) and ref_date > prev_month_end:
-        cache = db.session.execute(
-            db.select(SaldoCutiBulanan).where(
-                SaldoCutiBulanan.nik == karyawan.nik,
-                SaldoCutiBulanan.tahun == prev_year,
-                SaldoCutiBulanan.bulan == prev_month
-            )
-        ).scalars().first()
-        
-        if not cache:
-            populate_saldo_cuti_cache_up_to(karyawan, prev_month_end)
-            cache = db.session.execute(
-                db.select(SaldoCutiBulanan).where(
-                    SaldoCutiBulanan.nik == karyawan.nik,
-                    SaldoCutiBulanan.tahun == prev_year,
-                    SaldoCutiBulanan.bulan == prev_month
-                )
-            ).scalars().first()
-
-    # Load from cache if available
-    if cache:
-        used_leaves_count = cache.tahunan_used
-        accruals_data = json.loads(cache.tahunan_accruals_json or "[]")
-        for acc in accruals_data:
-            accruals.append({
-                'date': datetime.datetime.strptime(acc['date'], "%Y-%m-%d").date(),
-                'amount': float(acc['amount']),
-                'expiration': datetime.datetime.strptime(acc['expiration'], "%Y-%m-%d").date(),
-                'remaining': float(acc['remaining'])
-            })
-    
-    # Load Kehadiran
-    kehadiran_entries = db.session.execute(
-        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
-    ).scalars().all()
+    if kehadiran_entries is None:
+        kehadiran_entries = db.session.execute(
+            db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
+        ).scalars().all()
     
     MONTH_NUMBERS = {
         'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
@@ -545,13 +123,6 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
         m_num = MONTH_NUMBERS.get(entry.bulan)
         if not m_num:
             continue
-        
-        # If cache exists, only count leaves in current month or future
-        if cache:
-            entry_date_start = datetime.date(entry.tahun, m_num, 1)
-            if entry_date_start <= prev_month_end:
-                continue
-                
         if entry.status_hari:
             for d_str, status in entry.status_hari.items():
                 if status == 'CT':
@@ -565,22 +136,25 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
     max_accrual_date = ref_date
     if leaves:
         max_accrual_date = max(ref_date, leaves[-1])
-
-    # Dynamic accrual generation
-    last_accrual_date = max(acc['date'] for acc in accruals) if accruals else add_months(tmk_date, 11)
+        
+    accruals = []
     m = 12
     while True:
         accrual_date = add_months(tmk_date, m)
-        if accrual_date <= last_accrual_date:
-            m += 1
-            continue
         if accrual_date > max_accrual_date:
             break
-            
+
         if m < 24:
+            # Blok tahun ke-1:
+            #   m=12  → 12 hari sekaligus (jatah tahun pertama)
+            #   m=13-23 → 1 hari/bulan
+            # Semua hangus di TMK+28 bulan → total maksimal 23 hari
             amount = 12 if m == 12 else 1
             expiration_date = add_months(tmk_date, 28)
         else:
+            # Blok tahun ke-2 dst: 1 hari/bulan
+            #   m=24-35 → year_idx=2 → hangus TMK+40
+            #   m=36-47 → year_idx=3 → hangus TMK+52, dst.
             amount = 1
             year_idx = m // 12
             expiration_date = add_months(tmk_date, 12 * year_idx + 16)
@@ -593,32 +167,24 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
         })
         m += 1
 
-    # Apply new used leaves (only those starting from ref_month_start)
+    used_leaves_count = 0
     for leave_date in leaves:
-        if cache and leave_date <= prev_month_end:
-            continue
         for acc in accruals:
             if acc['date'] <= leave_date and acc['expiration'] > leave_date and acc['remaining'] > 0:
                 acc['remaining'] -= 1
                 used_leaves_count += 1
                 break
 
-    # Get Manual Cuti CT
-    if cache:
-        manual_used_sum = db.session.execute(
-            db.select(db.func.sum(CutiManual.jumlah)).where(
-                CutiManual.nik == karyawan.nik,
-                CutiManual.tipe == 'CT',
-                CutiManual.tanggal_input > prev_month_end.strftime("%Y-%m-%d")
-            )
-        ).scalar() or 0.0
-    else:
+    # 1. Pengurangan manual cuti tahunan (CutiManual tipe='CT') secara FIFO
+    if cuti_manual_entries is None:
         manual_used_sum = db.session.execute(
             db.select(db.func.sum(CutiManual.jumlah)).where(
                 CutiManual.nik == karyawan.nik,
                 CutiManual.tipe == 'CT'
             )
         ).scalar() or 0.0
+    else:
+        manual_used_sum = sum(m.jumlah for m in cuti_manual_entries if m.tipe == 'CT')
 
     remaining_manual_to_consume = manual_used_sum
     for acc in accruals:
@@ -630,26 +196,19 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
             remaining_manual_to_consume -= consume_amount
             used_leaves_count += consume_amount
 
-    # Get Manual Cuti HANGUS
-    if cache:
-        manual_expired_sum = db.session.execute(
-            db.select(db.func.sum(CutiManual.jumlah)).where(
-                CutiManual.nik == karyawan.nik,
-                CutiManual.tipe == 'HANGUS',
-                CutiManual.tanggal_input > prev_month_end.strftime("%Y-%m-%d")
-            )
-        ).scalar() or 0.0
-        total_expired = cache.tahunan_expired + manual_expired_sum
-    else:
+    # 2. Pengurangan manual cuti hangus (CutiManual tipe='HANGUS') secara FIFO dari jatah yang sudah kedaluwarsa
+    if cuti_manual_entries is None:
         manual_expired_sum = db.session.execute(
             db.select(db.func.sum(CutiManual.jumlah)).where(
                 CutiManual.nik == karyawan.nik,
                 CutiManual.tipe == 'HANGUS'
             )
         ).scalar() or 0.0
-        total_expired = manual_expired_sum
+    else:
+        manual_expired_sum = sum(m.jumlah for m in cuti_manual_entries if m.tipe == 'HANGUS')
 
     remaining_expired_to_consume = manual_expired_sum
+    # Dahulukan pemotongan dari accrual yang sudah lewat tanggal hangusnya
     for acc in accruals:
         if remaining_expired_to_consume <= 0:
             break
@@ -658,6 +217,7 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
             acc['remaining'] -= consume_amount
             remaining_expired_to_consume -= consume_amount
 
+    # Jika masih ada sisa pemotongan jatah hangus (safety fallback), potong dari accrual mana saja
     for acc in accruals:
         if remaining_expired_to_consume <= 0:
             break
@@ -666,18 +226,25 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
             acc['remaining'] -= consume_amount
             remaining_expired_to_consume -= consume_amount
 
-    # Calculate final balance
+    # Kalkulasi saldo akhir
     total_accrued = 0
+    total_expired = manual_expired_sum  # Jatah hangus yang diakui hanya yang didelete manual
     active_balance = 0
     pending_expiration_amount = 0
 
     for acc in accruals:
         if acc['date'] <= ref_date:
             total_accrued += acc['amount']
+            
+            # Jika tanggal kedaluwarsa sudah terlampaui tetapi belum di-consume (belum di-delete manual)
+            # masukkan ke pending_expiration_amount
             if acc['expiration'] <= ref_date:
                 pending_expiration_amount += acc['remaining']
+            
+            # Saldo aktif mencakup semua jatah akrual yang tersisa (termasuk yang sudah lewat waktu hangus tapi belum didelete manual)
             active_balance += acc['remaining']
 
+    # Cari tanggal hangus terdekat dan jatah yang akan hangus berikutnya (hanya dari jatah yang belum hangus/dihapus)
     next_expiration_date = None
     next_expiration_amount = 0
     active_accruals = [acc for acc in accruals if acc['date'] <= ref_date and acc['expiration'] > ref_date and acc['remaining'] > 0]
@@ -689,9 +256,10 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
             if acc['expiration'] == next_expiration_date
         )
 
-    # Hitung pemotongan cuti penalti jam kerja
-    history = get_karyawan_jam_kerja_history(karyawan)
+    # Hitung pemotongan cuti akibat penalti jam kerja
+    history = get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=kehadiran_entries, bulan_days_map=bulan_days_map)
     total_potong_cuti = 0
+    ref_month_start = datetime.date(ref_date.year, ref_date.month, 1)
     
     for (thn, bln), info in history.items():
         p_month_start = datetime.date(thn, MONTH_NUMBERS.get(bln, 1), 1)
@@ -706,9 +274,7 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None):
         'pending_expiration_amount': pending_expiration_amount,
         'leaves': leaves,
         'next_expiration_date': next_expiration_date,
-        'next_expiration_amount': next_expiration_amount,
-        'used_raw': used_leaves_count,
-        'raw_accruals': accruals
+        'next_expiration_amount': next_expiration_amount
     }
 
 MONTH_NUMBERS_GLOBAL = {
@@ -717,7 +283,7 @@ MONTH_NUMBERS_GLOBAL = {
     'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
 }
 
-def get_cuti_dinas_balance(karyawan, ref_date=None):
+def get_cuti_dinas_balance(karyawan, ref_date=None, kehadiran_entries=None, cuti_manual_entries=None):
     """
     Hitung saldo cuti dinas (ADD_CD) secara FIFO berdasarkan tanggal TMK karyawan.
     Masa berlaku jatah cuti dinas = sama dengan akhir periode cuti tahunan aktif saat cuti dinas didapat.
@@ -742,82 +308,35 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
 
     if not raw_tmk:
         return {
-            'added': 0.0, 'used': 0.0, 'expired': 0.0, 'balance': 0.0, 'pending_expiration_amount': 0.0,
-            'detail': [], 'raw_allocations': []
+            'added': 0.0,
+            'used': 0.0,
+            'expired': 0.0,
+            'balance': 0.0,
+            'pending_expiration_amount': 0.0,
+            'detail': []
         }
 
     tmk_date = datetime.date(raw_tmk.year, raw_tmk.month, 1)
 
-    # Calculate previous month info
-    if ref_date.month == 1:
-        prev_month = 12
-        prev_year = ref_date.year - 1
-    else:
-        prev_month = ref_date.month - 1
-        prev_year = ref_date.year
-        
-    import calendar
-    _, last_day = calendar.monthrange(prev_year, prev_month)
-    prev_month_end = datetime.date(prev_year, prev_month, last_day)
-
-    allocations = []
-    
-    # Check cache
-    cache = None
-    import json
-    if prev_month_end >= tmk_date and ref_date > prev_month_end:
-        cache = db.session.execute(
-            db.select(SaldoCutiBulanan).where(
-                SaldoCutiBulanan.nik == karyawan.nik,
-                SaldoCutiBulanan.tahun == prev_year,
-                SaldoCutiBulanan.bulan == prev_month
-            )
-        ).scalars().first()
-        
-        if not cache or cache.dinas_detail_json is None or cache.dinas_detail_json == "[]":
-            populate_saldo_cuti_cache_up_to(karyawan, prev_month_end)
-            cache = db.session.execute(
-                db.select(SaldoCutiBulanan).where(
-                    SaldoCutiBulanan.nik == karyawan.nik,
-                    SaldoCutiBulanan.tahun == prev_year,
-                    SaldoCutiBulanan.bulan == prev_month
-                )
-            ).scalars().first()
-
-    # Load allocations from cache if available
-    if cache and cache.dinas_detail_json:
-        allocs_data = json.loads(cache.dinas_detail_json)
-        for a in allocs_data:
-            allocations.append({
-                'date': datetime.datetime.strptime(a['date'], "%Y-%m-%d").date(),
-                'amount': float(a['amount']),
-                'expiration': datetime.datetime.strptime(a['expiration'], "%Y-%m-%d").date(),
-                'remaining': float(a['remaining'])
-            })
-
-    # Load new ADD_CD
-    if cache:
-        add_manuals = db.session.execute(
-            db.select(CutiManual).where(
-                CutiManual.nik == karyawan.nik,
-                CutiManual.tipe == 'ADD_CD',
-                CutiManual.tanggal_input > prev_month_end.strftime("%Y-%m-%d")
-            )
-        ).scalars().all()
-    else:
+    # 1. Kumpulkan semua ADD_CD
+    if cuti_manual_entries is None:
         add_manuals = db.session.execute(
             db.select(CutiManual).where(
                 CutiManual.nik == karyawan.nik,
                 CutiManual.tipe == 'ADD_CD'
             )
         ).scalars().all()
+    else:
+        add_manuals = [m for m in cuti_manual_entries if m.tipe == 'ADD_CD']
 
+    allocations = []
     for m in add_manuals:
         try:
             m_date = datetime.datetime.strptime(m.tanggal_input, "%Y-%m-%d").date()
         except Exception:
             continue
 
+        # Check if user inputted a specific expiration date
         if m.tanggal_kadaluarsa:
             try:
                 expiration_date = datetime.datetime.strptime(m.tanggal_kadaluarsa, "%Y-%m-%d").date()
@@ -829,6 +348,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
                         break
                     n += 1
         else:
+            # Cari E_n (tanggal hangus block cuti tahunan) >= tanggal_input cuti dinas
             n = 1
             while True:
                 expiration_date = add_months(tmk_date, 28 + 12 * (n - 1))
@@ -843,24 +363,22 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
             'remaining': m.jumlah
         })
 
+    # Sort alokasi berdasarkan tanggal hangus dahulu, baru tanggal didapat
     allocations.sort(key=lambda x: (x['expiration'], x['date']))
 
-    # Load usages
+    # 2. Penggunaan cuti dinas (Kehadiran CD & CutiManual CD)
     usages = []
 
     # Kehadiran CD
-    kehadiran_entries = db.session.execute(
-        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
-    ).scalars().all()
+    if kehadiran_entries is None:
+        kehadiran_entries = db.session.execute(
+            db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
+        ).scalars().all()
 
     for entry in kehadiran_entries:
         m_num = MONTH_NUMBERS_GLOBAL.get(entry.bulan)
         if not m_num:
             continue
-        if cache:
-            entry_date_start = datetime.date(entry.tahun, m_num, 1)
-            if entry_date_start <= prev_month_end:
-                continue
         if entry.status_hari:
             for d_str, status in entry.status_hari.items():
                 if status == 'CD':
@@ -873,21 +391,15 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
                         pass
 
     # CutiManual CD
-    if cache:
-        cd_manuals = db.session.execute(
-            db.select(CutiManual).where(
-                CutiManual.nik == karyawan.nik,
-                CutiManual.tipe == 'CD',
-                CutiManual.tanggal_input > prev_month_end.strftime("%Y-%m-%d")
-            )
-        ).scalars().all()
-    else:
+    if cuti_manual_entries is None:
         cd_manuals = db.session.execute(
             db.select(CutiManual).where(
                 CutiManual.nik == karyawan.nik,
                 CutiManual.tipe == 'CD'
             )
         ).scalars().all()
+    else:
+        cd_manuals = [m for m in cuti_manual_entries if m.tipe == 'CD']
 
     for m in cd_manuals:
         try:
@@ -901,7 +413,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
 
     usages.sort(key=lambda x: x['date'])
 
-    # Apply usages to allocations (FIFO)
+    # 3. Potong FIFO
     for u in usages:
         use_date = u['date']
         use_amt = u['amount']
@@ -913,26 +425,21 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
                 acc['remaining'] -= consume
                 use_amt -= consume
 
-    # Load HANGUS_CD manual
-    if cache:
-        hangus_manuals = db.session.execute(
-            db.select(CutiManual).where(
-                CutiManual.nik == karyawan.nik,
-                CutiManual.tipe == 'HANGUS_CD',
-                CutiManual.tanggal_input > prev_month_end.strftime("%Y-%m-%d")
-            )
-        ).scalars().all()
-    else:
+    # 4. Potong HANGUS_CD manual
+    if cuti_manual_entries is None:
         hangus_manuals = db.session.execute(
             db.select(CutiManual).where(
                 CutiManual.nik == karyawan.nik,
                 CutiManual.tipe == 'HANGUS_CD'
             )
         ).scalars().all()
+    else:
+        hangus_manuals = [m for m in cuti_manual_entries if m.tipe == 'HANGUS_CD']
 
     total_deleted_manual = sum(m.jumlah for m in hangus_manuals)
     remaining_hangus = total_deleted_manual
 
+    # Dahulukan alokasi yang sudah expired
     for acc in allocations:
         if remaining_hangus <= 0:
             break
@@ -941,6 +448,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
             acc['remaining'] -= consume
             remaining_hangus -= consume
 
+    # Fallback ke alokasi lain jika ada sisa
     for acc in allocations:
         if remaining_hangus <= 0:
             break
@@ -949,7 +457,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
             acc['remaining'] -= consume
             remaining_hangus -= consume
 
-    # Calculate final dinas totals
+    # 5. Hitung total saldo
     total_added = sum(acc['amount'] for acc in allocations)
     active_balance = 0.0
     pending_expiration = 0.0
@@ -977,6 +485,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
             'period_end': exp_date
         })
 
+    # next expiration info for cuti dinas
     next_expiration_date = None
     next_expiration_amount = 0.0
     active_allocs = [acc for acc in allocations if acc['date'] <= ref_date and acc['expiration'] > ref_date and acc['remaining'] > 0]
@@ -996,8 +505,7 @@ def get_cuti_dinas_balance(karyawan, ref_date=None):
         'pending_expiration_amount': pending_expiration,
         'detail': detail_list,
         'next_expiration_date': next_expiration_date,
-        'next_expiration_amount': next_expiration_amount,
-        'raw_allocations': allocations
+        'next_expiration_amount': next_expiration_amount
     }
 
 def get_cuti_dinas_hangus(nik, ref_date=None):
@@ -1057,6 +565,18 @@ def sdm_dashboard():
     # Ambil semua hari libur
     all_holidays = db.session.execute(db.select(HariLibur)).scalars().all()
 
+    # Bulk fetch CutiManual
+    all_cuti_manual = db.session.execute(db.select(CutiManual)).scalars().all()
+    
+    from collections import defaultdict
+    kehadiran_by_nik = defaultdict(list)
+    for kh in all_kehadiran:
+        kehadiran_by_nik[kh.nik].append(kh)
+        
+    cuti_manual_by_nik = defaultdict(list)
+    for cm in all_cuti_manual:
+        cuti_manual_by_nik[cm.nik].append(cm)
+
     MONTH_NUMBERS = {
         'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
         'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
@@ -1077,16 +597,27 @@ def sdm_dashboard():
     reminders_h1 = []
     reminders_lampau = []
     h1_date = system_date - datetime.timedelta(days=1)
-    
-    karyawan_list = db.session.execute(db.select(KaryawanEntry)).scalars().all()
-    kehadiran_records = db.session.execute(db.select(Kehadiran)).scalars().all()
-    kehadiran_map = {(k.nik, k.bulan, k.tahun): k for k in kehadiran_records}
-    INV_MONTHS = {v: k for k, v in MONTH_NUMBERS_GLOBAL.items()}
 
-    # Index holidays for O(1) monthly lookup
-    holidays_map = {}
+    # Pre-group holidays by (year, month)
+    holidays_by_period = defaultdict(set)
     for h in all_holidays:
-        holidays_map.setdefault((h.tanggal.year, h.tanggal.month), set()).add(h.tanggal.day)
+        holidays_by_period[(h.tanggal.year, h.tanggal.month)].add(h.tanggal.day)
+    weekends_by_period = {}
+    
+    all_k = db.session.execute(db.select(KaryawanEntry).order_by(KaryawanEntry.absen)).scalars().all()
+    karyawan_list = []
+    for k in all_k:
+        if k.tanggal_resign:
+            try:
+                dt_resign = datetime.datetime.strptime(k.tanggal_resign, "%Y-%m-%d").date()
+                if dt_resign <= system_date:
+                    continue
+            except ValueError:
+                pass
+        karyawan_list.append(k)
+
+    kehadiran_map = {(k.nik, k.bulan, k.tahun): k for k in all_kehadiran}
+    INV_MONTHS = {v: k for k, v in MONTH_NUMBERS_GLOBAL.items()}
 
     for karyawan in karyawan_list:
         # Resolve TMK date
@@ -1099,7 +630,7 @@ def sdm_dashboard():
                 except ValueError:
                     pass
 
-        # Resolve Resign date
+        # Resolve resign date
         resign_date = None
         if karyawan.tanggal_resign:
             try:
@@ -1113,6 +644,11 @@ def sdm_dashboard():
 
         start_year = tmk_date.year if tmk_date else system_date.year
         start_month = tmk_date.month if tmk_date else system_date.month
+
+        # Batasi agar perhitungan pengingat absensi pending di dashboard hanya mulai dari Mei 2026
+        if start_year < 2026 or (start_year == 2026 and start_month < 6):
+            start_year = 2026
+            start_month = 6
 
         end_year = system_date.year
         end_month = system_date.month
@@ -1139,19 +675,21 @@ def sdm_dashboard():
             k = kehadiran_map.get((karyawan.nik, bulan_nama, y))
             status_hari = k.status_hari if k else {}
 
-            # Hitung weekends mathematically
-            weekends = set()
-            try:
-                first_weekday = datetime.date(y, m, 1).weekday()
+            # Get weekends from cache
+            if (y, m) not in weekends_by_period:
+                w_set = set()
                 for d in range(1, jumlah_hari + 1):
-                    wd = (first_weekday + d - 1) % 7
-                    if wd in (5, 6):
-                        weekends.add(d)
-            except ValueError:
-                pass
+                    try:
+                        dt = datetime.date(y, m, d)
+                        if dt.weekday() in (5, 6):  # Saturday, Sunday
+                            w_set.add(d)
+                    except ValueError:
+                        pass
+                weekends_by_period[(y, m)] = w_set
+            weekends = weekends_by_period[(y, m)]
 
-            # Hitung holidays
-            holidays = holidays_map.get((y, m), set())
+            # Get holidays from cache
+            holidays = holidays_by_period.get((y, m), set())
 
             pending_h1_days = []
             pending_lampau_days = []
@@ -1214,36 +752,28 @@ def sdm_dashboard():
 
     # Fetch all cuti entries dynamically with expiration info
     # Hanya karyawan aktif (belum resign) yang dihitung jatah cutinya
-    import datetime as dt_module
-    all_k = db.session.execute(
-        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
-    ).scalars().all()
-    karyawan_list = []
-    for k in all_k:
-        if k.tanggal_resign:
-            try:
-                dt_resign = dt_module.datetime.strptime(k.tanggal_resign, "%Y-%m-%d").date()
-                if dt_resign <= system_date:
-                    continue
-            except ValueError:
-                pass
-        karyawan_list.append(k)
-
     existing_cuti = db.session.execute(db.select(Cuti)).scalars().all()
     cuti_map = {c.nik: c for c in existing_cuti}
-    
+
+    # Precompute all balances once
     tahunan_balances = {}
     dinas_balances = {}
+    for k in karyawan_list:
+        tahunan_balances[k.nik] = get_cuti_tahunan_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik.get(k.nik, []),
+            cuti_manual_entries=cuti_manual_by_nik.get(k.nik, []),
+            bulan_days_map=bulan_days_map
+        )
+        dinas_balances[k.nik] = get_cuti_dinas_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik.get(k.nik, []),
+            cuti_manual_entries=cuti_manual_by_nik.get(k.nik, [])
+        )
     
     for k in karyawan_list:
-        tahunan_info = get_cuti_tahunan_balance(k, system_date)
-        tahunan_balances[k.nik] = tahunan_info
-        
-        dinas_info = get_cuti_dinas_balance(k, system_date)
-        dinas_balances[k.nik] = dinas_info
-        
-        tahunan_bal = tahunan_info['balance']
-        dinas_bal = dinas_info['balance']
+        tahunan_bal = tahunan_balances[k.nik]['balance']
+        dinas_bal = dinas_balances[k.nik]['balance']
         if k.nik in cuti_map:
             c = cuti_map[k.nik]
             c.cuti_tahunan = tahunan_bal
@@ -1422,6 +952,9 @@ def upload_karyawan():
         
         from datetime import datetime, time
         
+        existing_niks = set(db.session.execute(db.select(KaryawanEntry.nik)).scalars().all())
+        existing_absens = set(db.session.execute(db.select(KaryawanEntry.absen)).scalars().all())
+        
         for idx, row in df.iterrows():
             try:
                 # Absen
@@ -1481,17 +1014,8 @@ def upload_karyawan():
                 jam_masuk = parse_time(row[col_masuk])
                 jam_pulang = parse_time(row[col_pulang])
                 
-                # Cek duplikat NIK
-                exists_nik = db.session.execute(
-                    db.select(KaryawanEntry).where(KaryawanEntry.nik == val_nik)
-                ).scalar_one_or_none()
-                
-                # Cek duplikat Absen
-                exists_absen = db.session.execute(
-                    db.select(KaryawanEntry).where(KaryawanEntry.absen == absen)
-                ).scalar_one_or_none()
-                
-                if exists_nik or exists_absen:
+                # Cek duplikat NIK & Absen
+                if val_nik in existing_niks or absen in existing_absens:
                     skip_count += 1
                     continue
                     
@@ -1513,6 +1037,8 @@ def upload_karyawan():
                 
                 db.session.add(new_k)
                 db.session.add(new_c)
+                existing_niks.add(val_nik)
+                existing_absens.add(absen)
                 success_count += 1
                 
             except Exception as e:
@@ -1597,8 +1123,7 @@ def hapus_cuti():
                     keterangan=keterangan
                 )
                 db.session.add(new_hangus)
-                sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari.", nik=nik, nama_karyawan=karyawan.nama)
-                invalidate_saldo_cuti_cache(nik, system_date.year, system_date.month)
+                sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
                 db.session.commit()
                 flash(f"✅ Berhasil menghapus {jumlah} hari cuti hangus milik {karyawan.nama}.", "success")
             except Exception as e:
@@ -1656,8 +1181,7 @@ def hapus_cuti():
                     keterangan=keterangan
                 )
                 db.session.add(new_hangus)
-                sdm_log('HAPUS_CUTI_DINAS_HANGUS', 'CUTI', f"Hapus cuti dinas hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari.", nik=nik, nama_karyawan=karyawan.nama)
-                invalidate_saldo_cuti_cache(nik, system_date.year, system_date.month)
+                sdm_log('HAPUS_CUTI_DINAS_HANGUS', 'CUTI', f"Hapus cuti dinas hangus individu {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
                 db.session.commit()
                 flash(f"✅ Berhasil menghapus {jumlah} hari cuti dinas hangus milik {karyawan.nama}.", "success")
             except Exception as e:
@@ -1748,7 +1272,6 @@ def hapus_cuti():
                 else:
                     sdm_log('POTONG_CUTI_DINAS', 'CUTI', f"Potong cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
                 
-                invalidate_saldo_cuti_cache(nik, system_date.year, system_date.month)
                 db.session.commit()
                 
                 if tipe == 'ADD_CD':
@@ -1772,7 +1295,6 @@ def hapus_cuti():
                 return redirect(url_for('hapus_cuti'))
 
             success_count = 0
-            successful_niks = set()
             error_messages = []
 
             for nik in selected_niks:
@@ -1818,6 +1340,7 @@ def hapus_cuti():
                             keterangan=ct_keterangan
                         )
                         db.session.add(new_hangus)
+                        sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus massal {karyawan.nama} ({nik}) sebanyak {jumlah_hangus} hari. Ket: {ct_keterangan}", nik=nik, nama_karyawan=karyawan.nama)
                         deleted_any = True
                     except Exception as e:
                         error_messages.append(f"NIK {nik}: Gagal menghapus cuti tahunan hangus ({str(e)}).")
@@ -1860,6 +1383,7 @@ def hapus_cuti():
                                     keterangan=cd_keterangan
                                 )
                                 db.session.add(new_cd_hangus)
+                                sdm_log('HAPUS_CUTI_DINAS_HANGUS', 'CUTI', f"Hapus cuti dinas hangus massal {karyawan.nama} ({nik}) sebanyak {to_delete_this_period} hari. Ket: {cd_keterangan}", nik=nik, nama_karyawan=karyawan.nama)
                                 remaining_to_delete -= to_delete_this_period
                                 deleted_any = True
                             except Exception as e:
@@ -1867,12 +1391,9 @@ def hapus_cuti():
 
                 if deleted_any:
                     success_count += 1
-                    successful_niks.add(nik)
 
             try:
                 if success_count > 0:
-                    for s_nik in successful_niks:
-                        invalidate_saldo_cuti_cache(s_nik, system_date.year, system_date.month)
                     sdm_log('HAPUS_CUTI_HANGUS', 'CUTI', f"Hapus cuti hangus massal: {success_count} karyawan berhasil, {len(error_messages)} gagal.")
                 db.session.commit()
                 if success_count > 0:
@@ -1942,12 +1463,6 @@ def hapus_cuti_delete(log_id):
     jumlah = adjustment.jumlah
 
     try:
-        try:
-            dt_input = datetime.datetime.strptime(adjustment.tanggal_input, "%Y-%m-%d").date()
-            invalidate_saldo_cuti_cache(adjustment.nik, dt_input.year, dt_input.month)
-        except Exception:
-            pass
-            
         db.session.delete(adjustment)
         db.session.commit()
         flash(f"✅ Berhasil membatalkan penghapusan cuti hangus {nama_karyawan} sebanyak {jumlah} hari.", "success")
@@ -2191,12 +1706,38 @@ def master_cuti():
     ).scalars().all()
     
     cuti_map = {c.nik: c for c in existing_cuti}
+
+    # Fetch cache
+    all_kehadiran = db.session.execute(db.select(Kehadiran)).scalars().all()
+    all_cuti_manual = db.session.execute(db.select(CutiManual)).scalars().all()
+    bulan_list = db.session.execute(db.select(Bulan)).scalars().all()
+    
+    from collections import defaultdict
+    kehadiran_by_nik = defaultdict(list)
+    for kh in all_kehadiran:
+        kehadiran_by_nik[kh.nik].append(kh)
+
+    cuti_manual_by_nik = defaultdict(list)
+    for cm in all_cuti_manual:
+        cuti_manual_by_nik[cm.nik].append(cm)
+
+    bulan_days_map = {b.nama: b.jumlah_hari for b in bulan_list}
+
     entries = []
     for k in karyawan_list:
-        balance_info = get_cuti_tahunan_balance(k)
+        balance_info = get_cuti_tahunan_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik.get(k.nik, []),
+            cuti_manual_entries=cuti_manual_by_nik.get(k.nik, []),
+            bulan_days_map=bulan_days_map
+        )
         tahunan_bal = balance_info['balance']
         
-        dinas_info = get_cuti_dinas_balance(k, system_date)
+        dinas_info = get_cuti_dinas_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik.get(k.nik, []),
+            cuti_manual_entries=cuti_manual_by_nik.get(k.nik, [])
+        )
         dinas_bal = dinas_info['balance']
         
         if k.nik in cuti_map:
@@ -2340,7 +1881,6 @@ def tambah_cuti_dinas():
             )
             db.session.add(new_add_cd)
             sdm_log('TAMBAH_CUTI_DINAS', 'CUTI', f"Tambah cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari periode {ref_period} (kadaluarsa {tanggal_kadaluarsa}). Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
-            invalidate_saldo_cuti_cache(nik, system_date.year, system_date.month)
             db.session.commit()
             flash(f"✅ Transaksi berhasil: Jatah Cuti Dinas {karyawan.nama} ditambahkan sebanyak {jumlah} hari (berlaku s.d. {tanggal_kadaluarsa}).", "success")
         except Exception as e:
@@ -2399,8 +1939,8 @@ def form_ba():
         ba_tanggal = request.form.get('ba_tanggal', '').strip()
         ba_keterangan = request.form.get('ba_keterangan', '').strip()
         
-        if not (entry_id_raw and tanggal_kadaluarsa_baru and ba_nomor and ba_tanggal):
-            flash("⚠️ Kolom ID Transaksi, Tanggal Kadaluarsa Baru, Nomor BA, dan Tanggal BA wajib diisi!", "danger")
+        if not (entry_id_raw and tanggal_kadaluarsa_baru and ba_tanggal):
+            flash("⚠️ Kolom ID Transaksi, Tanggal Kadaluarsa Baru, dan Tanggal BA wajib diisi!", "danger")
             return redirect(url_for('form_ba'))
             
         try:
@@ -2412,6 +1952,15 @@ def form_ba():
         entry = db.session.get(CutiManual, entry_id)
         if not entry or entry.tipe != 'ADD_CD':
             flash("⚠️ Transaksi cuti dinas tidak ditemukan!", "danger")
+            return redirect(url_for('form_ba'))
+
+        try:
+            dt_ba = dt_module.datetime.strptime(ba_tanggal, "%Y-%m-%d").date()
+            if dt_ba < system_date:
+                flash(f"⚠️ Tanggal Berita Acara ({ba_tanggal}) tidak boleh kurang dari hari ini ({tanggal_input})!", "danger")
+                return redirect(url_for('form_ba'))
+        except ValueError:
+            flash("⚠️ Format tanggal Berita Acara tidak valid!", "danger")
             return redirect(url_for('form_ba'))
             
         karyawan = db.session.execute(
@@ -2450,6 +1999,10 @@ def form_ba():
             
         try:
             dt_baru = dt_module.datetime.strptime(tanggal_kadaluarsa_baru, "%Y-%m-%d").date()
+            dt_lama = dt_module.datetime.strptime(entry.tanggal_kadaluarsa, "%Y-%m-%d").date()
+            if dt_baru < dt_lama:
+                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh kurang dari tanggal kadaluarsa lama ({entry.tanggal_kadaluarsa})!", "danger")
+                return redirect(url_for('form_ba'))
             if dt_baru > max_limit:
                 flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh melebihi batas masa berlaku cuti tahunan periode tersebut ({max_limit.strftime('%Y-%m-%d')})!", "danger")
                 return redirect(url_for('form_ba'))
@@ -2462,20 +2015,13 @@ def form_ba():
             entry.ba_nomor = ba_nomor
             entry.ba_tanggal = ba_tanggal
             entry.ba_keterangan = ba_keterangan
-            
-            try:
-                dt_input = dt_module.datetime.strptime(entry.tanggal_input, "%Y-%m-%d").date()
-                invalidate_saldo_cuti_cache(entry.nik, dt_input.year, dt_input.month)
-            except Exception:
-                pass
-                
             db.session.commit()
             
             # Log action
             from sdm import sdm_log
-            sdm_log('PERPANJANG_CUTI_DINAS', 'CUTI', f"Perpanjang cuti dinas {karyawan.nama} ({entry.nik}) s.d. {tanggal_kadaluarsa_baru} dengan BA No. {ba_nomor}.", nik=entry.nik, nama_karyawan=karyawan.nama)
+            sdm_log('PERPANJANG_CUTI_DINAS', 'CUTI', f"Perpanjang cuti dinas {karyawan.nama} ({entry.nik}) s.d. {tanggal_kadaluarsa_baru} dengan BA Tanggal {ba_tanggal}.", nik=entry.nik, nama_karyawan=karyawan.nama)
             
-            flash(f"🎉 Sukses memperpanjang cuti dinas {karyawan.nama} s.d. {tanggal_kadaluarsa_baru} berdasarkan BA No. {ba_nomor}!", "success")
+            flash(f"🎉 Sukses memperpanjang cuti dinas {karyawan.nama} s.d. {tanggal_kadaluarsa_baru} berdasarkan BA Tanggal {ba_tanggal}!", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"⚠️ Gagal menyimpan perpanjangan: {str(e)}", "danger")
@@ -2564,6 +2110,502 @@ def form_ba_api_cuti_dinas(nik):
         
     return jsonify({'success': True, 'entries': entries_data})
 
+@app.route('/generate-laporan', methods=['GET'])
+def generate_laporan():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    import datetime
+    from datetime import date
+    system_date = date.today()
+    if 'simulation_date' in session:
+        try:
+            system_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    INDONESIAN_MONTHS = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ]
+    default_bulan_nama = INDONESIAN_MONTHS[system_date.month - 1]
+    default_tahun = system_date.year
+
+    selected_bulan = request.args.get('bulan', '').strip()
+    if not selected_bulan:
+        selected_bulan = default_bulan_nama
+        
+    selected_tahun_str = request.args.get('tahun', '').strip()
+    if not selected_tahun_str:
+        selected_tahun = default_tahun
+    else:
+        try:
+            selected_tahun = int(selected_tahun_str)
+        except ValueError:
+            selected_tahun = default_tahun
+
+    # Get Bulan meta to calculate jumlah_hari
+    bulan_meta = db.session.execute(db.select(Bulan).where(Bulan.nama == selected_bulan)).scalar_one_or_none()
+    jumlah_hari = bulan_meta.jumlah_hari if bulan_meta else 31
+    if selected_bulan == 'Februari':
+        if (selected_tahun % 4 == 0 and selected_tahun % 100 != 0) or (selected_tahun % 400 == 0):
+            jumlah_hari = 29
+        else:
+            jumlah_hari = 28
+
+    # Query all active employees for this period
+    karyawan_list = db.session.execute(
+        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+    ).scalars().all()
+
+    MONTH_NUMBERS = {
+        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+    }
+    view_month_num = MONTH_NUMBERS.get(selected_bulan, 1)
+
+    filtered_karyawan_list = []
+    for k in karyawan_list:
+        if k.tanggal_resign:
+            try:
+                dt_resign = datetime.datetime.strptime(k.tanggal_resign, "%Y-%m-%d").date()
+                if selected_tahun > dt_resign.year:
+                    continue
+                if selected_tahun == dt_resign.year and view_month_num > dt_resign.month:
+                    continue
+            except ValueError:
+                pass
+        if k.tmk:
+            try:
+                dt_tmk = None
+                for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+                    try:
+                        dt_tmk = datetime.datetime.strptime(k.tmk.strip(), fmt).date()
+                        break
+                    except ValueError:
+                        pass
+                if dt_tmk:
+                    if selected_tahun < dt_tmk.year:
+                        continue
+                    if selected_tahun == dt_tmk.year and view_month_num < dt_tmk.month:
+                        continue
+            except Exception:
+                pass
+        filtered_karyawan_list.append(k)
+
+    # Ambil data kehadiran dari DB yang sudah ada untuk periode terpilih
+    existing_entries = db.session.execute(
+        db.select(Kehadiran)
+        .where(Kehadiran.bulan == selected_bulan, Kehadiran.tahun == selected_tahun)
+    ).scalars().all()
+    kehadiran_map = {e.nik: e for e in existing_entries}
+
+    # Hitung hari sabtu & minggu (weekends) untuk bulan & tahun terpilih
+    weekends = []
+    for d in range(1, jumlah_hari + 1):
+        try:
+            dt = datetime.date(selected_tahun, view_month_num, d)
+            if dt.weekday() in (5, 6):  # 5 = Sabtu, 6 = Minggu
+                weekends.append(d)
+        except ValueError:
+            pass
+
+    # Ambil hari libur untuk bulan & tahun terpilih
+    all_holidays = db.session.execute(db.select(HariLibur)).scalars().all()
+    holiday_days = {}
+    for h in all_holidays:
+        if h.tanggal.month == view_month_num and h.tanggal.year == selected_tahun:
+            holiday_days[h.tanggal.day] = h.keterangan
+
+    # Cek pending entries untuk karyawan terdaftar
+    pending_list = []
+    for k in filtered_karyawan_list:
+        entry = kehadiran_map.get(k.nik)
+        
+        # Cari tanggal tmk
+        days_before_tmk = set()
+        if k.tmk:
+            tmk_date = None
+            for fmt in ("%Y-%d-%m", "%Y-%m-%d"):
+                try:
+                    tmk_date = datetime.datetime.strptime(k.tmk.strip(), fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if tmk_date:
+                for d in range(1, jumlah_hari + 1):
+                    try:
+                        cell_date = datetime.date(selected_tahun, view_month_num, d)
+                        if cell_date < tmk_date:
+                            days_before_tmk.add(d)
+                    except ValueError:
+                        pass
+
+        # Cari hari pending
+        status_dict = entry.status_hari if entry and entry.status_hari else {}
+        pending_days = []
+        for d in range(1, jumlah_hari + 1):
+            if d in days_before_tmk:
+                continue
+            try:
+                cell_date = datetime.date(selected_tahun, view_month_num, d)
+            except ValueError:
+                continue
+            if cell_date < system_date:
+                is_weekend = d in weekends
+                is_holiday = d in holiday_days
+                if not is_weekend and not is_holiday:
+                    db_status = status_dict.get(str(d), '')
+                    if not db_status or db_status == 'P':
+                        pending_days.append(d)
+                        
+        if pending_days:
+            pending_list.append({
+                'nik': k.nik,
+                'absen': k.absen,
+                'nama': k.nama,
+                'days': sorted(pending_days)
+            })
+
+    # Calculate last day of month and check if month has ended
+    last_day_of_month = datetime.date(selected_tahun, view_month_num, jumlah_hari)
+    month_ended = system_date > last_day_of_month
+    next_day = last_day_of_month + datetime.timedelta(days=1)
+    next_day_str = f"{next_day.day} {INDONESIAN_MONTHS[next_day.month - 1]} {next_day.year}"
+
+    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
+    
+    return render_template(
+        'sdm/generate_laporan.html',
+        list_bulan=list_bulan,
+        selected_bulan=selected_bulan,
+        selected_tahun=selected_tahun,
+        has_pending=len(pending_list) > 0,
+        pending_list=pending_list,
+        month_ended=month_ended,
+        next_day_str=next_day_str,
+        active_page='sdm-transaksi'
+    )
+
+@app.route('/generate-laporan/download', methods=['POST'])
+def download_laporan():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+
+    import datetime
+    from datetime import date
+    system_date = date.today()
+    if 'simulation_date' in session:
+        try:
+            system_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    selected_bulan = request.form.get('bulan', '').strip()
+    selected_tahun_str = request.form.get('tahun', '').strip()
+    
+    if not selected_bulan or not selected_tahun_str:
+        flash("⚠️ Periode laporan tidak valid!", "danger")
+        return redirect(url_for('generate_laporan'))
+        
+    try:
+        selected_tahun = int(selected_tahun_str)
+    except ValueError:
+        flash("⚠️ Tahun tidak valid!", "danger")
+        return redirect(url_for('generate_laporan'))
+
+    # Get Bulan meta to calculate jumlah_hari
+    bulan_meta = db.session.execute(db.select(Bulan).where(Bulan.nama == selected_bulan)).scalar_one_or_none()
+    jumlah_hari = bulan_meta.jumlah_hari if bulan_meta else 31
+    if selected_bulan == 'Februari':
+        if (selected_tahun % 4 == 0 and selected_tahun % 100 != 0) or (selected_tahun % 400 == 0):
+            jumlah_hari = 29
+        else:
+            jumlah_hari = 28
+
+    # Query all active employees for this period
+    karyawan_list = db.session.execute(
+        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+    ).scalars().all()
+
+    MONTH_NUMBERS = {
+        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+    }
+    view_month_num = MONTH_NUMBERS.get(selected_bulan, 1)
+
+    # Check if month has ended relative to system_date
+    INDONESIAN_MONTHS = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ]
+    last_day_of_month = datetime.date(selected_tahun, view_month_num, jumlah_hari)
+    if system_date <= last_day_of_month:
+        next_day = last_day_of_month + datetime.timedelta(days=1)
+        next_day_str = f"{next_day.day} {INDONESIAN_MONTHS[next_day.month - 1]} {next_day.year}"
+        flash(f"⚠️ Periode belum berakhir! Laporan {selected_bulan} {selected_tahun} hanya dapat diunduh mulai tanggal {next_day_str}.", "danger")
+        return redirect(url_for('generate_laporan', bulan=selected_bulan, tahun=selected_tahun))
+
+    filtered_karyawan_list = []
+    for k in karyawan_list:
+        if k.tanggal_resign:
+            try:
+                dt_resign = datetime.datetime.strptime(k.tanggal_resign, "%Y-%m-%d").date()
+                if selected_tahun > dt_resign.year:
+                    continue
+                if selected_tahun == dt_resign.year and view_month_num > dt_resign.month:
+                    continue
+            except ValueError:
+                pass
+        if k.tmk:
+            try:
+                dt_tmk = None
+                for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+                    try:
+                        dt_tmk = datetime.datetime.strptime(k.tmk.strip(), fmt).date()
+                        break
+                    except ValueError:
+                        pass
+                if dt_tmk:
+                    if selected_tahun < dt_tmk.year:
+                        continue
+                    if selected_tahun == dt_tmk.year and view_month_num < dt_tmk.month:
+                        continue
+            except Exception:
+                pass
+        filtered_karyawan_list.append(k)
+
+    # Ambil data kehadiran dari DB yang sudah ada untuk periode terpilih
+    existing_entries = db.session.execute(
+        db.select(Kehadiran)
+        .where(Kehadiran.bulan == selected_bulan, Kehadiran.tahun == selected_tahun)
+    ).scalars().all()
+    kehadiran_map = {e.nik: e for e in existing_entries}
+
+    # Hitung hari sabtu & minggu (weekends) untuk bulan & tahun terpilih
+    weekends = []
+    for d in range(1, jumlah_hari + 1):
+        try:
+            dt = datetime.date(selected_tahun, view_month_num, d)
+            if dt.weekday() in (5, 6):
+                weekends.append(d)
+        except ValueError:
+            pass
+
+    # Ambil hari libur untuk bulan & tahun terpilih
+    all_holidays = db.session.execute(db.select(HariLibur)).scalars().all()
+    holiday_days = {}
+    for h in all_holidays:
+        if h.tanggal.month == view_month_num and h.tanggal.year == selected_tahun:
+            holiday_days[h.tanggal.day] = h.keterangan
+
+    # Validasi jika masih ada pending
+    has_pending = False
+    for k in filtered_karyawan_list:
+        entry = kehadiran_map.get(k.nik)
+        
+        # Cari tanggal tmk
+        days_before_tmk = set()
+        if k.tmk:
+            tmk_date = None
+            for fmt in ("%Y-%d-%m", "%Y-%m-%d"):
+                try:
+                    tmk_date = datetime.datetime.strptime(k.tmk.strip(), fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if tmk_date:
+                for d in range(1, jumlah_hari + 1):
+                    try:
+                        cell_date = datetime.date(selected_tahun, view_month_num, d)
+                        if cell_date < tmk_date:
+                            days_before_tmk.add(d)
+                    except ValueError:
+                        pass
+
+        status_dict = entry.status_hari if entry and entry.status_hari else {}
+        for d in range(1, jumlah_hari + 1):
+            if d in days_before_tmk:
+                continue
+            try:
+                cell_date = datetime.date(selected_tahun, view_month_num, d)
+            except ValueError:
+                continue
+            if cell_date < system_date:
+                is_weekend = d in weekends
+                is_holiday = d in holiday_days
+                if not is_weekend and not is_holiday:
+                    db_status = status_dict.get(str(d), '')
+                    if not db_status or db_status == 'P':
+                        has_pending = True
+                        break
+        if has_pending:
+            break
+
+    if has_pending:
+        flash("⚠️ Tidak dapat mengunduh laporan karena masih terdapat absensi pending!", "danger")
+        return redirect(url_for('generate_laporan', bulan=selected_bulan, tahun=selected_tahun))
+
+    # Caching data cuti massal untuk kalkulasi sisa cuti
+    all_kehadiran = db.session.execute(db.select(Kehadiran)).scalars().all()
+    all_cuti_manual = db.session.execute(db.select(CutiManual)).scalars().all()
+    bulan_list = db.session.execute(db.select(Bulan)).scalars().all()
+    
+    from collections import defaultdict
+    kehadiran_by_nik = defaultdict(list)
+    for kh in all_kehadiran:
+        kehadiran_by_nik[kh.nik].append(kh)
+
+    cuti_manual_by_nik = defaultdict(list)
+    for cm in all_cuti_manual:
+        cuti_manual_by_nik[cm.nik].append(cm)
+
+    bulan_days_map = {b.nama: b.jumlah_hari for b in bulan_list}
+
+    # Generate Excel
+    import pandas as pd
+    import io
+    from flask import send_file
+
+    rows_data = []
+    for idx, k in enumerate(filtered_karyawan_list, 1):
+        # Calculate Cuti Balance menggunakan in-memory cache
+        ct_info = get_cuti_tahunan_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik[k.nik],
+            cuti_manual_entries=cuti_manual_by_nik[k.nik],
+            bulan_days_map=bulan_days_map
+        )
+        sisa_ct = ct_info['balance']
+
+        cd_info = get_cuti_dinas_balance(
+            k, system_date,
+            kehadiran_entries=kehadiran_by_nik[k.nik],
+            cuti_manual_entries=cuti_manual_by_nik[k.nik]
+        )
+        sisa_cd = cd_info['balance']
+
+        # Rekap Kehadiran
+        entry = kehadiran_map.get(k.nik)
+        status_dict = entry.status_hari if entry and entry.status_hari else {}
+        scan_masuk_dict = entry.scan_masuk_hari if entry and entry.scan_masuk_hari else {}
+        scan_pulang_dict = entry.scan_pulang_hari if entry and entry.scan_pulang_hari else {}
+        izin_dict = entry.izin_hari if entry and entry.izin_hari else {}
+
+        hadir = 0
+        dl = 0
+        sakit = 0
+        ct = 0
+        cn = 0
+        cd = 0
+        alpa = 0
+        libur = 0
+        terlambat = 0
+        pulang_cepat = 0
+
+        # Cari tanggal tmk
+        days_before_tmk = set()
+        if k.tmk:
+            tmk_date = None
+            for fmt in ("%Y-%d-%m", "%Y-%m-%d"):
+                try:
+                    tmk_date = datetime.datetime.strptime(k.tmk.strip(), fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if tmk_date:
+                for d in range(1, jumlah_hari + 1):
+                    try:
+                        cell_date = datetime.date(selected_tahun, view_month_num, d)
+                        if cell_date < tmk_date:
+                            days_before_tmk.add(d)
+                    except ValueError:
+                        pass
+
+        for d in range(1, jumlah_hari + 1):
+            if d in days_before_tmk:
+                continue
+            val = status_dict.get(str(d), '')
+            
+            # Cari jika hari libur atau weekend
+            is_weekend = d in weekends
+            is_holiday = d in holiday_days
+
+            if val == 'M':
+                hadir += 1
+                # Check terlambat / pulang cepat menggunakan M/I (izin_hari)
+                is_izin = bool(izin_dict.get(str(d), False))
+                if not is_izin:
+                    masuk_time = scan_masuk_dict.get(str(d), '')
+                    pulang_time = scan_pulang_dict.get(str(d), '')
+                    
+                    if is_late_scan(masuk_time):
+                        terlambat += 1
+                        
+                    if k.jam_pulang:
+                        if is_early_checkout(pulang_time, k.jam_pulang):
+                            pulang_cepat += 1
+                            
+            elif val == 'DL':
+                dl += 1
+            elif val == 'S':
+                sakit += 1
+            elif val in ('CT', 'C'):
+                ct += 1
+            elif val == 'CN':
+                cn += 1
+            elif val == 'CD':
+                cd += 1
+            elif val == 'A':
+                alpa += 1
+            elif val == 'L' or (not val and (is_weekend or is_holiday)):
+                libur += 1
+
+        rows_data.append({
+            'No': idx,
+            'NIK': k.nik,
+            'Nama Karyawan': k.nama,
+            'Tanggal Masuk Kerja (TMK)': k.tmk,
+            'Sisa Cuti Tahunan': sisa_ct,
+            'Sisa Cuti Dinas': sisa_cd,
+            'Hadir (M)': hadir,
+            'Dinas Luar (DL)': dl,
+            'Sakit (S)': sakit,
+            'Cuti Tahunan (CT)': ct,
+            'Cuti Bersama/Khusus (CN)': cn,
+            'Cuti Dinas (CD)': cd,
+            'Alpa (A)': alpa,
+            'Libur (L)': libur,
+            'Terlambat': terlambat,
+            'Pulang Cepat': pulang_cepat
+        })
+
+    cols = [
+        'No', 'NIK', 'Nama Karyawan', 'Tanggal Masuk Kerja (TMK)',
+        'Sisa Cuti Tahunan', 'Sisa Cuti Dinas', 'Hadir (M)',
+        'Dinas Luar (DL)', 'Sakit (S)', 'Cuti Tahunan (CT)',
+        'Cuti Bersama/Khusus (CN)', 'Cuti Dinas (CD)', 'Alpa (A)',
+        'Libur (L)', 'Terlambat', 'Pulang Cepat'
+    ]
+    df = pd.DataFrame(rows_data, columns=cols)
+    
+    # Write to Excel in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Rekap Kehadiran & Cuti')
+        
+    output.seek(0)
+    
+    filename = f"Laporan_Kehadiran_Cuti_{selected_bulan}_{selected_tahun}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 @app.route('/master-cuti/update', methods=['POST'])
 def update_cuti():
     if 'logged_user' not in session:
@@ -2622,7 +2664,6 @@ def update_cuti():
         ]
         ref_period = f"{INDONESIAN_MONTHS[system_date.month]} {system_date.year}"
         sdm_log('TAMBAH_CUTI_DINAS', 'CUTI', f"Tambah jatah cuti dinas {karyawan.nama} ({nik}) sebanyak {jumlah} hari untuk periode {ref_period}. Ket: {keterangan}", nik=nik, nama_karyawan=karyawan.nama)
-        invalidate_saldo_cuti_cache(nik, system_date.year, system_date.month)
         db.session.commit()
         flash(f"✅ Transaksi berhasil: Jatah Cuti Dinas {karyawan.nama} ditambahkan sebanyak {jumlah} hari.", "success")
     except Exception as e:
@@ -3046,11 +3087,6 @@ def update_kehadiran_cell():
             entry.keterangan_hari = keterangan_dict
             entry.izin_hari = izin_dict
 
-        # Invalidate cache for batch edit
-        updated_months = set((d.year, d.month) for d in dates_to_update)
-        for y, m in updated_months:
-            invalidate_saldo_cuti_cache(nik, y, m)
-
         db.session.commit()
         return jsonify({'success': True})
 
@@ -3169,14 +3205,6 @@ def update_kehadiran_cell():
     entry.scan_pulang_hari = scan_pulang_dict
     entry.keterangan_hari = keterangan_dict
     entry.izin_hari = izin_dict
-    
-    MONTH_NUMBERS = {
-        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
-        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
-        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
-    }
-    m_num = MONTH_NUMBERS.get(entry.bulan, 1)
-    invalidate_saldo_cuti_cache(entry.nik, entry.tahun, m_num)
     
     db.session.commit()
     return jsonify({'success': True})
@@ -3561,7 +3589,6 @@ def upload_kehadiran():
             skipped_missing_count = 0
             unique_employees = set()
             processed_niks_in_file = set()
-            invalidated_targets = set()
             
             MONTH_MAPPING = {
                 1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
@@ -3722,7 +3749,6 @@ def upload_kehadiran():
                 success_count += 1
                 unique_employees.add(nik)
                 processed_niks_in_file.add(nik)
-                invalidated_targets.add((nik, tahun, bulan))
                 
             # Cari karyawan aktif yang tidak ada di berkas Excel
             missing_niks = [nik for nik in active_niks if nik not in processed_niks_in_file]
@@ -3760,19 +3786,8 @@ def upload_kehadiran():
                 entry.scan_pulang_hari = scan_pulang_dict
                 
                 unique_employees.add(m_nik)
-                invalidated_targets.add((m_nik, tahun, bulan))
                 skipped_missing_count += 1
                 
-            # Invalidate all collected cache targets
-            MONTH_NUMBERS = {
-                'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
-                'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
-                'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
-            }
-            for u_nik, u_tahun, u_bulan in invalidated_targets:
-                u_m = MONTH_NUMBERS.get(u_bulan, 1)
-                invalidate_saldo_cuti_cache(u_nik, u_tahun, u_m)
-
             sdm_log('UPLOAD_KEHADIRAN', 'KEHADIRAN', f"Upload Excel kehadiran: {success_count} baris diproses untuk {len(unique_employees)} karyawan.")
             db.session.commit()
             
@@ -4151,10 +4166,13 @@ def time_to_minutes(t_obj):
         return 0
     return t_obj.hour * 60 + t_obj.minute
 
-def get_karyawan_jam_kerja_history(karyawan):
-    presences = db.session.execute(
-        db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
-    ).scalars().all()
+def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_map=None):
+    if kehadiran_entries is None:
+        presences = db.session.execute(
+            db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
+        ).scalars().all()
+    else:
+        presences = kehadiran_entries
     
     MONTH_NUMBERS = {
         'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
@@ -4162,6 +4180,7 @@ def get_karyawan_jam_kerja_history(karyawan):
         'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
     }
     
+    presences = list(presences)
     presences.sort(key=lambda p: (p.tahun, MONTH_NUMBERS.get(p.bulan, 0)))
     
     carry_over_penalty = 0
@@ -4176,10 +4195,14 @@ def get_karyawan_jam_kerja_history(karyawan):
         if not m_num:
             continue
             
-        bulan_db = db.session.execute(
-            db.select(Bulan).where(Bulan.nama == p.bulan)
-        ).scalar_one_or_none()
-        jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
+        if bulan_days_map is None:
+            bulan_db = db.session.execute(
+                db.select(Bulan).where(Bulan.nama == p.bulan)
+            ).scalar_one_or_none()
+            jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
+        else:
+            jumlah_hari = bulan_days_map.get(p.bulan, 30)
+            
         if p.bulan == 'Februari':
             is_leap = (p.tahun % 4 == 0 and (p.tahun % 100 != 0 or p.tahun % 400 == 0))
             jumlah_hari = 29 if is_leap else 28
