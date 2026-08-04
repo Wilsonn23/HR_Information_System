@@ -61,9 +61,11 @@
                             <th scope="col" style="width: 130px;" class="text-success">Kelebihan</th>
                             <th scope="col" style="width: 130px;" class="text-danger">Kekurangan</th>
                             <th scope="col" style="width: 130px;" class="text-danger">Penalti</th>
-                            <th scope="col" style="width: 135px;" class="text-danger">Penalti Bln Sblmnya</th>
+                            <th scope="col" style="width: 135px;" class="text-danger">Penalti Bulan Sebelumnya</th>
                             <th scope="col" style="width: 130px;" class="text-danger">Total</th>
                             <th scope="col" style="width: 130px;" class="text-danger">Potong Cuti</th>
+                            <th scope="col" style="width: 130px;" class="text-primary">Saldo Awal Cuti</th>
+                            <th scope="col" style="width: 130px;" class="text-primary">Saldo Akhir Cuti</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -131,10 +133,12 @@
                                     -
                                 {% endif %}
                             </td>
+                            <td class="text-center fw-bold text-primary">{{ entry.saldo_awal }}</td>
+                            <td class="text-center fw-bold text-primary">{{ entry.saldo_akhir }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="13" class="text-center text-muted py-5">
+                            <td colspan="15" class="text-center text-muted py-5">
                                 📁 Tidak ada data jam kerja untuk periode terpilih.
                             </td>
                         </tr>

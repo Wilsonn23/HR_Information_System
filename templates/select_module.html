@@ -18,10 +18,14 @@
                 </div>
             </div>
 
+            {% set role = session.get('role') %}
+            {% set can_access_aset = role in ['admin', 'operasional'] %}
+            {% set can_access_sdm = role in ['admin', 'hr'] %}
+
             <div class="row g-4 justify-content-center max-w-lg mx-auto">
                 <!-- Modul Aset Card -->
                 <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white" style="border-radius: 20px !important; transition: all 0.3s ease;">
+                    <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white {{ 'locked-card' if not can_access_aset else '' }}" style="border-radius: 20px !important; transition: all 0.3s ease;">
                         <div class="card-body py-4 position-relative z-2 d-flex flex-column align-items-center justify-content-between">
                             <div>
                                 <div class="icon-wrapper bg-primary text-white rounded-4 shadow d-flex align-items-center justify-content-center mb-4 mx-auto" style="width: 70px; height: 70px; font-size: 28px;">
@@ -32,16 +36,25 @@
                                     Kelola asuransi unit, masa berlaku STNK, mutasi lokasi kerja, berkas dokumen bukti, dan laporan ekspor keuangan aset unit.
                                 </p>
                             </div>
+                            {% if can_access_aset %}
                             <a href="{{ url_for('aset_dashboard') }}" class="btn btn-primary btn-lg w-100 fw-bold py-2.5 shadow-sm mt-3" style="border-radius: 12px !important;">
                                 Masuk Modul Aset <i class="fas fa-arrow-right ms-2 small"></i>
                             </a>
+                            {% else %}
+                            <div class="w-100 mt-3">
+                                <button type="button" class="btn btn-outline-secondary btn-lg w-100 fw-bold py-2.5 shadow-sm disabled" style="border-radius: 12px !important;" disabled>
+                                    <i class="fas fa-lock me-2"></i> Terkunci
+                                </button>
+                                <small class="d-block text-muted mt-2">Modul ini tidak tersedia untuk role Anda.</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
 
                 <!-- Modul SDM Card -->
                 <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white" style="border-radius: 20px !important; transition: all 0.3s ease;">
+                    <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white {{ 'locked-card' if not can_access_sdm else '' }}" style="border-radius: 20px !important; transition: all 0.3s ease;">
                         <div class="card-body py-4 position-relative z-2 d-flex flex-column align-items-center justify-content-between">
                             <div>
                                 <div class="icon-wrapper bg-primary text-white rounded-4 shadow d-flex align-items-center justify-content-center mb-4 mx-auto" style="width: 70px; height: 70px; font-size: 28px;">
@@ -52,9 +65,18 @@
                                     Kelola data karyawan, rekap kehadiran bulanan, jatah cuti tahunan & cuti dinas, serta manajemen proses resign.
                                 </p>
                             </div>
+                            {% if can_access_sdm %}
                             <a href="{{ url_for('sdm_dashboard') }}" class="btn btn-primary text-white btn-lg w-100 fw-bold py-2.5 shadow-sm mt-3" style="border-radius: 12px !important;">
                                 Masuk Modul SDM <i class="fas fa-arrow-right ms-2 small"></i>
                             </a>
+                            {% else %}
+                            <div class="w-100 mt-3">
+                                <button type="button" class="btn btn-outline-secondary btn-lg w-100 fw-bold py-2.5 shadow-sm disabled" style="border-radius: 12px !important;" disabled>
+                                    <i class="fas fa-lock me-2"></i> Terkunci
+                                </button>
+                                <small class="d-block text-muted mt-2">Modul ini tidak tersedia untuk role Anda.</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -131,6 +153,16 @@
     .card:hover {
         transform: scale(1.01) !important;
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
+    }
+    .card.locked-card {
+        opacity: 0.92;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+    }
+    .card.locked-card .icon-wrapper {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+    }
+    .card.locked-card .btn-outline-secondary {
+        cursor: not-allowed;
     }
     .hover-text-white:hover {
         color: #ffffff !important;

@@ -29,7 +29,6 @@
                         <span class="fs-2 me-3">📤</span>
                         <div>
                             <h3 class="fw-bold m-0" style="font-size: 1.3rem;">Upload Form BA Cuti Dinas</h3>
-                            <p class="small text-white-50 m-0">Perpanjang umur cuti dinas karyawan menggunakan Berita Acara resmi</p>
                         </div>
                     </div>
                 </div>
@@ -76,7 +75,7 @@
                                     </div>
                                     <div class="col-6">
                                         <div class="bg-white p-3 rounded-3 border text-center">
-                                            <div class="text-muted/75 small">Batas Maksimal Cuti Tahunan</div>
+                                            <div class="text-muted/75 small">Batas Maksimal Cuti</div>
                                             <div id="val-max-expiration" class="fw-bold text-danger fs-6 mt-1">-</div>
                                         </div>
                                     </div>
@@ -103,7 +102,7 @@
                             <!-- BA Tanggal -->
                             <div class="mb-4">
                                 <label for="ba_tanggal" class="form-label fw-bold text-secondary small">Tanggal Berita Acara (BA)</label>
-                                <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="ba_tanggal" name="ba_tanggal" min="{{ system_date }}" required>
+                                <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="ba_tanggal" name="ba_tanggal" min="{{ system_date_ymd }}" required>
                             </div>
 
                             <!-- BA Keterangan -->
@@ -217,6 +216,18 @@
         const tanggalKadaluarsaBaru = document.getElementById('tanggal_kadaluarsa_baru');
         
         let loadedEntries = [];
+        
+        function formatDateDMY(dateStr) {
+            if (!dateStr) return '-';
+            if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+            return dateStr;
+        }
 
         if (nikSelect) {
             nikSelect.addEventListener('change', function () {
@@ -229,9 +240,9 @@
                 entriesContainer.innerHTML = '';
                 loadedEntries = [];
                 selectedEntryIdInput.value = '';
-
+ 
                 if (!nik) return;
-
+ 
                 // Fetch Cuti Dinas additions
                 fetch(`/form-ba/api/cuti-dinas/${encodeURIComponent(nik)}`)
                     .then(r => r.json())
@@ -249,12 +260,12 @@
                                         <div>
                                             <strong class="text-primary">${entry.jumlah} hari</strong>
                                             <span class="text-muted small mx-2">|</span>
-                                            <span class="small text-secondary fw-semibold">Tanggal Input: ${entry.tanggal_input}</span>
+                                            <span class="small text-secondary fw-semibold">Tanggal Input: ${formatDateDMY(entry.tanggal_input)}</span>
                                             ${entry.keterangan ? `<div class="text-muted small mt-1">${entry.keterangan}</div>` : ''}
                                         </div>
                                     </div>
                                     <div class="text-end">
-                                        <span class="badge bg-secondary-subtle text-secondary py-1 px-2.5 rounded-pill small">Berlaku s.d: ${entry.tanggal_kadaluarsa}</span>
+                                        <span class="badge bg-secondary-subtle text-secondary py-1 px-2.5 rounded-pill small">Berlaku s.d: ${formatDateDMY(entry.tanggal_kadaluarsa)}</span>
                                     </div>
                                 `;
                                 entriesContainer.appendChild(item);
@@ -270,19 +281,19 @@
                                     const entry = loadedEntries.find(e => e.id === entryId);
                                     if (entry) {
                                         selectedEntryIdInput.value = entry.id;
-                                        valCurrExpiration.textContent = entry.tanggal_kadaluarsa;
-                                        valMaxExpiration.textContent = entry.max_extension_date;
+                                        valCurrExpiration.textContent = formatDateDMY(entry.tanggal_kadaluarsa);
+                                        valMaxExpiration.textContent = formatDateDMY(entry.max_extension_date);
                                         
-                                        // Set bounds for date input
+                                        // Set bounds and values for native date inputs in YYYY-MM-DD format
                                         tanggalKadaluarsaBaru.min = entry.tanggal_kadaluarsa;
                                         tanggalKadaluarsaBaru.max = entry.max_extension_date;
                                         tanggalKadaluarsaBaru.value = entry.tanggal_kadaluarsa;
                                         
                                         // Fill BA details if they exist
                                         document.getElementById('ba_nomor').value = entry.ba_nomor;
-                                        document.getElementById('ba_tanggal').value = entry.ba_tanggal;
+                                        document.getElementById('ba_tanggal').value = entry.ba_tanggal ? entry.ba_tanggal : "{{ system_date_ymd }}";
                                         document.getElementById('ba_keterangan').value = entry.ba_keterangan;
-
+ 
                                         baFormDetails.classList.remove('d-none');
                                     }
                                 });

@@ -999,7 +999,7 @@ def perpanjang():
 
 @app.route('/mutasi', methods=['GET', 'POST'])
 def mutasi():
-    if session['role'] not in ['admin', 'user']:
+    if session['role'] not in ['admin', 'operasional', 'user']:
         return redirect(url_for('aset_dashboard'))
         
     form = MutasiForm()

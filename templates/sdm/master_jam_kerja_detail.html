@@ -16,8 +16,30 @@
                         ← Kembali ke Rekap Bulanan
                     </a>
                     <h3 class="fw-bold text-primary m-0">🔍 Detail Harian Jam Kerja: {{ karyawan.nama }}</h3>
-                    <p class="text-muted small m-0">Periode: <strong>{{ selected_bulan }} {{ selected_tahun }}</strong> | NIK: <strong>{{ karyawan.nik }}</strong> | Shift: <strong>{{ karyawan.jam_masuk.strftime('%H:%M') }} - {{ karyawan.jam_pulang.strftime('%H:%M') }} (8 jam wajib setelah potong istirahat)</strong></p>
+                    <p class="text-muted small m-0">Periode: <strong>{{ selected_bulan }} {{ selected_tahun }}</strong> | NIK: <strong>{{ karyawan.nik }}</strong> | Shift: <strong>{{ karyawan.jam_masuk.strftime('%H:%M') }} - {{ karyawan.jam_pulang.strftime('%H:%M') }}</strong></p>
                 </div>
+            </div>
+
+            <!-- Filter Bulan dan Tahun -->
+            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                <form id="filterForm" action="/master-jam-kerja/detail/{{ karyawan.nik }}" method="GET" class="row g-3 align-items-end">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small">Filter Bulan</label>
+                        <select id="filter_bulan" name="bulan" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for b in list_bulan %}
+                            <option value="{{ b.nama }}" {% if b.nama == selected_bulan %}selected{% endif %}>{{ b.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small">Filter Tahun</label>
+                        <select id="filter_tahun" name="tahun" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for t in list_tahun %}
+                            <option value="{{ t }}" {% if t == selected_tahun %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
             </div>
 
             <!-- Summary Alert Info -->
@@ -102,6 +124,22 @@
                             {% else %}
                                 0 hari
                             {% endif %}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-6 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-primary-subtle text-center h-100">
+                        <span class="text-primary small fw-bold d-block mb-1">Saldo Awal Cuti</span>
+                        <h4 class="fw-bold text-primary m-0">
+                            {{ summary.saldo_awal }}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-6 col-sm-6 col-12 mb-3">
+                    <div class="p-3 border rounded-3 bg-primary-subtle text-center h-100">
+                        <span class="text-primary small fw-bold d-block mb-1">Saldo Akhir Cuti</span>
+                        <h4 class="fw-bold text-primary m-0">
+                            {{ summary.saldo_akhir }}
                         </h4>
                     </div>
                 </div>

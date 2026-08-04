@@ -226,6 +226,32 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None, kehadiran_entries=None, cu
             acc['remaining'] -= consume_amount
             remaining_expired_to_consume -= consume_amount
 
+    # 3. Pengurangan akibat penalti jam kerja (potong_cuti) secara FIFO
+    # Hitung pemotongan cuti akibat penalti jam kerja
+    history = get_karyawan_jam_kerja_history(
+        karyawan, 
+        kehadiran_entries=kehadiran_entries, 
+        bulan_days_map=bulan_days_map,
+        target_year=ref_date.year,
+        target_month=ref_date.month
+    )
+    total_potong_cuti = 0
+    ref_month_start = datetime.date(ref_date.year, ref_date.month, 1)
+    
+    for (thn, bln), info in history.items():
+        p_month_start = datetime.date(thn, MONTH_NUMBERS.get(bln, 1), 1)
+        if p_month_start < ref_month_start:
+            total_potong_cuti += info['potong_cuti']
+
+    remaining_potong_cuti = total_potong_cuti
+    for acc in accruals:
+        if remaining_potong_cuti <= 0:
+            break
+        if acc['date'] <= ref_date and acc['remaining'] > 0:
+            consume_amount = min(acc['remaining'], remaining_potong_cuti)
+            acc['remaining'] -= consume_amount
+            remaining_potong_cuti -= consume_amount
+
     # Kalkulasi saldo akhir
     total_accrued = 0
     total_expired = manual_expired_sum  # Jatah hangus yang diakui hanya yang didelete manual
@@ -256,21 +282,11 @@ def get_cuti_tahunan_balance(karyawan, ref_date=None, kehadiran_entries=None, cu
             if acc['expiration'] == next_expiration_date
         )
 
-    # Hitung pemotongan cuti akibat penalti jam kerja
-    history = get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=kehadiran_entries, bulan_days_map=bulan_days_map)
-    total_potong_cuti = 0
-    ref_month_start = datetime.date(ref_date.year, ref_date.month, 1)
-    
-    for (thn, bln), info in history.items():
-        p_month_start = datetime.date(thn, MONTH_NUMBERS.get(bln, 1), 1)
-        if p_month_start < ref_month_start:
-            total_potong_cuti += info['potong_cuti']
-
     return {
         'accrued': total_accrued,
         'used': used_leaves_count + total_potong_cuti,
         'expired': total_expired,
-        'balance': max(0.0, active_balance - total_potong_cuti),
+        'balance': max(0.0, active_balance),
         'pending_expiration_amount': pending_expiration_amount,
         'leaves': leaves,
         'next_expiration_date': next_expiration_date,
@@ -547,7 +563,7 @@ def reset_simulasi_tanggal():
 class UserForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=50)])
     password = StringField('Password (Isi jika ingin diubah)', validators=[Optional(), Length(min=6)])
-    role = SelectField('Role', choices=[('user', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator')], validators=[DataRequired()])
+    role = SelectField('Role', choices=[('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator')], validators=[DataRequired()])
     submit = SubmitField('Simpan Pengguna')
 
 @app.route('/sdm-dashboard')
@@ -1915,6 +1931,18 @@ def tambah_cuti_dinas():
         active_page='sdm-transaksi'
     )
 
+def parse_date_dmy_or_ymd(date_str):
+    if not date_str:
+        return None
+    import datetime as dt_module
+    date_str = date_str.strip()
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d%m%Y"):
+        try:
+            return dt_module.datetime.strptime(date_str, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid date: {date_str}")
+
 @app.route('/form-ba', methods=['GET', 'POST'])
 def form_ba():
     if 'logged_user' not in session:
@@ -1930,7 +1958,7 @@ def form_ba():
     else:
         system_date = dt_module.date.today()
         
-    tanggal_input = system_date.strftime("%Y-%m-%d")
+    tanggal_input = system_date.strftime("%d-%m-%Y")
 
     if request.method == 'POST':
         entry_id_raw = request.form.get('entry_id')
@@ -1955,7 +1983,7 @@ def form_ba():
             return redirect(url_for('form_ba'))
 
         try:
-            dt_ba = dt_module.datetime.strptime(ba_tanggal, "%Y-%m-%d").date()
+            dt_ba = parse_date_dmy_or_ymd(ba_tanggal)
             if dt_ba < system_date:
                 flash(f"⚠️ Tanggal Berita Acara ({ba_tanggal}) tidak boleh kurang dari hari ini ({tanggal_input})!", "danger")
                 return redirect(url_for('form_ba'))
@@ -1998,30 +2026,30 @@ def form_ba():
             n += 1
             
         try:
-            dt_baru = dt_module.datetime.strptime(tanggal_kadaluarsa_baru, "%Y-%m-%d").date()
-            dt_lama = dt_module.datetime.strptime(entry.tanggal_kadaluarsa, "%Y-%m-%d").date()
+            dt_baru = parse_date_dmy_or_ymd(tanggal_kadaluarsa_baru)
+            dt_lama = parse_date_dmy_or_ymd(entry.tanggal_kadaluarsa)
             if dt_baru < dt_lama:
-                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh kurang dari tanggal kadaluarsa lama ({entry.tanggal_kadaluarsa})!", "danger")
+                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh kurang dari tanggal kadaluarsa lama ({dt_lama.strftime('%d-%m-%Y')})!", "danger")
                 return redirect(url_for('form_ba'))
             if dt_baru > max_limit:
-                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh melebihi batas masa berlaku cuti tahunan periode tersebut ({max_limit.strftime('%Y-%m-%d')})!", "danger")
+                flash(f"⚠️ Tanggal kadaluarsa baru ({tanggal_kadaluarsa_baru}) tidak boleh melebihi batas masa berlaku cuti tahunan periode tersebut ({max_limit.strftime('%d-%m-%Y')})!", "danger")
                 return redirect(url_for('form_ba'))
         except ValueError:
             flash("⚠️ Format tanggal kadaluarsa baru tidak valid!", "danger")
             return redirect(url_for('form_ba'))
 
         try:
-            entry.tanggal_kadaluarsa = tanggal_kadaluarsa_baru
+            entry.tanggal_kadaluarsa = dt_baru.strftime("%Y-%m-%d")
             entry.ba_nomor = ba_nomor
-            entry.ba_tanggal = ba_tanggal
+            entry.ba_tanggal = dt_ba.strftime("%Y-%m-%d")
             entry.ba_keterangan = ba_keterangan
             db.session.commit()
             
             # Log action
             from sdm import sdm_log
-            sdm_log('PERPANJANG_CUTI_DINAS', 'CUTI', f"Perpanjang cuti dinas {karyawan.nama} ({entry.nik}) s.d. {tanggal_kadaluarsa_baru} dengan BA Tanggal {ba_tanggal}.", nik=entry.nik, nama_karyawan=karyawan.nama)
+            sdm_log('PERPANJANG_CUTI_DINAS', 'CUTI', f"Perpanjang cuti dinas {karyawan.nama} ({entry.nik}) s.d. {dt_baru.strftime('%d-%m-%Y')} dengan BA Tanggal {dt_ba.strftime('%d-%m-%Y')}.", nik=entry.nik, nama_karyawan=karyawan.nama)
             
-            flash(f"🎉 Sukses memperpanjang cuti dinas {karyawan.nama} s.d. {tanggal_kadaluarsa_baru} berdasarkan BA Tanggal {ba_tanggal}!", "success")
+            flash(f"🎉 Sukses memperpanjang cuti dinas {karyawan.nama} s.d. {dt_baru.strftime('%d-%m-%Y')} berdasarkan BA Tanggal {dt_ba.strftime('%d-%m-%Y')}!", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"⚠️ Gagal menyimpan perpanjangan: {str(e)}", "danger")
@@ -2047,6 +2075,7 @@ def form_ba():
         'sdm/form_ba.html',
         karyawan_list=karyawan_list,
         system_date=tanggal_input,
+        system_date_ymd=system_date.strftime("%Y-%m-%d"),
         active_page='sdm-transaksi'
     )
 
@@ -4166,22 +4195,105 @@ def time_to_minutes(t_obj):
         return 0
     return t_obj.hour * 60 + t_obj.minute
 
-def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_map=None):
+def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_map=None, target_year=None, target_month=None):
     if kehadiran_entries is None:
         presences = db.session.execute(
             db.select(Kehadiran).where(Kehadiran.nik == karyawan.nik)
         ).scalars().all()
     else:
         presences = kehadiran_entries
+
+    if bulan_days_map is None:
+        bulans = db.session.execute(db.select(Bulan)).scalars().all()
+        bulan_days_map = {b.nama: b.jumlah_hari for b in bulans}
     
     MONTH_NUMBERS = {
         'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
         'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
         'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
     }
+    NUMBER_TO_MONTH = {v: k for k, v in MONTH_NUMBERS.items()}
     
     presences = list(presences)
-    presences.sort(key=lambda p: (p.tahun, MONTH_NUMBERS.get(p.bulan, 0)))
+    
+    # Get start year and month based on TMK
+    start_year = None
+    start_month = None
+    if karyawan.tmk:
+        for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+            try:
+                raw_tmk = datetime.datetime.strptime(karyawan.tmk.strip(), fmt).date()
+                start_year = raw_tmk.year
+                start_month = raw_tmk.month
+                break
+            except (ValueError, AttributeError):
+                continue
+
+    # Fallback to earliest presence record if TMK is not parsed
+    if presences and (start_year is None or start_month is None):
+        earliest_p = min(presences, key=lambda p: (p.tahun, MONTH_NUMBERS.get(p.bulan, 1)))
+        start_year = earliest_p.tahun
+        start_month = MONTH_NUMBERS.get(earliest_p.bulan, 1)
+
+    # Fallback to current date
+    if start_year is None or start_month is None:
+        today = datetime.date.today()
+        start_year = today.year
+        start_month = today.month
+
+    # Get target year and month (selected month in UI or ref_date)
+    target_y = None
+    target_m = None
+    if target_year and target_month:
+        target_y = int(target_year)
+        target_m = MONTH_NUMBERS.get(target_month) if isinstance(target_month, str) else int(target_month)
+        
+    latest_p_y = None
+    latest_p_m = None
+    if presences:
+        latest_p = max(presences, key=lambda p: (p.tahun, MONTH_NUMBERS.get(p.bulan, 1)))
+        latest_p_y = latest_p.tahun
+        latest_p_m = MONTH_NUMBERS.get(latest_p.bulan, 1)
+        
+    from flask import session, has_request_context
+    sim_date = None
+    if has_request_context() and 'simulation_date' in session:
+        try:
+            sim_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+        except Exception:
+            pass
+    if not sim_date:
+        sim_date = datetime.date.today()
+        
+    end_year = sim_date.year
+    end_month = sim_date.month
+    
+    def to_months_val(y, m):
+        return y * 12 + m if (y is not None and m is not None) else 0
+        
+    max_val = to_months_val(end_year, end_month)
+    if target_y and target_m:
+        max_val = max(max_val, to_months_val(target_y, target_m))
+    if latest_p_y and latest_p_m:
+        max_val = max(max_val, to_months_val(latest_p_y, latest_p_m))
+        
+    end_year = max_val // 12
+    end_month = max_val % 12
+    if end_month == 0:
+        end_year -= 1
+        end_month = 12
+
+    # Generate sequential months to ensure carry-over flows correctly through gaps
+    all_months = []
+    curr_y, curr_m = start_year, start_month
+    while (curr_y * 12 + curr_m) <= (end_year * 12 + end_month):
+        all_months.append((curr_y, NUMBER_TO_MONTH[curr_m]))
+        curr_m += 1
+        if curr_m > 12:
+            curr_m = 1
+            curr_y += 1
+            
+    presence_map = {(p.tahun, p.bulan): p for p in presences}
     
     carry_over_penalty = 0
     history = {}
@@ -4190,27 +4302,19 @@ def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_
     s_end = time_to_minutes(karyawan.jam_pulang)
     s_dur = max(0, s_end - s_start - 60) if s_end > s_start else 0
 
-    for p in presences:
-        m_num = MONTH_NUMBERS.get(p.bulan)
-        if not m_num:
-            continue
+    for (thn, bln) in all_months:
+        p = presence_map.get((thn, bln))
+        
+        jumlah_hari = bulan_days_map.get(bln, 30)
             
-        if bulan_days_map is None:
-            bulan_db = db.session.execute(
-                db.select(Bulan).where(Bulan.nama == p.bulan)
-            ).scalar_one_or_none()
-            jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
-        else:
-            jumlah_hari = bulan_days_map.get(p.bulan, 30)
-            
-        if p.bulan == 'Februari':
-            is_leap = (p.tahun % 4 == 0 and (p.tahun % 100 != 0 or p.tahun % 400 == 0))
+        if bln == 'Februari':
+            is_leap = (thn % 4 == 0 and (thn % 100 != 0 or thn % 400 == 0))
             jumlah_hari = 29 if is_leap else 28
 
         total_kekurangan_menit = 0
         total_penalti_menit = 0
         
-        if p.status_hari:
+        if p and p.status_hari:
             for d in range(1, jumlah_hari + 1):
                 status = p.status_hari.get(str(d))
                 if status == 'M':
@@ -4249,7 +4353,7 @@ def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_
         else:
             next_carry_over = total_combined
             
-        history[(p.tahun, p.bulan)] = {
+        history[(thn, bln)] = {
             'penalti_sebelumnya': carry_over_penalty,
             'kekurangan': total_kekurangan_menit,
             'penalti_terlambat': total_penalti_menit,
@@ -4301,10 +4405,9 @@ def master_jam_kerja():
     }
     month_num = MONTH_NUMBERS.get(selected_bulan, 1)
 
-    bulan_db = db.session.execute(
-        db.select(Bulan).where(Bulan.nama == selected_bulan)
-    ).scalar_one_or_none()
-    jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
+    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
+    bulan_days_map = {b.nama: b.jumlah_hari for b in list_bulan}
+    jumlah_hari = bulan_days_map.get(selected_bulan, 30)
     
     if selected_bulan == 'Februari':
         is_leap = (selected_tahun % 4 == 0 and (selected_tahun % 100 != 0 or selected_tahun % 400 == 0))
@@ -4334,6 +4437,29 @@ def master_jam_kerja():
                 pass
         active_karyawan.append(k)
 
+    presences = db.session.execute(
+        db.select(Kehadiran).where(
+            Kehadiran.bulan == selected_bulan,
+            Kehadiran.tahun == selected_tahun
+        )
+    ).scalars().all()
+    presence_map = {p.nik: p for p in presences}
+
+    # Fetch all kehadiran and cuti_manual for all employees in one go to optimize
+    all_kehadiran = db.session.execute(db.select(Kehadiran)).scalars().all()
+    kehadiran_by_nik = {}
+    for p in all_kehadiran:
+        if p.nik not in kehadiran_by_nik:
+            kehadiran_by_nik[p.nik] = []
+        kehadiran_by_nik[p.nik].append(p)
+        
+    all_cuti_manual = db.session.execute(db.select(CutiManual)).scalars().all()
+    cuti_manual_by_nik = {}
+    for c in all_cuti_manual:
+        if c.nik not in cuti_manual_by_nik:
+            cuti_manual_by_nik[c.nik] = []
+        cuti_manual_by_nik[c.nik].append(c)
+
     entries = []
     for k in active_karyawan:
         total_masuk = 0
@@ -4344,13 +4470,7 @@ def master_jam_kerja():
         total_kekurangan_menit = 0
         total_penalti_menit = 0
 
-        presence = db.session.execute(
-            db.select(Kehadiran).where(
-                Kehadiran.nik == k.nik,
-                Kehadiran.bulan == selected_bulan,
-                Kehadiran.tahun == selected_tahun
-            )
-        ).scalar_one_or_none()
+        presence = presence_map.get(k.nik)
 
         if presence and presence.status_hari:
             s_start = time_to_minutes(k.jam_masuk)
@@ -4406,11 +4526,32 @@ def master_jam_kerja():
             else:
                 return f"{h}j {m}m"
 
-        history = get_karyawan_jam_kerja_history(k)
+        k_kehadiran = kehadiran_by_nik.get(k.nik, [])
+        k_cuti_manual = cuti_manual_by_nik.get(k.nik, [])
+
+        history = get_karyawan_jam_kerja_history(
+            k, 
+            kehadiran_entries=k_kehadiran,
+            target_year=selected_tahun, 
+            target_month=selected_bulan,
+            bulan_days_map=bulan_days_map
+        )
         info = history.get((selected_tahun, selected_bulan), {})
         penalti_sebelumnya_menit = info.get('penalti_sebelumnya', 0)
         total_gabungan_menit = info.get('total', total_kekurangan_menit + total_penalti_menit)
         potong_cuti = info.get('potong_cuti', 0.0)
+
+        # Get leave balance at the end of the selected month
+        end_of_month = datetime.date(selected_tahun, month_num, jumlah_hari)
+        cuti_info = get_cuti_tahunan_balance(
+            k, 
+            ref_date=end_of_month, 
+            kehadiran_entries=k_kehadiran, 
+            cuti_manual_entries=k_cuti_manual,
+            bulan_days_map=bulan_days_map
+        )
+        saldo_awal = cuti_info['balance']
+        saldo_akhir = max(0.0, saldo_awal - potong_cuti)
 
         entries.append({
             'nik': k.nik,
@@ -4424,10 +4565,10 @@ def master_jam_kerja():
             'penalti': format_mins(total_penalti_menit),
             'penalti_sebelumnya': format_mins(penalti_sebelumnya_menit),
             'total': format_mins(total_gabungan_menit),
-            'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "-"
+            'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "-",
+            'saldo_awal': f"{saldo_awal} hari" if saldo_awal > 0 else "0 hari",
+            'saldo_akhir': f"{saldo_akhir} hari" if saldo_akhir > 0 else "0 hari"
         })
-
-    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
     current_year = datetime.datetime.now().year
     list_tahun = list(range(current_year - 5, current_year + 6))
 
@@ -4491,10 +4632,9 @@ def master_jam_kerja_detail(nik):
     if not karyawan:
         return "Karyawan tidak ditemukan", 404
 
-    bulan_db = db.session.execute(
-        db.select(Bulan).where(Bulan.nama == selected_bulan)
-    ).scalar_one_or_none()
-    jumlah_hari = bulan_db.jumlah_hari if bulan_db else 30
+    bulans = db.session.execute(db.select(Bulan)).scalars().all()
+    bulan_days_map = {b.nama: b.jumlah_hari for b in bulans}
+    jumlah_hari = bulan_days_map.get(selected_bulan, 30)
     
     if selected_bulan == 'Februari':
         is_leap = (selected_tahun % 4 == 0 and (selected_tahun % 100 != 0 or selected_tahun % 400 == 0))
@@ -4618,11 +4758,17 @@ def master_jam_kerja_detail(nik):
         else:
             return f"{h}j {m}m"
 
-    history = get_karyawan_jam_kerja_history(karyawan)
+    history = get_karyawan_jam_kerja_history(karyawan, target_year=selected_tahun, target_month=selected_bulan, bulan_days_map=bulan_days_map)
     info = history.get((selected_tahun, selected_bulan), {})
     penalti_sebelumnya = info.get('penalti_sebelumnya', 0)
     total_gabungan_menit = info.get('total', total_kekurangan_menit + total_penalti_menit)
     potong_cuti = info.get('potong_cuti', 0.0)
+
+    # Get leave balance
+    end_of_month = datetime.date(selected_tahun, month_num, jumlah_hari)
+    cuti_info = get_cuti_tahunan_balance(karyawan, ref_date=end_of_month, bulan_days_map=bulan_days_map)
+    saldo_awal = cuti_info['balance']
+    saldo_akhir = max(0.0, saldo_awal - potong_cuti)
 
     summary = {
         'total_masuk': total_masuk,
@@ -4634,8 +4780,13 @@ def master_jam_kerja_detail(nik):
         'penalti': format_mins(total_penalti_menit),
         'penalti_sebelumnya': format_mins(penalti_sebelumnya),
         'total': format_mins(total_gabungan_menit),
-        'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "0"
+        'potong_cuti': f"{potong_cuti} hari" if potong_cuti > 0 else "0",
+        'saldo_awal': f"{saldo_awal} hari" if saldo_awal > 0 else "0 hari",
+        'saldo_akhir': f"{saldo_akhir} hari" if saldo_akhir > 0 else "0 hari"
     }
+
+    current_year = datetime.datetime.now().year
+    list_tahun = list(range(current_year - 5, current_year + 6))
 
     return render_template(
         'sdm/master_jam_kerja_detail.html',
@@ -4644,6 +4795,8 @@ def master_jam_kerja_detail(nik):
         summary=summary,
         selected_bulan=selected_bulan,
         selected_tahun=selected_tahun,
+        list_bulan=bulans,
+        list_tahun=list_tahun,
         active_page='master-sdm'
     )
 

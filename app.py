@@ -120,10 +120,59 @@ def batasi_akses_global():
         flash("Silakan login terlebih dahulu untuk mengakses halaman tersebut.", "warning")
         return redirect(url_for('login'))
 
-    # Auto-detect active module based on URL path
-    if request.path.startswith('/sdm'):
+    # Define route prefix groups for each module
+    sdm_prefixes = [
+        '/sdm-dashboard', '/sdm-transaksi', '/master-sdm', '/master-karyawan', 
+        '/upload-karyawan', '/hapus-cuti', '/logs-cuti', '/nonaktifkan-karyawan', 
+        '/master-cuti', '/tambah-cuti-dinas', '/form-ba', '/generate-laporan', 
+        '/master-bulan', '/master-kehadiran', '/users', '/tambah-karyawan', 
+        '/upload-kehadiran', '/atur-libur', '/edit-kehadiran', '/master-jam-kerja', 
+        '/simulasi-tanggal'
+    ]
+    
+    aset_prefixes = [
+        '/aset-dashboard', '/transaksi', '/entry', '/perpanjang', '/mutasi', 
+        '/report', '/details', '/master-all', '/master-lokasi-kerja', 
+        '/master-pulau', '/master-kota', '/master-pt', '/master-unit', 
+        '/master-asuransi', '/master-merk', '/master-kategori', '/master/', 
+        '/edit/', '/delete/', '/update/', '/submit_data', '/logs-aset'
+    ]
+    # /master exact route belongs to aset (landing page)
+    aset_exact = ['/master']
+
+    user_role = session.get('role')
+    path = request.path
+
+    # Public utility paths are always allowed
+    if path in ['/logout', '/select-module'] or path.startswith('/static/') or path.startswith('/temp_uploads/'):
+        pass
+    else:
+        # Check SDM Module Access
+        is_sdm_route = any(path.startswith(prefix) for prefix in sdm_prefixes)
+        if is_sdm_route:
+            # Staff Operasional cannot access SDM module at all
+            if user_role in ['operasional', 'user']:
+                flash("⚠️ Akses Ditolak: Peran Anda tidak memiliki izin untuk mengakses Modul SDM.", "danger")
+                return redirect(url_for('select_module'))
+                
+            # Staff HR cannot access user management
+            if user_role == 'hr':
+                if path.startswith('/users'):
+                    flash("⚠️ Akses Ditolak: Staff SDM tidak diizinkan mengakses Manajemen User.", "danger")
+                    return redirect(url_for('sdm_dashboard'))
+
+        # Check Aset Module Access
+        is_aset_route = path in aset_exact or any(path.startswith(prefix) for prefix in aset_prefixes)
+        if is_aset_route:
+            # Staff HR cannot access Aset module
+            if user_role == 'hr':
+                flash("⚠️ Akses Ditolak: Peran Anda tidak memiliki izin untuk mengakses Modul Aset.", "danger")
+                return redirect(url_for('select_module'))
+
+    # Auto-detect active module based on URL path for navigation state
+    if request.path.startswith('/sdm') or any(request.path.startswith(prefix) for prefix in sdm_prefixes):
         session['module'] = 'sdm'
-    elif any(request.path.startswith(prefix) for prefix in ['/asset-dashboard', '/transaksi', '/details', '/report', '/master', '/logs', '/perpanjang', '/mutasi', '/edit', '/delete', '/update', '/submit_data']):
+    elif path in aset_exact or any(request.path.startswith(prefix) for prefix in aset_prefixes):
         session['module'] = 'aset'
 
 def cleanup_temp_uploads():
@@ -325,7 +374,7 @@ class UserEntry(db.Model):
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(db.String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(db.String(255), nullable=False)
-    role: Mapped[str] = mapped_column(db.String(20), default='user')
+    role: Mapped[str] = mapped_column(db.String(20))
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
