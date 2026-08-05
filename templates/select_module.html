@@ -24,7 +24,7 @@
 
             <div class="row g-4 justify-content-center max-w-lg mx-auto">
                 <!-- Modul Aset Card -->
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white {{ 'locked-card' if not can_access_aset else '' }}" style="border-radius: 20px !important; transition: all 0.3s ease;">
                         <div class="card-body py-4 position-relative z-2 d-flex flex-column align-items-center justify-content-between">
                             <div>
@@ -53,7 +53,7 @@
                 </div>
 
                 <!-- Modul SDM Card -->
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white {{ 'locked-card' if not can_access_sdm else '' }}" style="border-radius: 20px !important; transition: all 0.3s ease;">
                         <div class="card-body py-4 position-relative z-2 d-flex flex-column align-items-center justify-content-between">
                             <div>
@@ -77,6 +77,26 @@
                                 <small class="d-block text-muted mt-2">Modul ini tidak tersedia untuk role Anda.</small>
                             </div>
                             {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cek Cuti Card -->
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-lg position-relative overflow-hidden text-center p-4 bg-white" style="border-radius: 20px !important; transition: all 0.3s ease;">
+                        <div class="card-body py-4 position-relative z-2 d-flex flex-column align-items-center justify-content-between">
+                            <div>
+                                <div class="icon-wrapper text-white rounded-4 shadow d-flex align-items-center justify-content-center mb-4 mx-auto" style="width: 70px; height: 70px; font-size: 28px; background: linear-gradient(135deg, #0d9488, #0f766e);">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <h3 class="fw-bold text-dark mb-3">Info Cuti Saya</h3>
+                                <p class="text-secondary small mb-4">
+                                    Periksa ketersediaan dan sisa jatah saldo Cuti Tahunan serta Cuti Dinas milik Anda yang terdaftar pada sistem.
+                                </p>
+                            </div>
+                            <a href="{{ url_for('cek_cuti') }}" class="btn btn-teal btn-lg w-100 fw-bold py-2.5 shadow-sm mt-3 text-white" style="border-radius: 12px !important; background-color: #0d9488; border-color: #0d9488;">
+                                Masuk Info Cuti <i class="fas fa-arrow-right ms-2 small"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -172,7 +192,7 @@
         letter-spacing: 1px;
     }
     .max-w-lg {
-        max-width: 800px;
+        max-width: 1100px;
     }
     .select-module-footer {
         text-align: center;

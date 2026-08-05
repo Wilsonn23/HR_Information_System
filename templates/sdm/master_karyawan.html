@@ -5,7 +5,7 @@
 {% block body_class %}dashboard-page bg-light{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 mt-5 pt-3">
+<div class="container-fluid px-4 mt-2">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
@@ -33,10 +33,14 @@
                             <th scope="col">Absen</th>
                             <th scope="col">Nama</th>
                             <th scope="col">NIK</th>
+                            <th scope="col">PT</th>
+                            <th scope="col">Tipe Staff</th>
                             <th scope="col">Jabatan</th>
                             <th scope="col">TMK</th>
                             <th scope="col">Jam Masuk</th>
                             <th scope="col">Jam Pulang</th>
+                            <th scope="col">Diinput Oleh</th>
+                            <th scope="col">Tanggal Input</th>
                             <th scope="col" class="text-center">Status</th>
                         </tr>
                     </thead>
@@ -48,10 +52,30 @@
                             <td>{{ entry.absen }}</td>
                             <td class="fw-semibold">{{ entry.nama }}</td>
                             <td>{{ entry.nik }}</td>
+                            <td>{{ entry.pt or '-' }}</td>
+                            <td>
+                                {% if entry.staff == 'Non-Staff' %}
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">Non-Staff</span>
+                                {% else %}
+                                    <span class="badge bg-primary-subtle text-primary px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">Staff</span>
+                                {% endif %}
+                            </td>
                             <td>{{ entry.jabatan }}</td>
                             <td>{{ entry.tmk }}</td>
                             <td>{{ entry.jam_masuk }}</td>
                             <td>{{ entry.jam_pulang }}</td>
+                            <td>
+                                <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                    {{ entry.dilakukan_oleh or 'System' }}
+                                </span>
+                            </td>
+                            <td class="text-muted small">
+                                {% if entry.tanggal_aksi %}
+                                    {{ entry.tanggal_aksi.strftime('%Y-%m-%d') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 {% if entry.tanggal_resign %}
                                     {% if entry.is_actually_resigned %}
@@ -78,7 +102,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-5">
+                            <td colspan="13" class="text-center text-muted py-5">
                                 📁 Belum ada data yang tersimpan.
                             </td>
                         </tr>

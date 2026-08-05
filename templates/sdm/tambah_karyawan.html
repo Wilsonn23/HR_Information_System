@@ -44,11 +44,39 @@
                         <div class="invalid-feedback">Harap masukkan nama lengkap karyawan.</div>
                     </div>
 
+                    <!-- PT -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_pt" class="form-label fw-bold text-secondary small">Nama PT / Perusahaan</label>
+                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_pt" name="pt" required style="box-shadow: none;">
+                            <option value="" disabled selected>-- Pilih PT --</option>
+                            {% for pt in list_pt %}
+                                <option value="{{ pt.nama }}">{{ pt.nama }} — {{ pt.parent_nama }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Harap pilih PT karyawan.</div>
+                    </div>
+
                     <!-- Jabatan -->
                     <div class="col-md-6 mt-3">
                         <label for="input_jabatan" class="form-label fw-bold text-secondary small">Jabatan</label>
-                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jabatan" name="jabatan" placeholder="Masukkan jabatan (contoh: STAFF)..." required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap isi jabatan karyawan.</div>
+                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_jabatan" name="jabatan" required style="box-shadow: none;">
+                            <option value="" disabled selected>-- Pilih Jabatan --</option>
+                            {% for jab in list_jabatan %}
+                                <option value="{{ jab.nama }}">{{ jab.nama }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Harap pilih jabatan karyawan.</div>
+                    </div>
+
+                    <!-- Tipe Staff -->
+                    <div class="col-md-6 mt-3">
+                        <label for="input_staff" class="form-label fw-bold text-secondary small">Tipe Staff</label>
+                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_staff" name="staff" required style="box-shadow: none;">
+                            <option value="" disabled selected>-- Pilih Tipe Staff --</option>
+                            <option value="Staff">Staff</option>
+                            <option value="Non-Staff">Non-Staff</option>
+                        </select>
+                        <div class="invalid-feedback">Harap pilih tipe staff karyawan.</div>
                     </div>
 
                     <!-- Tanggal Mulai Kerja (TMK) -->

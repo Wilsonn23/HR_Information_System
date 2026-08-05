@@ -8,7 +8,7 @@ from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional, Length
 from werkzeug.security import generate_password_hash
 
-from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog
+from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog, Jabatan, PT, Kota, Unit
 
 def sdm_log(aksi: str, kategori: str, detail: str, nik: str = None, nama_karyawan: str = None):
     """Helper untuk mencatat log aktivitas SDM ke tabel sdm_activity_logs."""
@@ -561,9 +561,10 @@ def reset_simulasi_tanggal():
     return redirect(ref)
 
 class UserForm(FlaskForm):
+    nik = StringField('NIK', validators=[DataRequired(), Length(min=3, max=50)])
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=50)])
     password = StringField('Password (Isi jika ingin diubah)', validators=[Optional(), Length(min=6)])
-    role = SelectField('Role', choices=[('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator')], validators=[DataRequired()])
+    role = SelectField('Role', choices=[('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator'), ('user', 'User')], validators=[DataRequired()])
     submit = SubmitField('Simpan Pengguna')
 
 @app.route('/sdm-dashboard')
@@ -757,6 +758,7 @@ def sdm_dashboard():
                     'nik': karyawan.nik,
                     'absen': karyawan.absen,
                     'nama': karyawan.nama,
+                    'jabatan': karyawan.jabatan,
                     'bulan': bulan_nama,
                     'tahun': y,
                     'hari': pending_lampau_days
@@ -813,7 +815,9 @@ def sdm_dashboard():
         if t_next and system_date <= t_next <= cutoff_date:
             dashboard_cuti_list.append({
                 'nik': k.nik,
+                'absen': k.absen,
                 'nama': k.nama,
+                'jabatan': k.jabatan,
                 'jenis_cuti': 'Cuti Tahunan',
                 'sisa_saldo': max(0.0, tahunan_info['balance'] - tahunan_info['pending_expiration_amount']),
                 'tanggal_hangus': t_next,
@@ -826,7 +830,9 @@ def sdm_dashboard():
         if d_next and system_date <= d_next <= cutoff_date:
             dashboard_cuti_list.append({
                 'nik': k.nik,
+                'absen': k.absen,
                 'nama': k.nama,
+                'jabatan': k.jabatan,
                 'jenis_cuti': 'Cuti Dinas',
                 'sisa_saldo': max(0.0, dinas_info['balance'] - dinas_info['pending_expiration_amount']),
                 'tanggal_hangus': d_next,
@@ -849,6 +855,7 @@ def sdm_dashboard():
                 'nik': k.nik,
                 'absen': k.absen,
                 'nama': k.nama,
+                'jabatan': k.jabatan,
                 'pending_hangus': pending_hangus,
                 'pending_dinas': pending_dinas
             })
@@ -883,7 +890,150 @@ def master_sdm():
         return redirect(url_for('login'))
     return render_template('sdm/master_landing.html', active_page='master-sdm')
 
+
+@app.route('/master-jabatan', methods=['GET', 'POST'])
+def master_jabatan():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        nama_jabatan = request.form.get('nama', '').strip()
+        if not nama_jabatan:
+            flash("Nama jabatan tidak boleh kosong!", "danger")
+        else:
+            exist = db.session.execute(
+                db.select(Jabatan).where(db.func.lower(Jabatan.nama) == nama_jabatan.lower())
+            ).scalar_one_or_none()
+            if exist:
+                flash(f"Jabatan '{nama_jabatan}' sudah ada!", "danger")
+            else:
+                new_jab = Jabatan(
+                    nama=nama_jabatan,
+                    dilakukan_oleh=session.get('logged_user', 'system')
+                )
+                db.session.add(new_jab)
+                db.session.commit()
+                sdm_log("TAMBAH", "JABATAN", f"Menambahkan jabatan baru: {nama_jabatan}")
+                flash(f"Jabatan '{nama_jabatan}' berhasil ditambahkan.", "success")
+        return redirect(url_for('master_jabatan'))
+        
+    entries = db.session.execute(
+        db.select(Jabatan).order_by(Jabatan.nama)
+    ).scalars().all()
+    
+    return render_template('sdm/master_jabatan.html', entries=entries, active_page='master-sdm')
+
+@app.route('/master-jabatan/delete/<int:id>', methods=['POST'])
+def delete_jabatan(id):
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    jab = db.session.get(Jabatan, id)
+    if not jab:
+        flash("Data jabatan tidak ditemukan!", "danger")
+        return redirect(url_for('master_jabatan'))
+        
+    used = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.jabatan == jab.nama)
+    ).first()
+    
+    if used:
+        flash(f"Tidak dapat menghapus jabatan '{jab.nama}' karena sedang digunakan oleh karyawan!", "danger")
+    else:
+        nama_del = jab.nama
+        db.session.delete(jab)
+        db.session.commit()
+        sdm_log("HAPUS", "JABATAN", f"Menghapus jabatan: {nama_del}")
+        flash(f"Jabatan '{nama_del}' berhasil dihapus.", "success")
+        
+    return redirect(url_for('master_jabatan'))
+
+
+@app.route('/master-sdm-pt', methods=['GET', 'POST'])
+def master_sdm_pt():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        nama_pt = request.form.get('nama', '').strip()
+        ref_kota_id = request.form.get('reference', '').strip()
+        
+        if not nama_pt or not ref_kota_id:
+            flash("Nama PT dan Kota Referensi wajib diisi!", "danger")
+        else:
+            try:
+                ref_kota_id = int(ref_kota_id)
+                exist = db.session.execute(
+                    db.select(PT).where(db.func.lower(PT.nama) == nama_pt.lower())
+                ).scalar_one_or_none()
+                if exist:
+                    flash(f"PT '{nama_pt}' sudah terdaftar!", "danger")
+                else:
+                    new_pt = PT(
+                        nama=nama_pt,
+                        reference=ref_kota_id,
+                        dilakukan_oleh=session.get('logged_user', 'system')
+                    )
+                    db.session.add(new_pt)
+                    db.session.commit()
+                    sdm_log("TAMBAH", "PT", f"Menambahkan PT baru: {nama_pt}")
+                    flash(f"PT '{nama_pt}' berhasil ditambahkan.", "success")
+            except ValueError:
+                flash("Referensi Kota tidak valid!", "danger")
+        return redirect(url_for('master_sdm_pt'))
+        
+    entries = db.session.execute(
+        db.select(PT).order_by(PT.nama)
+    ).scalars().all()
+    
+    references_list = db.session.execute(
+        db.select(Kota).order_by(Kota.nama)
+    ).scalars().all()
+    
+    return render_template('sdm/master_pt.html', entries=entries, references_list=references_list, active_page='master-sdm')
+
+@app.route('/master-sdm-pt/delete/<int:id>', methods=['POST'])
+def delete_sdm_pt(id):
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    pt = db.session.get(PT, id)
+    if not pt:
+        flash("Data PT tidak ditemukan!", "danger")
+        return redirect(url_for('master_sdm_pt'))
+        
+    # Cek relasi ke data Karyawan
+    used_karyawan = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.pt == pt.nama)
+    ).first()
+    
+    # Cek relasi ke data Unit Aset
+    used_unit = db.session.execute(
+        db.select(Unit).where(Unit.reference == pt.id)
+    ).first()
+    
+    if used_karyawan:
+        flash(f"Tidak dapat menghapus PT '{pt.nama}' karena sedang digunakan oleh data karyawan!", "danger")
+    elif used_unit:
+        flash(f"Tidak dapat menghapus PT '{pt.nama}' karena sedang digunakan sebagai referensi data Unit PT (modul Aset)!", "danger")
+    else:
+        nama_del = pt.nama
+        try:
+            db.session.delete(pt)
+            db.session.commit()
+            sdm_log("HAPUS", "PT", f"Menghapus PT: {nama_del}")
+            flash(f"PT '{nama_del}' berhasil dihapus.", "success")
+        except Exception as e:
+            db.session.rollback()
+            if "foreign key" in str(e).lower() or "violates foreign key" in str(e).lower():
+                flash(f"Tidak dapat menghapus PT '{nama_del}' karena masih dirujuk oleh data/referensi lain di database.", "danger")
+            else:
+                flash(f"Terjadi kesalahan saat menghapus PT: {str(e)}", "danger")
+        
+    return redirect(url_for('master_sdm_pt'))
+
 @app.route('/master-karyawan')
+
 def master_karyawan():
     if 'logged_user' not in session:
         return redirect(url_for('login'))
@@ -3238,6 +3388,61 @@ def update_kehadiran_cell():
     db.session.commit()
     return jsonify({'success': True})
 
+@app.route('/cek-cuti')
+def cek_cuti():
+    if 'logged_in' not in session:
+        return redirect(url_for('login'))
+
+    # Ambil NIK dari akun user yang login
+    user_id = session.get('result_id')
+    user_entry = db.session.get(UserEntry, user_id)
+    user_nik = user_entry.nik if user_entry else None
+
+    karyawan = None
+    cuti_tahunan_balance = 0
+    cuti_tahunan_used = 0
+    cuti_tahunan_expired = 0
+    cuti_dinas_balance = 0
+    riwayat = []
+
+    if user_nik:
+        karyawan = db.session.execute(
+            db.select(KaryawanEntry).where(KaryawanEntry.nik == user_nik)
+        ).scalar_one_or_none()
+
+    if karyawan:
+        system_date = datetime.date.today()
+        if 'simulation_date' in session:
+            try:
+                system_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+            except Exception:
+                pass
+
+        tahunan_info = get_cuti_tahunan_balance(karyawan, system_date)
+        cuti_tahunan_balance = tahunan_info.get('balance', 0)
+        cuti_tahunan_used    = tahunan_info.get('used', 0)
+        cuti_tahunan_expired = tahunan_info.get('expired', 0)
+
+        dinas_info = get_cuti_dinas_balance(karyawan, system_date)
+        cuti_dinas_balance = max(0.0, dinas_info.get('balance', 0))
+
+        riwayat = db.session.execute(
+            db.select(CutiManual)
+            .where(CutiManual.nik == user_nik)
+            .order_by(CutiManual.tanggal_input.desc())
+        ).scalars().all()
+
+    return render_template(
+        'cek_cuti.html',
+        karyawan=karyawan,
+        user_nik=user_nik,
+        cuti_tahunan_balance=cuti_tahunan_balance,
+        cuti_tahunan_used=cuti_tahunan_used,
+        cuti_tahunan_expired=cuti_tahunan_expired,
+        cuti_dinas_balance=cuti_dinas_balance,
+        riwayat=riwayat,
+    )
+
 @app.route('/users', methods=['GET', 'POST'])
 def manage_users():
     if 'logged_user' not in session or session.get('role') != 'admin':
@@ -3246,6 +3451,7 @@ def manage_users():
     form = UserForm()
     
     if form.validate_on_submit():
+        nik_clean = form.nik.data.strip().upper()
         username_clean = form.username.data.strip()
         existing_user = db.session.execute(db.select(UserEntry).where(UserEntry.username == username_clean)).scalar_one_or_none()
         
@@ -3256,10 +3462,10 @@ def manage_users():
                 flash("⚠️ Password wajib diisi untuk pengguna baru!", "danger")
             else:
                 hashed_pw = generate_password_hash(form.password.data)
-                new_user = UserEntry(username=username_clean, password=hashed_pw, role=form.role.data)
+                new_user = UserEntry(nik=nik_clean, username=username_clean, password=hashed_pw, role=form.role.data)
                 db.session.add(new_user)
                 db.session.commit()
-                flash(f"Pengguna '{username_clean}' berhasil didaftarkan.", "success")
+                flash(f"Pengguna '{username_clean}' (NIK: {nik_clean}) berhasil didaftarkan.", "success")
                 return redirect(url_for('manage_users'))
 
     all_users = db.session.execute(db.select(UserEntry).order_by(UserEntry.id)).scalars().all()
@@ -3290,13 +3496,15 @@ def tambah_karyawan():
     if request.method == 'POST':
         nik = request.form.get('nik', '').strip().upper()
         nama = request.form.get('nama', '').strip()
+        pt = request.form.get('pt', '').strip()
         jabatan = request.form.get('jabatan', '').strip()
+        staff = request.form.get('staff', '').strip()
         tmk = request.form.get('tmk', '').strip()
         jam_masuk_raw = request.form.get('jam_masuk', '').strip()
         jam_pulang_raw = request.form.get('jam_pulang', '').strip()
         
         # Validasi
-        if not (nik and nama and jabatan and tmk and jam_masuk_raw and jam_pulang_raw):
+        if not (nik and nama and pt and jabatan and staff and tmk and jam_masuk_raw and jam_pulang_raw):
             flash("⚠️ Semua kolom wajib diisi!", "danger")
             return redirect(url_for('tambah_karyawan'))
             
@@ -3342,10 +3550,13 @@ def tambah_karyawan():
                 nik=nik,
                 absen=absen,
                 nama=nama,
+                pt=pt,
                 jabatan=jabatan,
+                staff=staff,
                 tmk=tmk,
                 jam_masuk=jam_masuk,
-                jam_pulang=jam_pulang
+                jam_pulang=jam_pulang,
+                dilakukan_oleh=session.get('logged_user', 'system')
             )
             new_cuti = Cuti(
                 nik=nik,
@@ -3354,7 +3565,7 @@ def tambah_karyawan():
             )
             db.session.add(new_karyawan)
             db.session.add(new_cuti)
-            sdm_log('TAMBAH_KARYAWAN', 'KARYAWAN', f"Tambah karyawan baru: '{nama}' (NIK: {nik}, Jabatan: {jabatan}, TMK: {tmk}).", nik=nik, nama_karyawan=nama)
+            sdm_log('TAMBAH_KARYAWAN', 'KARYAWAN', f"Tambah karyawan baru: '{nama}' (NIK: {nik}, PT: {pt}, Jabatan: {jabatan}, Tipe Staff: {staff}, TMK: {tmk}).", nik=nik, nama_karyawan=nama)
             db.session.commit()
             flash(f"✅ Karyawan '{nama}' (NIK: {nik}) berhasil ditambahkan!", "success")
             return redirect(url_for('master_karyawan'))
@@ -3366,7 +3577,9 @@ def tambah_karyawan():
     # Hitung nomor absen otomatis untuk ditampilkan di formulir
     max_absen = db.session.execute(db.select(db.func.max(KaryawanEntry.absen))).scalar()
     next_absen = (max_absen or 0) + 1
-    return render_template('sdm/tambah_karyawan.html', next_absen=next_absen, active_page='sdm-transaksi')
+    list_jabatan = db.session.execute(db.select(Jabatan).order_by(Jabatan.nama)).scalars().all()
+    list_pt = db.session.execute(db.select(PT).order_by(PT.nama)).scalars().all()
+    return render_template('sdm/tambah_karyawan.html', next_absen=next_absen, list_jabatan=list_jabatan, list_pt=list_pt, active_page='sdm-transaksi')
 
 @app.route('/upload-kehadiran', methods=['GET', 'POST'])
 def upload_kehadiran():

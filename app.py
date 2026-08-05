@@ -127,7 +127,7 @@ def batasi_akses_global():
         '/master-cuti', '/tambah-cuti-dinas', '/form-ba', '/generate-laporan', 
         '/master-bulan', '/master-kehadiran', '/users', '/tambah-karyawan', 
         '/upload-kehadiran', '/atur-libur', '/edit-kehadiran', '/master-jam-kerja', 
-        '/simulasi-tanggal'
+        '/simulasi-tanggal', '/master-jabatan', '/master-sdm-pt'
     ]
     
     aset_prefixes = [
@@ -144,7 +144,7 @@ def batasi_akses_global():
     path = request.path
 
     # Public utility paths are always allowed
-    if path in ['/logout', '/select-module'] or path.startswith('/static/') or path.startswith('/temp_uploads/'):
+    if path in ['/logout', '/select-module', '/cek-cuti'] or path.startswith('/static/') or path.startswith('/temp_uploads/'):
         pass
     else:
         # Check SDM Module Access
@@ -164,8 +164,8 @@ def batasi_akses_global():
         # Check Aset Module Access
         is_aset_route = path in aset_exact or any(path.startswith(prefix) for prefix in aset_prefixes)
         if is_aset_route:
-            # Staff HR cannot access Aset module
-            if user_role == 'hr':
+            # Staff HR and User cannot access Aset module
+            if user_role in ['hr', 'user']:
                 flash("⚠️ Akses Ditolak: Peran Anda tidak memiliki izin untuk mengakses Modul Aset.", "danger")
                 return redirect(url_for('select_module'))
 
@@ -253,6 +253,106 @@ with app.app_context():
         db.session.rollback()
         print(f"Error checking/adding cuti_manual columns: {e}")
         
+    try:
+        # Check if 'nik' column exists in 'users' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='nik'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN nik VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added nik column to users table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding nik column to users: {e}")
+
+    try:
+        # Check if 'pt' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='pt'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN pt VARCHAR(100)"))
+            db.session.commit()
+            print("Successfully added pt column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding pt column to karyawan_entries: {e}")
+
+    try:
+        # Check if 'staff' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='staff'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN staff VARCHAR(20) DEFAULT 'Staff'"))
+            db.session.commit()
+            print("Successfully added staff column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding staff column to karyawan_entries: {e}")
+
+    # Migrasi auditing fields untuk tabel jabatan
+    try:
+        # dilakukan_oleh
+        res = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='dilakukan_oleh'"
+        )).fetchone()
+        if not res:
+            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN dilakukan_oleh VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added dilakukan_oleh column to jabatan table.")
+        # tanggal_aksi
+        res2 = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='tanggal_aksi'"
+        )).fetchone()
+        if not res2:
+            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
+            db.session.commit()
+            print("Successfully added tanggal_aksi column to jabatan table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating auditing columns in jabatan table: {e}")
+
+    # Migrasi auditing fields untuk tabel karyawan_entries
+    try:
+        # dilakukan_oleh
+        res = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='dilakukan_oleh'"
+        )).fetchone()
+        if not res:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN dilakukan_oleh VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added dilakukan_oleh column to karyawan_entries table.")
+        # tanggal_aksi
+        res2 = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='tanggal_aksi'"
+        )).fetchone()
+        if not res2:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
+            db.session.commit()
+            print("Successfully added tanggal_aksi column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating auditing columns in karyawan_entries table: {e}")
+
+    try:
+        # Pindahkan data jabatan unik dari karyawan ke tabel jabatan jika tabel jabatan kosong
+        res = db.session.execute(text("SELECT COUNT(*) FROM jabatan")).fetchone()
+        if res and res[0] == 0:
+            karyawan_jabs = db.session.execute(text("SELECT DISTINCT jabatan FROM karyawan_entries")).fetchall()
+            for row in karyawan_jabs:
+                if row[0]:
+                    # Cek case-insensitive duplicate sebelum insert
+                    exist = db.session.execute(text("SELECT id FROM jabatan WHERE LOWER(nama) = LOWER(:nama)"), {"nama": row[0].strip()}).fetchone()
+                    if not exist:
+                        db.session.execute(text("INSERT INTO jabatan (nama) VALUES (:nama)"), {"nama": row[0].strip()})
+            db.session.commit()
+            print("Successfully migrated existing jabatans to jabatan table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating jabatans: {e}")
+
     try:
         cleanup_temp_uploads()
         print("Successfully cleaned up old temporary uploads.")
@@ -369,9 +469,18 @@ class Kategori(db.Model):
     dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=False)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
+
+class Jabatan(db.Model):
+    __tablename__ = 'jabatan'
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nama: Mapped[str] = mapped_column(db.String(100), unique=True, nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
 class UserEntry(db.Model):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nik: Mapped[str] = mapped_column(db.String(50), nullable=True)
     username: Mapped[str] = mapped_column(db.String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(db.String(255), nullable=False)
     role: Mapped[str] = mapped_column(db.String(20))
@@ -491,6 +600,10 @@ class KaryawanEntry(db.Model):
     jam_masuk: Mapped[time] = mapped_column(db.Time, nullable=False)
     jam_pulang: Mapped[time] = mapped_column(db.Time, nullable=False)
     tanggal_resign: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    pt: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    staff: Mapped[str] = mapped_column(db.String(20), nullable=True)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
 class Cuti(db.Model):
     __tablename__ = "cuti"
@@ -588,11 +701,17 @@ def login():
         return redirect(url_for('select_module'))
 
     if request.method == 'POST':
-        username = request.form.get('username')
+        identifier = request.form.get('username', '').strip()
         password = request.form.get('password')
         
-        query = text("SELECT id, username, password, role FROM users WHERE username = :username")
-        result = db.session.execute(query, {"username": username}).fetchone()
+        # Coba login dengan username terlebih dahulu
+        query = text("SELECT id, username, password, role FROM users WHERE username = :val")
+        result = db.session.execute(query, {"val": identifier}).fetchone()
+        
+        # Jika tidak ditemukan via username, coba via NIK (untuk role user)
+        if not result:
+            query_nik = text("SELECT id, username, password, role FROM users WHERE nik = :val")
+            result = db.session.execute(query_nik, {"val": identifier.upper()}).fetchone()
         
         if result and check_password_hash(result.password, password):
             # Regenerasi session ID baru untuk mencegah Session Fixation Attack
@@ -606,7 +725,7 @@ def login():
             
             return redirect(url_for('select_module'))
         else:
-            flash("Username atau Password salah!", "danger")
+            flash("Username / NIK atau Password salah!", "danger")
         
     return render_template('login.html')
 

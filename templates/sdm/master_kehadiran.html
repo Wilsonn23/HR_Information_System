@@ -43,7 +43,7 @@
         box-shadow: none !important;
     }
 </style>
-<div class="container-fluid px-3 mt-5 pt-3">
+<div class="container-fluid px-3 mt-2">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
@@ -133,7 +133,8 @@
                             <td class="text-muted small fw-bold position-sticky left-0 bg-white">{{ loop.index }}</td>
                             <td class="fw-bold position-sticky bg-white text-center" style="left: 40px;">{{ entry.karyawan.absen if entry.karyawan else '-' }}</td>
                             <td class="fw-bold position-sticky bg-white" style="left: 100px;">{{ entry.nik }}</td>
-                            <td class="text-start fw-bold text-dark position-sticky bg-white shadow-right" style="left: 190px;">{{ entry.nama }}</td>                            <!-- Daily Cells (Tampilan Saja / Read-Only) -->
+                            <td class="text-start fw-bold text-dark position-sticky bg-white shadow-right" style="left: 190px;">{{ entry.nama }}</td>
+                            <!-- Daily Cells (Tampilan Saja / Read-Only) -->
                             {% for d in range_hari %}
                                 {% set is_before_tmk = d in entry.days_before_tmk if entry.days_before_tmk else false %}
                                 {% set is_holiday = d in holiday_days if holiday_days else false %}

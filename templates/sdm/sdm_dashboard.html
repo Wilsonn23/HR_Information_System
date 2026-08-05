@@ -70,21 +70,21 @@
                     <table class="table table-hover align-middle text-center small m-0">
                         <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
                             <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
-                                <th style="width: 5%;">No</th>
                                 <th style="width: 10%;">Absen</th>
                                 <th style="width: 15%;">NIK</th>
-                                <th class="text-start" style="width: 35%;">Nama Karyawan</th>
-                                <th style="width: 20%;">Periode</th>
+                                <th class="text-start" style="width: 25%;">Nama Karyawan</th>
+                                <th class="text-start" style="width: 15%;">Jabatan</th>
+                                <th style="width: 15%;">Periode</th>
                                 <th class="text-start" style="width: 15%;">Tanggal Pending</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for r in reminders_lampau %}
                             <tr class="border-bottom" style="border-color: #f8fafc !important;">
-                                <td class="text-muted small fw-bold">{{ loop.index }}</td>
                                 <td class="fw-bold text-dark">{{ r.absen }}</td>
                                 <td class="fw-bold text-dark">{{ r.nik }}</td>
                                 <td class="text-start text-dark fw-semibold">{{ r.nama }}</td>
+                                <td class="text-start text-muted">{{ r.jabatan or '-' }}</td>
                                 <td>
                                     <span class="badge px-3 py-2 fw-bold text-secondary" style="background-color: #f1f5f9; border-radius: 6px;">
                                         {{ r.bulan }} {{ r.tahun }}
@@ -141,21 +141,21 @@
                     <table class="table table-hover align-middle text-center small m-0">
                         <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
                             <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
-                                <th style="width: 5%;">No</th>
                                 <th style="width: 10%;">Absen</th>
                                 <th style="width: 15%;">NIK</th>
-                                <th class="text-start" style="width: 35%;">Nama Karyawan</th>
-                                <th style="width: 20%;">Cuti Tahunan Hangus</th>
-                                <th style="width: 20%;">Cuti Dinas Hangus</th>
+                                <th class="text-start" style="width: 25%;">Nama Karyawan</th>
+                                <th class="text-start" style="width: 15%;">Jabatan</th>
+                                <th style="width: 15%;">Cuti Tahunan Hangus</th>
+                                <th style="width: 15%;">Cuti Dinas Hangus</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for e in expired_leaves_list %}
                             <tr class="border-bottom" style="border-color: #f8fafc !important;">
-                                <td class="text-muted small fw-bold">{{ loop.index }}</td>
                                 <td class="fw-bold text-dark">{{ e.absen }}</td>
                                 <td class="fw-bold text-dark">{{ e.nik }}</td>
                                 <td class="text-start text-dark fw-semibold">{{ e.nama }}</td>
+                                <td class="text-start text-muted">{{ e.jabatan or '-' }}</td>
                                 <td>
                                     {% if e.pending_hangus > 0 %}
                                     <span class="badge bg-danger-subtle text-danger fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
@@ -216,21 +216,23 @@
                         <table class="table table-hover align-middle text-center small shadow-none border-0" id="tabelCuti">
                             <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
                                 <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
-                                    <th style="width: 5%;">No</th>
+                                    <th style="width: 10%;">Absen</th>
                                     <th style="width: 12%;">NIK</th>
-                                    <th class="text-start" style="width: 25%">Nama Karyawan</th>
+                                    <th class="text-start" style="width: 20%">Nama Karyawan</th>
+                                    <th class="text-start" style="width: 15%">Jabatan</th>
                                     <th style="width: 15%;">Jenis Cuti</th>
-                                    <th style="width: 13%;">Sisa</th>
-                                    <th style="width: 18%;">Tanggal Hangus</th>
+                                    <th style="width: 10%;">Sisa</th>
+                                    <th style="width: 15%;">Tanggal Hangus</th>
                                     <th style="width: 12%;">Jumlah Akan Hangus</th>
                                 </tr>
                             </thead>
                             <tbody id="tabelCutiBody" style="border-top: none;">
                                 {% for c in cuti_list %}
                                 <tr class="border-bottom" style="border-color: #f8fafc !important;">
-                                    <td class="text-muted small fw-bold">{{ loop.index }}</td>
+                                    <td class="fw-bold text-dark">{{ c.absen }}</td>
                                     <td class="fw-bold text-dark">{{ c.nik }}</td>
                                     <td class="text-start text-dark fw-semibold">{{ c.nama }}</td>
+                                    <td class="text-start text-muted">{{ c.jabatan or '-' }}</td>
                                     <td class="fw-bold {% if c.jenis_cuti == 'Cuti Dinas' %}text-info{% else %}text-primary{% endif %}">{{ c.jenis_cuti }}</td>
                                     <td class="fw-bold text-dark">{{ c.sisa_saldo | int if c.sisa_saldo % 1 == 0 else c.sisa_saldo }} hari</td>
                                     <td class="fw-bold text-danger">{{ c.tanggal_hangus.strftime('%d-%m-%Y') if c.tanggal_hangus else '-' }}</td>
@@ -238,7 +240,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-5">
+                                    <td colspan="8" class="text-center text-muted py-5">
                                         ✅ Tidak ada cuti yang akan hangus dalam 90 hari ke depan.
                                     </td>
                                 </tr>

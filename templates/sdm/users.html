@@ -5,6 +5,10 @@
 {% block body_class %}dashboard-page bg-light{% endblock %}
 
 {% block content %}
+<style>
+.nik-input { text-transform: uppercase; }
+.nik-input::placeholder { text-transform: none; }
+</style>
 <div class="container-fluid px-4 mt-5 pt-3">
     
 
@@ -16,6 +20,11 @@
                     <h5 class="fw-bold text-primary mb-3">👤 Daftarkan Akun Baru</h5>
                     <form method="POST" action="{{ url_for('manage_users') }}">
                         {{ form.csrf_token }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">NIK</label>
+                            {{ form.nik(class="form-control nik-input", placeholder="Nomor Induk Karyawan", oninput="this.value=this.value.toUpperCase()") }}
+                        </div>
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Username</label>
@@ -47,6 +56,7 @@
                             <thead class="table-dark">
                                 <tr>
                                     <th>ID</th>
+                                    <th>NIK</th>
                                     <th>Nama Pengguna (Username)</th>
                                     <th>Hak Akses (Role)</th>
                                     <th class="text-center">Aksi Operasi</th>
@@ -56,6 +66,7 @@
                                 {% for u in users %}
                                 <tr>
                                     <td class="text-muted small">{{ loop.index }}</td>
+                                    <td class="text-muted small">{{ u.nik or '-' }}</td>
                                     <td class="fw-bold">{{ u.username }}</td>
                                     <td>
                                          {% if u.role == 'admin' %}
@@ -64,6 +75,8 @@
                                              <span class="badge bg-warning text-dark">Staff SDM</span>
                                          {% elif u.role == 'operasional' %}
                                              <span class="badge bg-info text-dark">Staff Operasional</span>
+                                         {% elif u.role == 'user' %}
+                                             <span class="badge bg-success">User</span>
                                          {% else %}
                                              <span class="badge bg-secondary text-dark">{{ u.role }}</span>
                                          {% endif %}

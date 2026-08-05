@@ -29,14 +29,14 @@
                 </div>
 
                 <h2 class="fw-bold text-dark mb-1">Masuk Portal</h2>
-                <p class="text-secondary small mb-4">Silakan masuk menggunakan akun terdaftar Anda</p>
+                <p class="text-secondary small mb-4">Masuk dengan username atau NIK akun anda</p>
                 
                 <form action="/login" method="POST" class="text-start">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                    <!-- Username Input -->
+                    <!-- Username / NIK Input -->
                     <div class="mb-3">
-                        <label for="username" class="form-label fw-semibold text-secondary small">Username</label>
+                        <label for="username" class="form-label fw-semibold text-secondary small">Username / NIK</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0 border-light" style="border-radius: 12px 0 0 12px; color: #94a3b8;">
                                 <i class="fas fa-user-circle"></i>
@@ -46,7 +46,7 @@
                                 id="username" 
                                 name="username" 
                                 class="form-control border-start-0 border-light bg-light font-size-sm" 
-                                placeholder="Masukkan username" 
+                                placeholder="Username atau NIK" 
                                 style="border-radius: 0 12px 12px 0 !important;"
                                 autocomplete="username"
                                 required

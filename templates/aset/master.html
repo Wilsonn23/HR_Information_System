@@ -1,142 +1,164 @@
 {% extends 'aset/base.html' %}
 
-{% block title %}Data Master - Admin System{% endblock %}
+{% block title %}Master {{ type }} - Admin System{% endblock %}
 
-{% block body_class %}dashboard-page bg-light{% endblock %}
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
 
 {% block content %}
 {% set has_reference = type in ['Kota', 'PT', 'Unit PT'] %}
-<div class="container-fluid px-4 mt-5 pt-3">
+<div class="container-fluid px-4 mt-2">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+            <!-- Header & Back Link -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div>
                     <h3 class="fw-bold text-primary m-0">📁 Master Data {{ type }}</h3>
                 </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addDataModal">
-                        <span>➕</span> Tambah {{ type }}
-                    </button>
+            </div>
+
+            <!-- Form Tambah & Tabel Daftar Grid -->
+            <div class="row g-4">
+                <!-- Sisi Kiri: Form Tambah Baru -->
+                <div class="col-lg-4">
+                    <div class="card border border-light-subtle rounded-3 shadow-sm bg-light-subtle">
+                        <div class="card-header bg-primary bg-opacity-10 border-0 py-3">
+                            <h5 class="fw-bold text-primary mb-0 small text-uppercase tracking-wider">
+                                <i class="fas fa-plus-circle me-1"></i> Tambah {{ type }} Baru
+                            </h5>
+                        </div>
+                        <div class="card-body p-3">
+                            <form action="/master/add/{{ type }}" method="POST" class="needs-validation" novalidate>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                
+                                {% if has_reference %}
+                                <div class="mb-3">
+                                    {% if type == 'Kota' %}
+                                    <label for="reference" class="form-label fw-semibold text-secondary small">Pulau Induk</label>
+                                    {% elif type == 'PT' %}
+                                    <label for="reference" class="form-label fw-semibold text-secondary small">Kota Induk</label>
+                                    {% elif type == 'Unit PT' %}
+                                    <label for="reference" class="form-label fw-semibold text-secondary small">PT Induk</label>
+                                    {% else %}
+                                    <label for="reference" class="form-label fw-semibold text-secondary small">Referensi</label>
+                                    {% endif %}
+                                    <select class="form-select bg-white border" id="reference" name="reference" required>
+                                        <option value="" disabled selected>-- Pilih Referensi --</option>
+                                        {% for ref in references_list %}
+                                        <option value="{{ ref.id }}">
+                                            {% if type == 'Unit PT' %}
+                                            {{ ref.nama }}{% if ref.parent_nama %} - {{ ref.parent_nama }}{% endif %}
+                                            {% else %}
+                                            {{ ref.nama }}
+                                            {% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">Referensi wajib dipilih!</div>
+                                </div>
+                                {% endif %}
+
+                                <div class="mb-3">
+                                    <label for="nama" class="form-label fw-semibold text-secondary small">Nama {{ type }}</label>
+                                    <input type="text" class="form-control text-uppercase bg-white border" id="nama" name="nama" required placeholder="Masukkan nama {{ type }}..." autocomplete="off">
+                                    <div class="invalid-feedback">Nama {{ type }} wajib diisi!</div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm">
+                                    <i class="fas fa-save me-1"></i> Simpan Data
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
-                <table class="table table-hover align-middle table-bordered text-nowrap m-0"
-                    id="masterTable">
-                    <thead class="table-dark position-sticky top-0 z-1">
-                        <tr class="align-middle">
-                            <th scope="col" class="text-center">No</th>
-                            <th scope="col">{{ type }}</th>
-                            {% if has_reference %}
-                            <th scope="col">Reference</th>
-                            {% endif %}
-                            <th scope="col">Diinput Oleh</th>
-                            <th scope="col">Tanggal Input</th>
-                            <th scope="col" class="text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in entries %}
-                        <tr>
-                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
-                            <td>{{ entry.nama }}</td>
-                            {% if has_reference %}
-                            <td>
-                                {% if entry.parent_nama %}
-                                {{ entry.parent_nama }}
-                                {% elif entry.reference %}
-                                {{ entry.reference }}
-                                {% endif %}
-                            </td>
-                            {% endif %}
-                            <td><span class="badge bg-secondary px-2 py-1">{{ entry.dilakukan_oleh }}</span></td>
-                            <td class="text-muted small">
-                                {% if entry.tanggal_aksi %}
-                                {{ entry.tanggal_aksi.strftime('%Y-%m-%d') }}
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                <form action="/master/delete/{{ type }}/{{ entry.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data master {{ type }} ini?')" style="display:inline;">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-danger py-1 px-2 d-inline-flex align-items-center gap-1 shadow-sm">
-                                        <span>🗑️</span> Hapus
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="{% if has_reference %}6{% else %}5{% endif %}" class="text-center text-muted py-5">
-                                📁 Belum ada data yang tersimpan.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- Modal Tambah Data -->
-<div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <div class="modal-header bg-primary text-white py-3">
-                <h5 class="modal-title fw-bold" id="addDataModalLabel">➕ Tambah {{ type }} Baru</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="/master/add/{{ type }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="modal-body p-4">
-                    {% if has_reference %}
-                    <div class="mb-3">
-                        {% if type == 'Kota' %}
-                        <label for="reference" class="form-label fw-bold">Pulau Induk</label>
-                        {% elif type == 'PT' %}
-                        <label for="reference" class="form-label fw-bold">Kota Induk</label>
-                        {% elif type == 'Unit PT' %}
-                        <label for="reference" class="form-label fw-bold">PT Induk</label>
-                        {% else %}
-                        <label for="reference" class="form-label fw-bold">Referensi</label>
-                        {% endif %}
-                        <select class="form-select" id="reference" name="reference" required>
-                            <option value="" disabled selected>-- Pilih Referensi --</option>
-                            {% for ref in references_list %}
-                            <option value="{{ ref.id }}">
-                                {% if type == 'Unit PT' %}
-                                {{ ref.nama }}{% if ref.parent_nama %} - {{ ref.parent_nama }}{% endif %}
+                <!-- Sisi Kanan: Tabel Daftar Data -->
+                <div class="col-lg-8">
+                    <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
+                        <table class="table table-hover align-middle table-bordered text-nowrap m-0">
+                            <thead class="table-dark position-sticky top-0 z-1">
+                                <tr class="align-middle">
+                                    <th scope="col" class="text-center" style="width: 70px;">No</th>
+                                    <th scope="col">Nama {{ type }}</th>
+                                    {% if has_reference %}
+                                    <th scope="col">Referensi Induk</th>
+                                    {% endif %}
+                                    <th scope="col">Diinput Oleh</th>
+                                    <th scope="col">Tanggal Input</th>
+                                    <th scope="col" class="text-center" style="width: 150px;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in entries %}
+                                <tr>
+                                    <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                                    <td class="fw-semibold text-dark">{{ entry.nama }}</td>
+                                    {% if has_reference %}
+                                    <td>
+                                        <span class="badge bg-secondary-subtle text-dark px-2.5 py-1.5 fw-bold" style="font-size: 0.8rem; border-radius: 6px;"> 
+                                            {% if entry.parent_nama %}
+                                            {{ entry.parent_nama }}
+                                            {% elif entry.reference %}
+                                            {{ entry.reference }}
+                                            {% else %}
+                                            -
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    {% endif %}
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                            {{ entry.dilakukan_oleh }}
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small">
+                                        {% if entry.tanggal_aksi %}
+                                        {{ entry.tanggal_aksi.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <form action="/master/delete/{{ type }}/{{ entry.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data master {{ type }} ini?')" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2.5 rounded-3 fw-semibold">
+                                                <i class="fas fa-trash-alt fa-xs me-1"></i> Hapus
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
                                 {% else %}
-                                {{ ref.nama }}
-                                {% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-                    <div class="mb-3">
-                        <label for="nama" class="form-label fw-bold">Nama {{ type }}</label>
-                        <input type="text" class="form-control text-uppercase" id="nama" name="nama" required placeholder="Masukkan nama {{ type }}...">
+                                <tr>
+                                    <td colspan="{% if has_reference %}6{% else %}5{% endif %}" class="text-center text-muted py-5">
+                                        📁 Belum ada data master {{ type }} yang tersimpan.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-0 py-3">
-                    <button type="button" class="btn btn-secondary fw-semibold" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary fw-bold px-4">Simpan</button>
-                </div>
-            </form>
+            </div>
+
         </div>
     </div>
 </div>
 
-<style>
-    .position-sticky {
-        position: sticky !important;
-    }
-
-    thead th {
-        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-    }
-</style>
+<script>
+    // Validasi form Bootstrap 5
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
 {% endblock %}

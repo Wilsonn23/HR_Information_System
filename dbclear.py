@@ -12,6 +12,7 @@ with app.app_context():
         "merk", 
         "kategori", 
         "bulan", 
+        "hari_libur",
         "jabatan"
     }
 

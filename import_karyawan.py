@@ -40,6 +40,8 @@ def import_karyawan_excel(filepath):
     col_tmk = normalized_cols.get('tmk')
     col_masuk = normalized_cols.get('jam masuk')
     col_pulang = normalized_cols.get('jam pulang')
+    col_pt = normalized_cols.get('pt')
+    col_staff = normalized_cols.get('staff')
     
     # Validation
     missing = []
@@ -127,6 +129,18 @@ def import_karyawan_excel(filepath):
                     skip_count += 1
                     continue
                     
+                val_pt = str(row[col_pt]).strip() if col_pt and not pd.isna(row[col_pt]) else None
+                
+                # Deteksi status staff/non-staff
+                if col_staff and not pd.isna(row[col_staff]):
+                    s_lower = str(row[col_staff]).strip().lower()
+                    if 'non' in s_lower:
+                        val_staff = 'Non-Staff'
+                    else:
+                        val_staff = 'Staff'
+                else:
+                    val_staff = 'Staff'
+
                 # Buat KaryawanEntry & Cuti
                 new_k = KaryawanEntry(
                     nik=val_nik,
@@ -135,7 +149,10 @@ def import_karyawan_excel(filepath):
                     jabatan='STAFF', # Sesuai request
                     tmk=tmk_str,
                     jam_masuk=jam_masuk,
-                    jam_pulang=jam_pulang
+                    jam_pulang=jam_pulang,
+                    pt=val_pt,
+                    staff=val_staff,
+                    dilakukan_oleh='excel_import'
                 )
                 new_c = Cuti(
                     nik=val_nik,
