@@ -1,6 +1,6 @@
 {% extends 'sdm/base.html' %}
 
-{% block title %}Unggah Karyawan Excel (Hidden){% endblock %}
+{% block title %}Unggah Karyawan Excel{% endblock %}
 
 {% block body_class %}dashboard-page bg-light text-dark{% endblock %}
 
@@ -13,7 +13,7 @@
                 <span class="fs-2 me-3">👤</span>
                 <div>
                     <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Unggah Database Karyawan (Excel)</h3>
-                    <p class="small text-white-50 m-0">Menu Rahasia/Tersembunyi untuk Impor Bulk Data Karyawan Baru</p>
+                    <p class="small text-white-50 m-0">Menu Tersembunyi untuk Impor Bulk Data Karyawan Baru</p>
                 </div>
             </div>
         </div>
@@ -63,7 +63,7 @@
             </div>
 
             <!-- Form Upload -->
-            <form action="{{ url_for('import_karyawan_hidden') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+            <form action="{{ url_for('import_karyawan') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- Drag and Drop Zone -->
