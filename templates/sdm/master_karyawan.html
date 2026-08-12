@@ -36,6 +36,9 @@
                             <th scope="col">PT</th>
                             <th scope="col">Tipe Staff</th>
                             <th scope="col">Jabatan</th>
+                            <th scope="col">Divisi</th>
+                            <th scope="col">Departemen</th>
+                            <th scope="col">Priority Level</th>
                             <th scope="col">TMK</th>
                             <th scope="col">Jam Masuk</th>
                             <th scope="col">Jam Pulang</th>
@@ -61,6 +64,21 @@
                                 {% endif %}
                             </td>
                             <td>{{ entry.jabatan }}</td>
+                            <td>{{ entry.divisi or '-' }}</td>
+                            <td>{{ entry.departemen or '-' }}</td>
+                            <td>
+                                {% if entry.priority_level is not none %}
+                                    {% if entry.priority_level == 1 %}
+                                        <span class="badge bg-danger-subtle text-danger px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">1 (Utama)</span>
+                                    {% elif entry.priority_level == 2 %}
+                                        <span class="badge bg-warning-subtle text-warning px-2 py-1" style="border-radius: 6px; font-size: 0.75rem; color: #856404 !important;">2</span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">{{ entry.priority_level }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td>{{ entry.tmk }}</td>
                             <td>{{ entry.jam_masuk }}</td>
                             <td>{{ entry.jam_pulang }}</td>
@@ -102,7 +120,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="13" class="text-center text-muted py-5">
+                            <td colspan="16" class="text-center text-muted py-5">
                                 📁 Belum ada data yang tersimpan.
                             </td>
                         </tr>

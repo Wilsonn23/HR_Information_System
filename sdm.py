@@ -8,7 +8,7 @@ from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional, Length
 from werkzeug.security import generate_password_hash
 
-from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog, Jabatan, PT, Kota, Unit, SdmPT
+from app import app, db, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog, Jabatan, PT, Kota, Unit, SdmPT, SdmDivisi, SdmDepartemen
 
 def sdm_log(aksi: str, kategori: str, detail: str, nik: str = None, nama_karyawan: str = None):
     """Helper untuk mencatat log aktivitas SDM ke tabel sdm_activity_logs."""
@@ -1086,6 +1086,143 @@ def delete_sdm_pt(id):
         
     return redirect(url_for('master_sdm_pt'))
 
+
+@app.route('/master-sdm-divisi', methods=['GET', 'POST'])
+def master_sdm_divisi():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        nama_divisi = request.form.get('nama', '').strip()
+        
+        if not nama_divisi:
+            flash("Nama Divisi wajib diisi!", "danger")
+        else:
+            exist = db.session.execute(
+                db.select(SdmDivisi).where(db.func.lower(SdmDivisi.nama) == nama_divisi.lower())
+            ).scalar_one_or_none()
+            if exist:
+                flash(f"Divisi '{nama_divisi}' sudah terdaftar!", "danger")
+            else:
+                new_div = SdmDivisi(
+                    nama=nama_divisi,
+                    dilakukan_oleh=session.get('logged_user', 'system')
+                )
+                db.session.add(new_div)
+                db.session.commit()
+                sdm_log("TAMBAH", "DIVISI", f"Menambahkan Divisi baru: {nama_divisi}")
+                flash(f"Divisi '{nama_divisi}' berhasil ditambahkan.", "success")
+        return redirect(url_for('master_sdm_divisi'))
+        
+    entries = db.session.execute(
+        db.select(SdmDivisi).order_by(SdmDivisi.nama)
+    ).scalars().all()
+    
+    return render_template('sdm/master_divisi.html', entries=entries, active_page='master-sdm')
+
+
+@app.route('/master-sdm-divisi/delete/<int:id>', methods=['POST'])
+def delete_sdm_divisi(id):
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    div = db.session.get(SdmDivisi, id)
+    if not div:
+        flash("Data Divisi tidak ditemukan!", "danger")
+        return redirect(url_for('master_sdm_divisi'))
+        
+    # Cek relasi ke data Karyawan
+    used_karyawan = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.divisi == div.nama)
+    ).first()
+    
+    if used_karyawan:
+        flash(f"Tidak dapat menghapus Divisi '{div.nama}' karena sedang digunakan oleh data karyawan!", "danger")
+    else:
+        nama_del = div.nama
+        try:
+            db.session.delete(div)
+            db.session.commit()
+            sdm_log("HAPUS", "DIVISI", f"Menghapus Divisi: {nama_del}")
+            flash(f"Divisi '{nama_del}' berhasil dihapus.", "success")
+        except Exception as e:
+            db.session.rollback()
+            if "foreign key" in str(e).lower() or "violates foreign key" in str(e).lower():
+                flash(f"Tidak dapat menghapus Divisi '{nama_del}' karena masih dirujuk oleh data/referensi lain di database.", "danger")
+            else:
+                flash(f"Terjadi kesalahan saat menghapus Divisi: {str(e)}", "danger")
+        
+    return redirect(url_for('master_sdm_divisi'))
+
+
+@app.route('/master-sdm-departemen', methods=['GET', 'POST'])
+def master_sdm_departemen():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        nama_dept = request.form.get('nama', '').strip()
+        
+        if not nama_dept:
+            flash("Nama Departemen wajib diisi!", "danger")
+        else:
+            exist = db.session.execute(
+                db.select(SdmDepartemen).where(db.func.lower(SdmDepartemen.nama) == nama_dept.lower())
+            ).scalar_one_or_none()
+            if exist:
+                flash(f"Departemen '{nama_dept}' sudah terdaftar!", "danger")
+            else:
+                new_dept = SdmDepartemen(
+                    nama=nama_dept,
+                    dilakukan_oleh=session.get('logged_user', 'system')
+                )
+                db.session.add(new_dept)
+                db.session.commit()
+                sdm_log("TAMBAH", "DEPARTEMEN", f"Menambahkan Departemen baru: {nama_dept}")
+                flash(f"Departemen '{nama_dept}' berhasil ditambahkan.", "success")
+        return redirect(url_for('master_sdm_departemen'))
+        
+    entries = db.session.execute(
+        db.select(SdmDepartemen).order_by(SdmDepartemen.nama)
+    ).scalars().all()
+    
+    return render_template('sdm/master_departemen.html', entries=entries, active_page='master-sdm')
+
+
+@app.route('/master-sdm-departemen/delete/<int:id>', methods=['POST'])
+def delete_sdm_departemen(id):
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+        
+    dept = db.session.get(SdmDepartemen, id)
+    if not dept:
+        flash("Data Departemen tidak ditemukan!", "danger")
+        return redirect(url_for('master_sdm_departemen'))
+        
+    # Cek relasi ke data Karyawan
+    used_karyawan = db.session.execute(
+        db.select(KaryawanEntry).where(KaryawanEntry.departemen == dept.nama)
+    ).first()
+    
+    if used_karyawan:
+        flash(f"Tidak dapat menghapus Departemen '{dept.nama}' karena sedang digunakan oleh data karyawan!", "danger")
+    else:
+        nama_del = dept.nama
+        try:
+            db.session.delete(dept)
+            db.session.commit()
+            sdm_log("HAPUS", "DEPARTEMEN", f"Menghapus Departemen: {nama_del}")
+            flash(f"Departemen '{nama_del}' berhasil dihapus.", "success")
+        except Exception as e:
+            db.session.rollback()
+            if "foreign key" in str(e).lower() or "violates foreign key" in str(e).lower():
+                flash(f"Tidak dapat menghapus Departemen '{nama_del}' karena masih dirujuk oleh data/referensi lain di database.", "danger")
+            else:
+                flash(f"Terjadi kesalahan saat menghapus Departemen: {str(e)}", "danger")
+        
+    return redirect(url_for('master_sdm_departemen'))
+
+
 @app.route('/master-karyawan')
 
 def master_karyawan():
@@ -1158,6 +1295,9 @@ def import_karyawan():
         col_pt = normalized_cols.get('pt')
         col_staff = normalized_cols.get('staff')
         col_jabatan = normalized_cols.get('jabatan')
+        col_divisi = normalized_cols.get('divisi')
+        col_departemen = normalized_cols.get('departemen')
+        col_priority_level = normalized_cols.get('priority level')
         
         # Validation of required columns
         missing = []
@@ -1182,6 +1322,8 @@ def import_karyawan():
         existing_absens = set(db.session.execute(db.select(KaryawanEntry.absen)).scalars().all())
         existing_jabatans = {j.lower() for j in db.session.execute(db.select(Jabatan.nama)).scalars().all()}
         existing_pts = {p.nama.upper() for p in db.session.execute(db.select(SdmPT)).scalars().all()}
+        existing_divisis = {d.nama.upper() for d in db.session.execute(db.select(SdmDivisi)).scalars().all()}
+        existing_departemens = {dept.nama.upper() for dept in db.session.execute(db.select(SdmDepartemen)).scalars().all()}
         
         for idx, row in df.iterrows():
             try:
@@ -1276,6 +1418,38 @@ def import_karyawan():
                 else:
                     val_staff = 'Staff'
                     
+                val_divisi = str(row[col_divisi]).strip() if col_divisi and not pd.isna(row[col_divisi]) else ""
+                val_departemen = str(row[col_departemen]).strip() if col_departemen and not pd.isna(row[col_departemen]) else ""
+                
+                # Auto register divisi
+                if val_divisi:
+                    val_divisi_upper = val_divisi.upper()
+                    if val_divisi_upper not in existing_divisis:
+                        new_div = SdmDivisi(
+                            nama=val_divisi,
+                            dilakukan_oleh='excel_import'
+                        )
+                        db.session.add(new_div)
+                        existing_divisis.add(val_divisi_upper)
+
+                # Auto register departemen
+                if val_departemen:
+                    val_departemen_upper = val_departemen.upper()
+                    if val_departemen_upper not in existing_departemens:
+                        new_dept = SdmDepartemen(
+                            nama=val_departemen,
+                            dilakukan_oleh='excel_import'
+                        )
+                        db.session.add(new_dept)
+                        existing_departemens.add(val_departemen_upper)
+                    
+                val_priority = None
+                if col_priority_level and not pd.isna(row[col_priority_level]):
+                    try:
+                        val_priority = int(float(row[col_priority_level]))
+                    except (ValueError, TypeError):
+                        pass
+                    
                 # Buat KaryawanEntry & Cuti
                 new_k = KaryawanEntry(
                     nik=val_nik,
@@ -1287,6 +1461,9 @@ def import_karyawan():
                     jam_pulang=jam_pulang,
                     pt=val_pt_upper,
                     staff=val_staff,
+                    divisi=val_divisi if val_divisi else None,
+                    departemen=val_departemen if val_departemen else None,
+                    priority_level=val_priority,
                     dilakukan_oleh='excel_import'
                 )
                 new_c = Cuti(
@@ -3648,12 +3825,15 @@ def tambah_karyawan():
         pt = request.form.get('pt', '').strip()
         jabatan = request.form.get('jabatan', '').strip()
         staff = request.form.get('staff', '').strip()
+        divisi = request.form.get('divisi', '').strip()
+        departemen = request.form.get('departemen', '').strip()
+        priority_level = request.form.get('priority_level', '').strip()
         tmk = request.form.get('tmk', '').strip()
         jam_masuk_raw = request.form.get('jam_masuk', '').strip()
         jam_pulang_raw = request.form.get('jam_pulang', '').strip()
         
         # Validasi umum
-        if not (nik and nama and pt and jabatan and staff and tmk and jam_masuk_raw and jam_pulang_raw):
+        if not (nik and nama and pt and jabatan and staff and divisi and departemen and priority_level and tmk and jam_masuk_raw and jam_pulang_raw):
             flash("⚠️ Semua kolom wajib diisi!", "danger")
             return redirect(url_for('tambah_karyawan'))
             
@@ -3695,6 +3875,9 @@ def tambah_karyawan():
                 karyawan.pt = pt
                 karyawan.jabatan = jabatan
                 karyawan.staff = staff
+                karyawan.divisi = divisi if divisi else None
+                karyawan.departemen = departemen if departemen else None
+                karyawan.priority_level = priority_level if priority_level else None
                 karyawan.tmk = tmk
                 karyawan.jam_masuk = jam_masuk
                 karyawan.jam_pulang = jam_pulang
@@ -3731,6 +3914,9 @@ def tambah_karyawan():
                     pt=pt,
                     jabatan=jabatan,
                     staff=staff,
+                    divisi=divisi if divisi else None,
+                    departemen=departemen if departemen else None,
+                    priority_level=priority_level if priority_level else None,
                     tmk=tmk,
                     jam_masuk=jam_masuk,
                     jam_pulang=jam_pulang,
@@ -3757,6 +3943,8 @@ def tambah_karyawan():
     next_absen = (max_absen or 0) + 1
     list_jabatan = db.session.execute(db.select(Jabatan).order_by(Jabatan.nama)).scalars().all()
     list_pt = db.session.execute(db.select(SdmPT).order_by(SdmPT.nama)).scalars().all()
+    list_divisi = db.session.execute(db.select(SdmDivisi).order_by(SdmDivisi.nama)).scalars().all()
+    list_departemen = db.session.execute(db.select(SdmDepartemen).order_by(SdmDepartemen.nama)).scalars().all()
     karyawan_list = db.session.execute(db.select(KaryawanEntry).order_by(KaryawanEntry.absen)).scalars().all()
     
     return render_template(
@@ -3764,6 +3952,8 @@ def tambah_karyawan():
         next_absen=next_absen,
         list_jabatan=list_jabatan,
         list_pt=list_pt,
+        list_divisi=list_divisi,
+        list_departemen=list_departemen,
         karyawan_list=karyawan_list,
         active_page='sdm-transaksi'
     )
@@ -3788,6 +3978,9 @@ def karyawan_detail_api(nik):
         'pt': k.pt or '',
         'jabatan': k.jabatan or '',
         'staff': k.staff or '',
+        'divisi': k.divisi or '',
+        'departemen': k.departemen or '',
+        'priority_level': k.priority_level or '',
         'tmk': k.tmk,
         'jam_masuk': k.jam_masuk.strftime('%H:%M') if k.jam_masuk else '08:00',
         'jam_pulang': k.jam_pulang.strftime('%H:%M') if k.jam_pulang else '17:00'

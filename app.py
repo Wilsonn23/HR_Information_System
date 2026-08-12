@@ -128,7 +128,8 @@ def batasi_akses_global():
         '/master-cuti', '/tambah-cuti-dinas', '/form-ba', '/generate-laporan', 
         '/master-bulan', '/master-kehadiran', '/users', '/tambah-karyawan', 
         '/upload-kehadiran', '/atur-libur', '/edit-kehadiran', '/master-jam-kerja', 
-        '/simulasi-tanggal', '/master-jabatan', '/master-sdm-pt', '/import-karyawan'
+        '/simulasi-tanggal', '/master-jabatan', '/master-sdm-pt', '/import-karyawan',
+        '/master-sdm-divisi', '/master-sdm-departemen'
     ]
     
     aset_prefixes = [
@@ -324,6 +325,20 @@ class SdmPT(db.Model):
     dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
+class SdmDivisi(db.Model):
+    __tablename__ = 'sdm_divisi'
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nama: Mapped[str] = mapped_column(db.String(100), unique=True, nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
+class SdmDepartemen(db.Model):
+    __tablename__ = 'sdm_departemen'
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nama: Mapped[str] = mapped_column(db.String(100), unique=True, nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
 class UserEntry(db.Model):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
@@ -449,6 +464,9 @@ class KaryawanEntry(db.Model):
     tanggal_resign: Mapped[str] = mapped_column(db.String(50), nullable=True)
     pt: Mapped[str] = mapped_column(db.String(100), nullable=True)
     staff: Mapped[str] = mapped_column(db.String(20), nullable=True)
+    divisi: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    departemen: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    priority_level: Mapped[int] = mapped_column(db.Integer, nullable=True)
     dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
@@ -649,6 +667,49 @@ with app.app_context():
     except Exception as e:
         db.session.rollback()
         print(f"Error checking/adding staff column to karyawan_entries: {e}")
+
+    try:
+        # Check if 'divisi' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='divisi'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN divisi VARCHAR(100)"))
+            db.session.commit()
+            print("Successfully added divisi column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding divisi column to karyawan_entries: {e}")
+
+    try:
+        # Check if 'departemen' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='departemen'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN departemen VARCHAR(100)"))
+            db.session.commit()
+            print("Successfully added departemen column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding departemen column to karyawan_entries: {e}")
+
+    try:
+        # Check if 'priority_level' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='priority_level'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN priority_level INTEGER"))
+            db.session.commit()
+            print("Successfully added priority_level column to karyawan_entries table.")
+        elif 'integer' not in result[1].lower():
+            db.session.execute(text("ALTER TABLE karyawan_entries ALTER COLUMN priority_level TYPE INTEGER USING (CASE WHEN priority_level = 'High' THEN 1 WHEN priority_level = 'Medium' THEN 2 WHEN priority_level = 'Low' THEN 3 ELSE NULL END)"))
+            db.session.commit()
+            print("Successfully altered priority_level column type to INTEGER.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding/altering priority_level column: {e}")
 
     # Migrasi auditing fields untuk tabel jabatan
     try:

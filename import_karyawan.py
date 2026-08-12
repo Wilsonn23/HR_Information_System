@@ -6,7 +6,7 @@ from datetime import datetime, time
 # Add current folder to path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from app import app, db, KaryawanEntry, Cuti, Jabatan, SdmPT
+from app import app, db, KaryawanEntry, Cuti, Jabatan, SdmPT, SdmDivisi, SdmDepartemen
 
 def import_karyawan_excel(filepath):
     # Verify file existence
@@ -43,6 +43,9 @@ def import_karyawan_excel(filepath):
     col_pt = normalized_cols.get('pt')
     col_staff = normalized_cols.get('staff')
     col_jabatan = normalized_cols.get('jabatan')
+    col_divisi = normalized_cols.get('divisi')
+    col_departemen = normalized_cols.get('departemen')
+    col_priority_level = normalized_cols.get('priority level')
     
     # Validation
     missing = []
@@ -67,6 +70,8 @@ def import_karyawan_excel(filepath):
         existing_absens = set(db.session.execute(db.select(KaryawanEntry.absen)).scalars().all())
         existing_jabatans = {j.lower() for j in db.session.execute(db.select(Jabatan.nama)).scalars().all()}
         existing_pts = {p.nama.upper() for p in db.session.execute(db.select(SdmPT)).scalars().all()}
+        existing_divisis = {d.nama.upper() for d in db.session.execute(db.select(SdmDivisi)).scalars().all()}
+        existing_departemens = {dept.nama.upper() for dept in db.session.execute(db.select(SdmDepartemen)).scalars().all()}
         
         for idx, row in df.iterrows():
             try:
@@ -166,6 +171,38 @@ def import_karyawan_excel(filepath):
                 else:
                     val_staff = 'Staff'
 
+                val_divisi = str(row[col_divisi]).strip() if col_divisi and not pd.isna(row[col_divisi]) else ""
+                val_departemen = str(row[col_departemen]).strip() if col_departemen and not pd.isna(row[col_departemen]) else ""
+                
+                # Auto register divisi
+                if val_divisi:
+                    val_divisi_upper = val_divisi.upper()
+                    if val_divisi_upper not in existing_divisis:
+                        new_div = SdmDivisi(
+                            nama=val_divisi,
+                            dilakukan_oleh='excel_import'
+                        )
+                        db.session.add(new_div)
+                        existing_divisis.add(val_divisi_upper)
+
+                # Auto register departemen
+                if val_departemen:
+                    val_departemen_upper = val_departemen.upper()
+                    if val_departemen_upper not in existing_departemens:
+                        new_dept = SdmDepartemen(
+                            nama=val_departemen,
+                            dilakukan_oleh='excel_import'
+                        )
+                        db.session.add(new_dept)
+                        existing_departemens.add(val_departemen_upper)
+                    
+                val_priority = None
+                if col_priority_level and not pd.isna(row[col_priority_level]):
+                    try:
+                        val_priority = int(float(row[col_priority_level]))
+                    except (ValueError, TypeError):
+                        pass
+                    
                 # Buat KaryawanEntry & Cuti
                 new_k = KaryawanEntry(
                     nik=val_nik,
@@ -177,6 +214,9 @@ def import_karyawan_excel(filepath):
                     jam_pulang=jam_pulang,
                     pt=val_pt_upper,
                     staff=val_staff,
+                    divisi=val_divisi if val_divisi else None,
+                    departemen=val_departemen if val_departemen else None,
+                    priority_level=val_priority,
                     dilakukan_oleh='excel_import'
                 )
                 new_c = Cuti(

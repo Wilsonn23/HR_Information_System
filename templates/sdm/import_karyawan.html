@@ -38,6 +38,9 @@
                                 <th>pt</th>
                                 <th>staff</th>
                                 <th>jabatan</th>
+                                <th>divisi</th>
+                                <th>departemen</th>
+                                <th>priority level</th>
                             </tr>
                         </thead>
                         <tbody class="text-secondary small">
@@ -51,13 +54,17 @@
                                 <td>PT INDEPENDEN</td>
                                 <td>Staff</td>
                                 <td>IT Administrator</td>
+                                <td>Teknologi</td>
+                                <td>Infrastructure</td>
+                                <td>1</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <ul class="small text-secondary mt-3 mb-0 ps-3">
                     <li>Kolom <strong>absen, nik, nama, tmk, jam masuk, jam pulang</strong> bersifat wajib diisi.</li>
-                    <li>Kolom <strong>pt, staff, jabatan</strong> bersifat opsional. Jika PT atau Jabatan baru tidak terdaftar, sistem akan otomatis mendaftarkannya ke database.</li>
+                    <li>Kolom <strong>pt, staff, jabatan, divisi, departemen, priority level</strong> bersifat opsional.</li>
+                    <li>Jika <strong>priority level</strong> diisi, nilainya harus berupa angka (semakin kecil angka, semakin tinggi prioritas karyawan).</li>
                     <li>Sistem otomatis akan membuat data sisa cuti awal `0` hari untuk karyawan baru.</li>
                 </ul>
             </div>

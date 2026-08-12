@@ -126,6 +126,37 @@
                             <div class="invalid-feedback">Harap isi tanggal mulai kerja.</div>
                         </div>
 
+                        <!-- Divisi -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_divisi" class="form-label fw-bold text-secondary small">Divisi</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_divisi" name="divisi" required style="box-shadow: none;">
+                                <option value="" disabled selected>-- Pilih Divisi --</option>
+                                {% for div in list_divisi %}
+                                    <option value="{{ div.nama }}">{{ div.nama }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Harap pilih divisi karyawan.</div>
+                        </div>
+
+                        <!-- Departemen -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_departemen" class="form-label fw-bold text-secondary small">Departemen</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_departemen" name="departemen" required style="box-shadow: none;">
+                                <option value="" disabled selected>-- Pilih Departemen --</option>
+                                {% for dept in list_departemen %}
+                                    <option value="{{ dept.nama }}">{{ dept.nama }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Harap pilih departemen karyawan.</div>
+                        </div>
+
+                        <!-- Priority Level -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_priority_level" class="form-label fw-bold text-secondary small">Priority Level (1: Tinggi, 2: Lebih Rendah)</label>
+                            <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_priority_level" name="priority_level" placeholder="Contoh: 1 (Prioritas Utama)" required min="1" step="1" style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap masukkan priority level berupa angka (minimal 1).</div>
+                        </div>
+
                         <!-- Jam Masuk -->
                         <div class="col-md-6 mt-3">
                             <label for="input_jam_masuk" class="form-label fw-bold text-secondary small">Jam Masuk</label>
@@ -216,6 +247,9 @@
         const inputJabatan = document.getElementById('input_jabatan');
         const inputStaff = document.getElementById('input_staff');
         const inputTmk = document.getElementById('input_tmk');
+        const inputDivisi = document.getElementById('input_divisi');
+        const inputDepartemen = document.getElementById('input_departemen');
+        const inputPriorityLevel = document.getElementById('input_priority_level');
         const inputJamMasuk = document.getElementById('input_jam_masuk');
         const inputJamPulang = document.getElementById('input_jam_pulang');
         
@@ -247,6 +281,9 @@
             inputJabatan.value = "";
             inputStaff.value = "";
             inputTmk.value = "";
+            inputDivisi.value = "";
+            inputDepartemen.value = "";
+            inputPriorityLevel.value = "";
             inputJamMasuk.value = "08:00";
             inputJamPulang.value = "17:00";
             
@@ -387,6 +424,9 @@
                         inputPt.value = data.pt;
                         inputJabatan.value = data.jabatan;
                         inputStaff.value = data.staff;
+                        inputDivisi.value = data.divisi;
+                        inputDepartemen.value = data.departemen;
+                        inputPriorityLevel.value = data.priority_level;
                         inputTmk.value = data.tmk;
                         inputJamMasuk.value = data.jam_masuk;
                         inputJamPulang.value = data.jam_pulang;
