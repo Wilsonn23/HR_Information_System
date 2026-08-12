@@ -1,6 +1,6 @@
 {% extends 'sdm/base.html' %}
 
-{% block title %}Tambah Data Karyawan{% endblock %}
+{% block title %}Kelola Data Karyawan{% endblock %}
 
 {% block body_class %}dashboard-page bg-light text-dark{% endblock %}
 
@@ -10,105 +10,146 @@
         <!-- Header Card dengan Gradient Premium -->
         <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
             <div class="d-flex align-items-center">
-                <span class="fs-2 me-3">👤</span>
+                <span class="fs-2 me-3" id="card_header_icon">👤</span>
                 <div>
-                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Form Tambah Karyawan</h3>
-                    <p class="small text-white-50 m-0">Masukkan detail informasi karyawan baru ke sistem</p>
+                    <h3 class="fw-bold m-0" id="card_header_title" style="font-size: 1.5rem;">Form Tambah Karyawan</h3>
+                    <p class="small text-white-50 m-0" id="card_header_subtitle">Masukkan detail informasi karyawan baru ke sistem</p>
                 </div>
             </div>
         </div>
         
         <div class="card-body p-4 p-md-5 bg-white">
-            <form action="{{ url_for('tambah_karyawan') }}" method="POST" class="needs-validation" novalidate id="formTambahKaryawan">
-                <!-- CSRF Token jika diaktifkan ( Flask-WTF CSRFProtect ) -->
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- Toggle Mode Switcher (Tambah vs Edit) -->
+            <div class="d-flex justify-content-center mb-4">
+                <div class="btn-group p-1 bg-light rounded-3" role="group" style="border: 1px solid #dee2e6;">
+                    <input type="radio" class="btn-check" name="toggle_mode" id="mode_tambah" value="tambah" checked autocomplete="off">
+                    <label class="btn btn-mode-toggle border-0 px-4 py-2 fw-bold text-secondary animate-btn" for="mode_tambah" style="border-radius: 8px; cursor: pointer;">
+                        ➕ Tambah Karyawan
+                    </label>
 
-                <div class="row g-3">
-                    <!-- NIK -->
-                    <div class="col-md-6">
-                        <label for="input_nik" class="form-label fw-bold text-secondary small">Nomor Induk Karyawan (NIK)</label>
-                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nik" name="nik" placeholder="Contoh: NIK2026001" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap masukkan NIK karyawan.</div>
-                    </div>
-
-                    <!-- No Absen -->
-                    <div class="col-md-6">
-                        <label for="input_absen" class="form-label fw-bold text-secondary small">Nomor Absen (Otomatis)</label>
-                        <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_absen" name="absen" value="{{ next_absen }}" readonly style="box-shadow: none; cursor: not-allowed;">
-                    </div>
-
-                    <!-- Nama Lengkap -->
-                    <div class="col-12 mt-3">
-                        <label for="input_nama" class="form-label fw-bold text-secondary small">Nama Lengkap</label>
-                        <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nama" name="nama" placeholder="Contoh: Budi Santoso" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap masukkan nama lengkap karyawan.</div>
-                    </div>
-
-                    <!-- PT -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_pt" class="form-label fw-bold text-secondary small">Nama PT / Perusahaan</label>
-                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_pt" name="pt" required style="box-shadow: none;">
-                            <option value="" disabled selected>-- Pilih PT --</option>
-                            {% for pt in list_pt %}
-                                <option value="{{ pt.nama }}">{{ pt.nama }} — {{ pt.parent_nama }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="invalid-feedback">Harap pilih PT karyawan.</div>
-                    </div>
-
-                    <!-- Jabatan -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_jabatan" class="form-label fw-bold text-secondary small">Jabatan</label>
-                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_jabatan" name="jabatan" required style="box-shadow: none;">
-                            <option value="" disabled selected>-- Pilih Jabatan --</option>
-                            {% for jab in list_jabatan %}
-                                <option value="{{ jab.nama }}">{{ jab.nama }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="invalid-feedback">Harap pilih jabatan karyawan.</div>
-                    </div>
-
-                    <!-- Tipe Staff -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_staff" class="form-label fw-bold text-secondary small">Tipe Staff</label>
-                        <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_staff" name="staff" required style="box-shadow: none;">
-                            <option value="" disabled selected>-- Pilih Tipe Staff --</option>
-                            <option value="Staff">Staff</option>
-                            <option value="Non-Staff">Non-Staff</option>
-                        </select>
-                        <div class="invalid-feedback">Harap pilih tipe staff karyawan.</div>
-                    </div>
-
-                    <!-- Tanggal Mulai Kerja (TMK) -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_tmk" class="form-label fw-bold text-secondary small">Tanggal Mulai Kerja</label>
-                        <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_tmk" name="tmk" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap isi tanggal mulai kerja.</div>
-                    </div>
-
-                    <!-- Jam Masuk -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_jam_masuk" class="form-label fw-bold text-secondary small">Jam Masuk</label>
-                        <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_masuk" name="jam_masuk" value="08:00" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap isi jam masuk kerja.</div>
-                    </div>
-
-                    <!-- Jam Pulang -->
-                    <div class="col-md-6 mt-3">
-                        <label for="input_jam_pulang" class="form-label fw-bold text-secondary small">Jam Pulang</label>
-                        <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_pulang" name="jam_pulang" value="17:00" required style="box-shadow: none;">
-                        <div class="invalid-feedback">Harap isi jam pulang kerja.</div>
-                    </div>
+                    <input type="radio" class="btn-check" name="toggle_mode" id="mode_edit" value="edit" autocomplete="off">
+                    <label class="btn btn-mode-toggle border-0 px-4 py-2 fw-bold text-secondary animate-btn" for="mode_edit" style="border-radius: 8px; cursor: pointer;">
+                        ✏️ Edit Karyawan
+                    </label>
                 </div>
+            </div>
 
-                <!-- Tombol Submit & Batal -->
-                <div class="d-flex justify-content-end gap-3 mt-5">
-                    <a href="/sdm-transaksi" class="btn btn-light px-4 py-2 fw-bold text-secondary" style="border-radius: 8px;">
-                        Batal
-                    </a>
-                    <button type="submit" class="btn btn-primary px-4 py-2 fw-bold shadow-sm transition-all" id="btn_submit_karyawan" style="border-radius: 8px;">
-                        Simpan Karyawan
-                    </button>
+            <!-- CONTAINER PILIH KARYAWAN (Hanya muncul di Mode Edit) -->
+            <div id="search-employee-container" class="mb-4 d-none position-relative">
+                <label for="employee_search_suggest" class="form-label fw-bold text-secondary small">Cari Karyawan yang Ingin Diedit</label>
+                <input type="text" id="employee_search_suggest" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" placeholder="Ketik nama, NIK, atau nomor absen..." autocomplete="off">
+                <div id="suggestions_list" class="list-group shadow-lg position-absolute w-100 d-none" style="z-index: 1050; max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid #e5e7eb; background: white; margin-top: 5px;"></div>
+                
+                <select class="form-select d-none" id="nik_select_individu">
+                    <option value="" disabled selected>-- Pilih Karyawan --</option>
+                    {% for k in karyawan_list %}
+                    <option value="{{ k.nik }}">[{{ k.absen }}] - {{ k.nik }} - {{ k.nama }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Placeholder saat di Mode Edit dan belum memilih karyawan -->
+            <div id="select-employee-placeholder" class="alert alert-info py-4 text-center rounded-3 mb-4 d-none" style="background: #eff6ff; border: 1px dashed #bfdbfe; color: #1e3a8a;">
+                <span class="fs-3 d-block mb-2">🔍</span>
+                <span class="fw-semibold">Silakan cari dan pilih karyawan pada kolom pencarian di atas untuk memulai pengeditan.</span>
+            </div>
+
+            <!-- FORM UTAMA -->
+            <form action="{{ url_for('tambah_karyawan') }}" method="POST" class="needs-validation" novalidate id="formKaryawan">
+                <!-- CSRF Token -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <!-- Action Type (tambah / edit) -->
+                <input type="hidden" name="action_type" id="input_action_type" value="tambah">
+
+                <div id="form-fields-container">
+                    <div class="row g-3">
+                        <!-- NIK -->
+                        <div class="col-md-6">
+                            <label for="input_nik" class="form-label fw-bold text-secondary small">Nomor Induk Karyawan (NIK)</label>
+                            <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nik" name="nik" placeholder="Contoh: NIK2026001" required style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap masukkan NIK karyawan.</div>
+                        </div>
+
+                        <!-- No Absen -->
+                        <div class="col-md-6">
+                            <label for="input_absen" class="form-label fw-bold text-secondary small">Nomor Absen</label>
+                            <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_absen" name="absen" value="{{ next_absen }}" readonly style="box-shadow: none; cursor: not-allowed;">
+                        </div>
+
+                        <!-- Nama Lengkap -->
+                        <div class="col-12 mt-3">
+                            <label for="input_nama" class="form-label fw-bold text-secondary small">Nama Lengkap</label>
+                            <input type="text" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_nama" name="nama" placeholder="Contoh: Budi Santoso" required style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap masukkan nama lengkap karyawan.</div>
+                        </div>
+
+                        <!-- PT -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_pt" class="form-label fw-bold text-secondary small">Nama PT / Perusahaan</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_pt" name="pt" required style="box-shadow: none;">
+                                <option value="" disabled selected>-- Pilih PT --</option>
+                                {% for pt in list_pt %}
+                                    <option value="{{ pt.nama }}">{{ pt.nama }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Harap pilih PT karyawan.</div>
+                        </div>
+
+                        <!-- Jabatan -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_jabatan" class="form-label fw-bold text-secondary small">Jabatan</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_jabatan" name="jabatan" required style="box-shadow: none;">
+                                <option value="" disabled selected>-- Pilih Jabatan --</option>
+                                {% for jab in list_jabatan %}
+                                    <option value="{{ jab.nama }}">{{ jab.nama }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Harap pilih jabatan karyawan.</div>
+                        </div>
+
+                        <!-- Tipe Staff -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_staff" class="form-label fw-bold text-secondary small">Tipe Staff</label>
+                            <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_staff" name="staff" required style="box-shadow: none;">
+                                <option value="" disabled selected>-- Pilih Tipe Staff --</option>
+                                <option value="Staff">Staff</option>
+                                <option value="Non-Staff">Non-Staff</option>
+                            </select>
+                            <div class="invalid-feedback">Harap pilih tipe staff karyawan.</div>
+                        </div>
+
+                        <!-- Tanggal Mulai Kerja (TMK) -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_tmk" class="form-label fw-bold text-secondary small">Tanggal Mulai Kerja</label>
+                            <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_tmk" name="tmk" required style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap isi tanggal mulai kerja.</div>
+                        </div>
+
+                        <!-- Jam Masuk -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_jam_masuk" class="form-label fw-bold text-secondary small">Jam Masuk</label>
+                            <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_masuk" name="jam_masuk" value="08:00" required style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap isi jam masuk kerja.</div>
+                        </div>
+
+                        <!-- Jam Pulang -->
+                        <div class="col-md-6 mt-3">
+                            <label for="input_jam_pulang" class="form-label fw-bold text-secondary small">Jam Pulang</label>
+                            <input type="time" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_jam_pulang" name="jam_pulang" value="17:00" required style="box-shadow: none;">
+                            <div class="invalid-feedback">Harap isi jam pulang kerja.</div>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Submit & Batal -->
+                    <div class="d-flex justify-content-end gap-3 mt-5">
+                        <a href="/sdm-transaksi" class="btn btn-light px-4 py-2 fw-bold text-secondary" style="border-radius: 8px;">
+                            Batal
+                        </a>
+                        <button type="submit" class="btn btn-primary px-4 py-2 fw-bold shadow-sm transition-all" id="btn_submit_karyawan" style="border-radius: 8px;">
+                            Simpan Karyawan Baru
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -154,6 +195,230 @@
         
         this.setSelectionRange(start, end);
     });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const modeTambahRadio = document.getElementById('mode_tambah');
+        const modeEditRadio = document.getElementById('mode_edit');
+        const searchContainer = document.getElementById('search-employee-container');
+        const placeholderContainer = document.getElementById('select-employee-placeholder');
+        const formFieldsContainer = document.getElementById('form-fields-container');
+        
+        const cardHeaderTitle = document.getElementById('card_header_title');
+        const cardHeaderSubtitle = document.getElementById('card_header_subtitle');
+        const cardHeaderIcon = document.getElementById('card_header_icon');
+        
+        const inputActionType = document.getElementById('input_action_type');
+        const btnSubmit = document.getElementById('btn_submit_karyawan');
+        const inputNik = document.getElementById('input_nik');
+        const inputAbsen = document.getElementById('input_absen');
+        const inputNama = document.getElementById('input_nama');
+        const inputPt = document.getElementById('input_pt');
+        const inputJabatan = document.getElementById('input_jabatan');
+        const inputStaff = document.getElementById('input_staff');
+        const inputTmk = document.getElementById('input_tmk');
+        const inputJamMasuk = document.getElementById('input_jam_masuk');
+        const inputJamPulang = document.getElementById('input_jam_pulang');
+        
+        const nikSelectIndividu = document.getElementById('nik_select_individu');
+        const searchInput = document.getElementById('employee_search_suggest');
+        const suggestionsList = document.getElementById('suggestions_list');
+        
+        const defaultAbsen = "{{ next_absen }}";
+
+        // Reset form ke keadaan kosong (mode tambah)
+        function resetFormToTambah() {
+            inputActionType.value = "tambah";
+            btnSubmit.textContent = "Simpan Karyawan Baru";
+            
+            // Header card
+            cardHeaderTitle.textContent = "Form Tambah Karyawan";
+            cardHeaderSubtitle.textContent = "Masukkan detail informasi karyawan baru ke sistem";
+            cardHeaderIcon.textContent = "👤";
+            
+            // NIK & Absen state
+            inputNik.readOnly = false;
+            inputNik.classList.remove('bg-light');
+            inputNik.value = "";
+            inputAbsen.value = defaultAbsen;
+            
+            // Kolom input lainnya
+            inputNama.value = "";
+            inputPt.value = "";
+            inputJabatan.value = "";
+            inputStaff.value = "";
+            inputTmk.value = "";
+            inputJamMasuk.value = "08:00";
+            inputJamPulang.value = "17:00";
+            
+            searchContainer.classList.add('d-none');
+            placeholderContainer.classList.add('d-none');
+            formFieldsContainer.classList.remove('d-none');
+            
+            searchInput.value = "";
+            nikSelectIndividu.value = "";
+            
+            document.getElementById('formKaryawan').classList.remove('was-validated');
+        }
+
+        // Terapkan state mode edit (sembunyikan input form, tampilkan search suggestion)
+        function applyEditMode() {
+            inputActionType.value = "edit";
+            btnSubmit.textContent = "Simpan Perubahan Karyawan";
+            
+            // Header card
+            cardHeaderTitle.textContent = "Form Edit Karyawan";
+            cardHeaderSubtitle.textContent = "Perbarui detail informasi karyawan terdaftar";
+            cardHeaderIcon.textContent = "✏️";
+            
+            // NIK & Absen state
+            inputNik.readOnly = true;
+            inputNik.classList.add('bg-light');
+            
+            searchContainer.classList.remove('d-none');
+            
+            const selectedNik = nikSelectIndividu.value;
+            if (selectedNik) {
+                placeholderContainer.classList.add('d-none');
+                formFieldsContainer.classList.remove('d-none');
+            } else {
+                placeholderContainer.classList.remove('d-none');
+                formFieldsContainer.classList.add('d-none');
+            }
+            
+            document.getElementById('formKaryawan').classList.remove('was-validated');
+        }
+
+        // Listener perpindahan mode radio
+        modeTambahRadio.addEventListener('change', function () {
+            if (this.checked) resetFormToTambah();
+        });
+
+        modeEditRadio.addEventListener('change', function () {
+            if (this.checked) applyEditMode();
+        });
+
+        // Autocomplete Search Suggestion Box
+        if (searchInput && nikSelectIndividu && suggestionsList) {
+            const employees = Array.from(nikSelectIndividu.options)
+                .filter(opt => opt.value !== "")
+                .map(opt => ({
+                    value: opt.value,
+                    text: opt.text
+                }));
+                
+            function showSuggestions(filterText) {
+                const filter = filterText.toLowerCase().trim();
+                suggestionsList.innerHTML = '';
+                
+                const matches = employees.filter(emp => emp.text.toLowerCase().includes(filter));
+                
+                if (matches.length === 0) {
+                    const noMatchItem = document.createElement('div');
+                    noMatchItem.className = 'list-group-item text-muted small py-3 px-4';
+                    noMatchItem.textContent = '❌ Karyawan tidak ditemukan';
+                    suggestionsList.appendChild(noMatchItem);
+                } else {
+                    matches.forEach(emp => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'list-group-item list-group-item-action border-0 py-2.5 px-4 text-start small fw-semibold';
+                        item.style.outline = 'none';
+                        item.textContent = emp.text;
+                        
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            searchInput.value = emp.text;
+                            nikSelectIndividu.value = emp.value;
+                            suggestionsList.classList.add('d-none');
+                            
+                            nikSelectIndividu.dispatchEvent(new Event('change'));
+                        });
+                        
+                        suggestionsList.appendChild(item);
+                    });
+                }
+                suggestionsList.classList.remove('d-none');
+            }
+            
+            searchInput.addEventListener('focus', function() {
+                showSuggestions(this.value);
+            });
+            
+            searchInput.addEventListener('input', function() {
+                showSuggestions(this.value);
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+                    suggestionsList.classList.add('d-none');
+                    const currentOption = nikSelectIndividu.options[nikSelectIndividu.selectedIndex];
+                    if (currentOption && currentOption.value !== "") {
+                        searchInput.value = currentOption.text;
+                    } else {
+                        searchInput.value = '';
+                    }
+                }
+            });
+        }
+
+        // Listener saat NIK karyawan terpilih di mode Edit
+        if (nikSelectIndividu) {
+            nikSelectIndividu.addEventListener('change', function () {
+                const nik = this.value;
+                if (!nik) {
+                    placeholderContainer.classList.remove('d-none');
+                    formFieldsContainer.classList.add('d-none');
+                    return;
+                }
+
+                // Ambil data detail karyawan via AJAX
+                fetch(`/tambah-karyawan/api/detail/${encodeURIComponent(nik)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) {
+                            alert(data.message || "Gagal mengambil data karyawan.");
+                            return;
+                        }
+                        
+                        // Isi data ke form
+                        inputNik.value = data.nik;
+                        inputAbsen.value = data.absen;
+                        inputNama.value = data.nama;
+                        inputPt.value = data.pt;
+                        inputJabatan.value = data.jabatan;
+                        inputStaff.value = data.staff;
+                        inputTmk.value = data.tmk;
+                        inputJamMasuk.value = data.jam_masuk;
+                        inputJamPulang.value = data.jam_pulang;
+                        
+                        // Tampilkan form fields
+                        placeholderContainer.classList.add('d-none');
+                        formFieldsContainer.classList.remove('d-none');
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("Terjadi kesalahan jaringan saat mengambil data detail karyawan.");
+                    });
+            });
+        }
+
+        // Cek jika terdapat parameter 'nik' di URL (digunakan dari tombol edit di master karyawan)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlNik = urlParams.get('nik');
+        if (urlNik) {
+            // Aktifkan mode edit
+            modeEditRadio.checked = true;
+            applyEditMode();
+            
+            // Set NIK di dropdown dan cari teksnya
+            const option = Array.from(nikSelectIndividu.options).find(opt => opt.value === urlNik);
+            if (option) {
+                nikSelectIndividu.value = urlNik;
+                searchInput.value = option.text;
+                nikSelectIndividu.dispatchEvent(new Event('change'));
+            }
+        }
+    });
 </script>
 
 <style>
@@ -164,9 +429,25 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
     }
+    .btn-light:hover {
+        background-color: #e2e8f0;
+    }
     .form-control:focus, .form-select:focus {
         background-color: #f8fafc !important;
         border: 1px solid #0d6efd !important;
+    }
+    
+    /* Mode toggle button styling */
+    .btn-check:checked + .btn-mode-toggle {
+        background-color: #0d6efd !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2) !important;
+    }
+    .btn-mode-toggle {
+        transition: all 0.2s ease-in-out;
+    }
+    .btn-mode-toggle:hover {
+        color: #0d6efd !important;
     }
 </style>
 {% endblock %}

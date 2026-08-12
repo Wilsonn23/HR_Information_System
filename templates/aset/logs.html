@@ -6,38 +6,77 @@
 
 {% block content %}
 <div class="container-fluid px-4 mt-5 pt-3">
-    <div class="card shadow border-0 rounded-3 bg-white text-dark">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <!-- Header Section -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div>
                     <h3 class="fw-bold text-primary m-0">📜 Jejak Audit Sistem (Audit Logs)</h3>
+                    <p class="text-muted small m-0 mt-1">
+                        Riwayat seluruh transaksi dan aktivitas aset
+                        {% if q %}
+                        — hasil pencarian "<strong>{{ q }}</strong>"
+                        {% endif %}
+                    </p>
                 </div>
-                <div style="max-width: 300px;" class="w-100 position-relative">
-                    <input type="text" id="logSearchInput" class="form-control pe-5" placeholder="🔍 Cari..." value="{{ q or '' }}">
-                    {% if q %}
-                    <button class="btn btn-sm btn-link text-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0" onclick="window.location.href='{{ url_for('view_asset_audit_logs') }}'" style="text-decoration: none; z-index: 10;">✕</button>
-                    {% endif %}
-                </div>
+                <!-- Search Input -->
+                <form action="{{ url_for('view_asset_audit_logs') }}" method="GET" class="d-flex gap-2 align-items-center">
+                    <div class="position-relative">
+                        <input type="text" name="q" id="search_log"
+                               class="form-control form-control-sm rounded-pill border-2 pe-5"
+                               style="min-width: 280px;"
+                               placeholder="🔍 Cari..."
+                               value="{{ q or '' }}">
+                        {% if q %}
+                        <a href="{{ url_for('view_asset_audit_logs') }}"
+                           class="position-absolute end-0 top-50 translate-middle-y me-2 text-muted text-decoration-none"
+                           style="z-index: 10; font-size: 1rem; line-height: 1;">✕</a>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">Cari</button>
+                </form>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-hover align-middle table-bordered" id="logTable">
-                    <thead class="table-dark text-nowrap">
-                        <tr>
-                            <th scope="col" style="width: 12.5%;">Waktu</th>
-                            <th scope="col" style="width: 15%;">Unit (CN)</th>
-                            <th scope="col" style="width: 7.5%;">Aksi</th>
-                            <th scope="col" style="width: 17.5%;">Komponen / Kolom</th>
-                            <th scope="col" style="width: 20%;">Nilai Lama</th>
-                            <th scope="col" style="width: 20%;">Nilai Baru</th>
-                            <th scope="col" style="width: 7.5%;">Pelaksana</th>
+            <!-- Info bar -->
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="small text-muted fw-semibold">
+                    {% if total_count == 0 %}
+                        Tidak ada hasil ditemukan.
+                    {% else %}
+                        Menampilkan
+                        <strong>{{ (page - 1) * 20 + 1 }}–{{ [(page - 1) * 20 + logs|length, total_count]|min }}</strong>
+                        dari total <strong>{{ total_count }}</strong> log aktivitas.
+                    {% endif %}
+                </div>
+                {% if total_pages > 1 %}
+                <div class="text-muted small">Halaman <strong>{{ page }}</strong> / <strong>{{ total_pages }}</strong></div>
+                {% endif %}
+            </div>
+
+            <!-- Tabel Log Aktivitas -->
+            <div class="table-responsive border rounded-3 shadow-sm">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="logTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle">
+                            <th scope="col" class="text-center" style="width: 50px;">No</th>
+                            <th scope="col" class="text-center" style="width: 160px;">Waktu</th>
+                            <th scope="col" style="width: 200px;">Unit (CN)</th>
+                            <th scope="col" class="text-center" style="width: 120px;">Aksi</th>
+                            <th scope="col" style="width: 220px;">Komponen / Kolom</th>
+                            <th scope="col">Nilai Lama</th>
+                            <th scope="col">Nilai Baru</th>
+                            <th scope="col" class="text-center" style="width: 120px;">Petugas</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for log in logs %}
                         <tr>
-                            <td class="text-muted small">{{ log.tanggal_aksi.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td class="text-center text-muted small fw-bold">{{ loop.index + (page - 1) * 20 }}</td>
+                            <td class="text-center small text-muted fw-semibold">
+                                {{ log.tanggal_aksi.strftime('%d %b %Y') if log.tanggal_aksi else '-' }}<br>
+                                <span class="text-secondary" style="font-size: 0.75rem;">{{ log.tanggal_aksi.strftime('%H:%M:%S') if log.tanggal_aksi else '' }}</span>
+                            </td>
                             <td>
                                 {% if log.aksi != 'HAPUS' %}
                                 <a href="/details/{{ log.pkey }}" class="fw-bold text-decoration-none text-primary">{{
@@ -46,27 +85,31 @@
                                 <span class="fw-bold text-secondary">{{ log.pkey }}</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if log.aksi == 'TAMBAH' %}
-                                <span class="badge bg-success d-block py-1.5">TAMBAH</span>
+                                <span class="badge bg-success rounded-pill py-1.5 px-3 fw-bold" style="font-size: 0.75rem;">TAMBAH</span>
                                 {% elif log.aksi == 'EDIT' %}
-                                <span class="badge bg-warning text-dark d-block py-1.5">EDIT</span>
+                                <span class="badge bg-warning text-dark rounded-pill py-1.5 px-3 fw-bold" style="font-size: 0.75rem;">EDIT</span>
                                 {% else %}
-                                <span class="badge bg-danger d-block py-1.5">HAPUS</span>
+                                <span class="badge bg-danger rounded-pill py-1.5 px-3 fw-bold" style="font-size: 0.75rem;">HAPUS</span>
                                 {% endif %}
                             </td>
-                            <td class="fw-semibold">{{ log.kolom_diubah }}</td>
-                            <td class="text-danger small">
-                                {% if log.aksi == 'EDIT' %}<del>{{ log.nilai_lama }}</del>{% else %}{{ log.nilai_lama
-                                }}{% endif %}
+                            <td class="fw-semibold text-wrap">{{ log.kolom_diubah or '—' }}</td>
+                            <td class="text-danger small text-wrap">
+                                {% if log.aksi == 'EDIT' %}<del>{{ log.nilai_lama or '—' }}</del>{% else %}{{ log.nilai_lama or '—' }}{% endif %}
                             </td>
-                            <td class="text-success small fw-bold">{{ log.nilai_baru }}</td>
-                            <td><span class="badge bg-secondary px-2 py-1 fs-6">{{ log.dilakukan_oleh }}</span></td>
+                            <td class="text-success small fw-bold text-wrap">{{ log.nilai_baru or '—' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary px-2.5 py-1">{{ log.dilakukan_oleh or 'System' }}</span>
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
+                            <td colspan="8" class="text-center text-muted py-5">
                                 📁 Belum ada rekam jejak aktivitas audit yang tercatat di database.
+                                {% if q %}
+                                <br><span class="small">Coba ubah kata kunci pencarian.</span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -74,36 +117,57 @@
                 </table>
             </div>
 
+            <!-- Pagination -->
             {% if total_pages > 1 %}
-            <div class="d-flex justify-content-between align-items-center mt-3 flex-grow-1 flex-wrap gap-2">
-                <div class="small text-muted">
-                    Menampilkan {{ logs|length }} dari total {{ total_count }} log aktivitas.
-                </div>
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+
+                <!-- Jump to page -->
+                <form method="GET" action="{{ url_for('view_asset_audit_logs') }}" class="d-flex align-items-center gap-2">
+                    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+                    <label class="text-muted small fw-semibold mb-0 text-nowrap">Pergi ke halaman:</label>
+                    <input type="number" name="page" min="1" max="{{ total_pages }}"
+                           value="{{ page }}"
+                           class="form-control form-control-sm text-center fw-bold"
+                           style="width: 70px; border-radius: 8px;">
+                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold px-3" style="border-radius: 8px;">Go</button>
+                </form>
+
+                <!-- Page buttons -->
                 <nav aria-label="Navigasi Halaman Log">
-                    <ul class="pagination pagination-sm m-0">
+                    <ul class="pagination pagination-sm m-0 gap-1">
+
+                        <!-- First & Prev -->
                         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page-1, q=q) }}" tabindex="-1">Sebelumnya</a>
+                            <a class="page-link fw-bold rounded-2 border-0 shadow-sm" href="{{ url_for('view_asset_audit_logs', page=1, q=q) }}" title="Pertama">«</a>
                         </li>
-                        
+                        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                            <a class="page-link rounded-2 border-0 shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page-1, q=q) }}">‹ Sebelumnya</a>
+                        </li>
+
+                        <!-- Page numbers with ellipsis -->
                         {% for p in range(1, total_pages + 1) %}
-                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
-                        <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=p, q=q) }}">{{ p }}</a>
-                        </li>
-                        {% elif p == page - 3 or p == page + 3 %}
-                        <li class="page-item disabled"><span class="page-link bg-light border-0">...</span></li>
-                        {% endif %}
+                            {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                                <li class="page-item {% if p == page %}active{% endif %}">
+                                    <a class="page-link rounded-2 border-0 shadow-sm fw-bold"
+                                       href="{{ url_for('view_asset_audit_logs', page=p, q=q) }}">{{ p }}</a>
+                                </li>
+                            {% elif p == page - 3 or p == page + 3 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link border-0 bg-transparent text-muted">…</span>
+                                </li>
+                            {% endif %}
                         {% endfor %}
-                        
+
+                        <!-- Next & Last -->
                         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-                            <a class="page-link shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page+1, q=q) }}">Berikutnya</a>
+                            <a class="page-link rounded-2 border-0 shadow-sm" href="{{ url_for('view_asset_audit_logs', page=page+1, q=q) }}">Berikutnya ›</a>
                         </li>
+                        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                            <a class="page-link fw-bold rounded-2 border-0 shadow-sm" href="{{ url_for('view_asset_audit_logs', page=total_pages, q=q) }}" title="Terakhir">»</a>
+                        </li>
+
                     </ul>
                 </nav>
-            </div>
-            {% else %}
-            <div class="small text-muted mt-2">
-                Menampilkan {{ logs|length }} log aktivitas.
             </div>
             {% endif %}
 
@@ -111,12 +175,19 @@
     </div>
 </div>
 
-<script>
-    document.getElementById('logSearchInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            let query = this.value.trim();
-            window.location.href = "{{ url_for('view_asset_audit_logs') }}?q=" + encodeURIComponent(query);
-        }
-    });
-</script>
+<style>
+    .pagination .page-item.active .page-link {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+    }
+    .pagination .page-link {
+        color: #2563eb;
+        transition: all 0.15s ease;
+        padding: 0.35rem 0.65rem;
+    }
+    .pagination .page-link:hover:not(.disabled) {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+</style>
 {% endblock %}

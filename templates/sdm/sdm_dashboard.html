@@ -21,7 +21,7 @@
             <div class="d-flex align-items-center">
                 <span class="fs-4 me-2">⏳</span>
                 <div>
-                    <h4 class="fw-bold m-0" style="font-size: 1.15rem;">Kehadiran Pending Kemarin (H-1)</h4>
+                    <h4 class="fw-bold m-0" style="font-size: 1.15rem;">{{ h1_label }}</h4>
                 </div>
             </div>
             <div>
@@ -40,8 +40,8 @@
     {% endif %}
 
     <!-- Section: Kehadiran Pending Lampau (H-2 & Sebelumnya) -->
+    {% if reminders_lampau %}
     <div class="card shadow-sm border-0 mb-4 bg-white" style="border-radius: 16px; overflow: hidden;">
-        {% if reminders_lampau %}
         <div class="card-header text-white p-3 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #ef4444, #b91c1c) !important;">
             <div class="d-flex align-items-center">
                 <span class="fs-4 me-2">🚨</span>
@@ -55,63 +55,48 @@
                 </a>
             </div>
         </div>
-        {% else %}
-        <div class="card-header bg-success text-white p-3 border-0 d-flex align-items-center" style="background: linear-gradient(135deg, #198754, #146c43) !important;">
-            <span class="fs-4 me-2">✅</span>
-            <div>
-                <h4 class="fw-bold m-0" style="font-size: 1.15rem;">Kehadiran Lampau Bersih</h4>
-                <p class="small text-white-50 m-0">Tidak ada data kehadiran pending dari hari-hari lampau</p>
+        <div class="card-body p-4">
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-hover align-middle text-center small m-0">
+                    <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
+                        <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
+                            <th style="width: 10%;">Absen</th>
+                            <th style="width: 15%;">NIK</th>
+                            <th class="text-start" style="width: 25%;">Nama Karyawan</th>
+                            <th class="text-start" style="width: 15%;">Jabatan</th>
+                            <th style="width: 15%;">Periode</th>
+                            <th class="text-start" style="width: 15%;">Tanggal Pending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reminders_lampau %}
+                        <tr class="border-bottom" style="border-color: #f8fafc !important;">
+                            <td class="fw-bold text-dark">{{ r.absen }}</td>
+                            <td class="fw-bold text-dark">{{ r.nik }}</td>
+                            <td class="text-start text-dark fw-semibold">{{ r.nama }}</td>
+                            <td class="text-start text-muted">{{ r.jabatan or '-' }}</td>
+                            <td>
+                                <span class="badge px-3 py-2 fw-bold text-secondary" style="background-color: #f1f5f9; border-radius: 6px;">
+                                    {{ r.bulan }} {{ r.tahun }}
+                                </span>
+                            </td>
+                            <td class="text-start">
+                                {% for day in r.hari %}
+                                    <span class="badge bg-danger text-white rounded-pill px-2.5 py-1.5 small m-0.5" style="font-size: 0.75rem;">{{ day }}</span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% endif %} 
-        <div class="card-body p-4">
-            {% if reminders_lampau %}
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-hover align-middle text-center small m-0">
-                        <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
-                            <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
-                                <th style="width: 10%;">Absen</th>
-                                <th style="width: 15%;">NIK</th>
-                                <th class="text-start" style="width: 25%;">Nama Karyawan</th>
-                                <th class="text-start" style="width: 15%;">Jabatan</th>
-                                <th style="width: 15%;">Periode</th>
-                                <th class="text-start" style="width: 15%;">Tanggal Pending</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for r in reminders_lampau %}
-                            <tr class="border-bottom" style="border-color: #f8fafc !important;">
-                                <td class="fw-bold text-dark">{{ r.absen }}</td>
-                                <td class="fw-bold text-dark">{{ r.nik }}</td>
-                                <td class="text-start text-dark fw-semibold">{{ r.nama }}</td>
-                                <td class="text-start text-muted">{{ r.jabatan or '-' }}</td>
-                                <td>
-                                    <span class="badge px-3 py-2 fw-bold text-secondary" style="background-color: #f1f5f9; border-radius: 6px;">
-                                        {{ r.bulan }} {{ r.tahun }}
-                                    </span>
-                                </td>
-                                <td class="text-start">
-                                    {% for day in r.hari %}
-                                        <span class="badge bg-danger text-white rounded-pill px-2.5 py-1.5 small m-0.5" style="font-size: 0.75rem;">{{ day }}</span>
-                                    {% endfor %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center text-muted py-3 small">
-                    Tidak ada pending kehadiran lampau.
-                </div>
-            {% endif %}
-        </div>
     </div>
-
+    {% endif %}
 
     <!-- Section: Cuti Hangus Belum Dihapus -->
+    {% if expired_leaves_list %}
     <div class="card shadow-sm border-0 mb-4 bg-white" style="border-radius: 16px; overflow: hidden;">
-        {% if expired_leaves_list %}
         <div class="card-header bg-warning text-white p-3 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #f59e0b, #d97706) !important;">
             <div class="d-flex align-items-center">
                 <span class="fs-4 me-2">⏳</span>
@@ -126,66 +111,102 @@
                 </a>
             </div>
         </div>
-        {% else %}
-        <div class="card-header bg-success text-white p-3 border-0 d-flex align-items-center" style="background: linear-gradient(135deg, #198754, #146c43) !important;">
-            <span class="fs-4 me-2">✅</span>
-            <div>
-                <h4 class="fw-bold m-0" style="font-size: 1.15rem;">Saldo Cuti Hangus Bersih</h4>
-                <p class="small text-white-50 m-0">Semua jatah cuti hangus karyawan sudah terhapus</p>
+        <div class="card-body p-4">
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-hover align-middle text-center small m-0">
+                    <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
+                        <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
+                            <th style="width: 10%;">Absen</th>
+                            <th style="width: 15%;">NIK</th>
+                            <th class="text-start" style="width: 25%;">Nama Karyawan</th>
+                            <th class="text-start" style="width: 15%;">Jabatan</th>
+                            <th style="width: 15%;">Cuti Tahunan Hangus</th>
+                            <th style="width: 15%;">Cuti Dinas Hangus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in expired_leaves_list %}
+                        <tr class="border-bottom" style="border-color: #f8fafc !important;">
+                            <td class="fw-bold text-dark">{{ e.absen }}</td>
+                            <td class="fw-bold text-dark">{{ e.nik }}</td>
+                            <td class="text-start text-dark fw-semibold">{{ e.nama }}</td>
+                            <td class="text-start text-muted">{{ e.jabatan or '-' }}</td>
+                            <td>
+                                {% if e.pending_hangus > 0 %}
+                                <span class="badge bg-danger-subtle text-danger fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
+                                    {{ e.pending_hangus | int if e.pending_hangus % 1 == 0 else e.pending_hangus }} hari
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if e.pending_dinas > 0 %}
+                                <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
+                                    {{ e.pending_dinas | int if e.pending_dinas % 1 == 0 else e.pending_dinas }} hari
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Section: Saldo Cuti Minus -->
+    {% if minus_leaves_list %}
+    <div class="card shadow-sm border-0 mb-4 bg-white" style="border-radius: 16px; overflow: hidden;">
+        <div class="card-header text-white p-3 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #e11d48, #9f1239) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-4 me-2">🚨</span>
+                <div>
+                    <h4 class="fw-bold m-0" style="font-size: 1.15rem;">Pemberitahuan: Saldo Cuti Karyawan Minus</h4>
+                    <p class="small text-white-50 m-0">Terdapat karyawan dengan saldo Cuti Tahunan bernilai negatif (minus)</p>
+                </div>
+            </div>
+            <div>
+                <a href="{{ url_for('master_cuti') }}" class="btn btn-sm btn-light fw-bold text-danger rounded-pill px-3 shadow-sm" style="background-color: #ffffff; border: none; color: #9f1239 !important;">
+                    📁 Lihat Master Cuti
+                </a>
+            </div>
+        </div>
         <div class="card-body p-4">
-            {% if expired_leaves_list %}
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-hover align-middle text-center small m-0">
-                        <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
-                            <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
-                                <th style="width: 10%;">Absen</th>
-                                <th style="width: 15%;">NIK</th>
-                                <th class="text-start" style="width: 25%;">Nama Karyawan</th>
-                                <th class="text-start" style="width: 15%;">Jabatan</th>
-                                <th style="width: 15%;">Cuti Tahunan Hangus</th>
-                                <th style="width: 15%;">Cuti Dinas Hangus</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for e in expired_leaves_list %}
-                            <tr class="border-bottom" style="border-color: #f8fafc !important;">
-                                <td class="fw-bold text-dark">{{ e.absen }}</td>
-                                <td class="fw-bold text-dark">{{ e.nik }}</td>
-                                <td class="text-start text-dark fw-semibold">{{ e.nama }}</td>
-                                <td class="text-start text-muted">{{ e.jabatan or '-' }}</td>
-                                <td>
-                                    {% if e.pending_hangus > 0 %}
-                                    <span class="badge bg-danger-subtle text-danger fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
-                                        {{ e.pending_hangus | int if e.pending_hangus % 1 == 0 else e.pending_hangus }} hari
-                                    </span>
-                                    {% else %}
-                                    <span class="text-muted small">—</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if e.pending_dinas > 0 %}
-                                    <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
-                                        {{ e.pending_dinas | int if e.pending_dinas % 1 == 0 else e.pending_dinas }} hari
-                                    </span>
-                                    {% else %}
-                                    <span class="text-muted small">—</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center text-muted py-4">
-                    🎉 Bersih! Tidak ada jatah cuti yang sudah hangus.
-                </div>
-            {% endif %}
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-hover align-middle text-center small m-0">
+                    <thead class="position-sticky top-0 bg-white" style="z-index: 2;">
+                        <tr class="text-muted fw-semibold border-bottom" style="font-size: 0.9rem; border-color: #f1f5f9 !important;">
+                            <th style="width: 10%;">Absen</th>
+                            <th style="width: 15%;">NIK</th>
+                            <th class="text-start" style="width: 30%;">Nama Karyawan</th>
+                            <th class="text-start" style="width: 25%;">Jabatan</th>
+                            <th style="width: 20%;">Saldo Cuti Tahunan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in minus_leaves_list %}
+                        <tr class="border-bottom" style="border-color: #f8fafc !important;">
+                            <td class="fw-bold text-dark">{{ m.absen }}</td>
+                            <td class="fw-bold text-dark">{{ m.nik }}</td>
+                            <td class="text-start text-dark fw-semibold">{{ m.nama }}</td>
+                            <td class="text-start text-muted">{{ m.jabatan or '-' }}</td>
+                            <td>
+                                <span class="badge bg-danger-subtle text-danger fw-bold px-3 py-2 rounded-pill" style="font-size: 0.85rem;">
+                                    {{ m.tahunan_balance | int if m.tahunan_balance % 1 == 0 else m.tahunan_balance }} hari
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Section: Data Cuti Karyawan -->
     <div class="row">

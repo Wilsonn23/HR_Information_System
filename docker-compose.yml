@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - SECRET_KEY=ChangeThisSecretKey
+      - DB_HOST=db
+      - FLASK_ENV=production
+    volumes:
+      - .:/usr/src/app
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hris_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

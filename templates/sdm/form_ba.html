@@ -35,13 +35,14 @@
 
                 <!-- Card Body -->
                 <div class="card-body p-4 p-md-5 bg-white" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
-                    <form id="formBaCutiDinas" action="{{ url_for('form_ba') }}" method="POST">
+                    <form id="formBaCutiDinas" action="{{ url_for('form_ba') }}" method="POST" class="needs-validation" novalidate>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <!-- Input Pilih Karyawan -->
                         <div class="mb-4 position-relative">
                             <label for="employee_search_suggest" class="form-label fw-bold text-secondary small">Pilih Karyawan</label>
                             <input type="text" id="employee_search_suggest" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" placeholder="Ketik nama, NIK, atau nomor absen..." autocomplete="off" required>
+                            <div class="invalid-feedback">Harap pilih karyawan dari daftar saran.</div>
                             <div id="suggestions_list" class="list-group shadow-lg position-absolute w-100 d-none" style="z-index: 1050; max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid #e5e7eb; background: white; margin-top: 5px;"></div>
                             
                             <select class="form-select d-none" id="nik_select" name="nik" required>
@@ -89,6 +90,7 @@
                             <div class="mb-4">
                                 <label for="tanggal_kadaluarsa_baru" class="form-label fw-bold text-secondary small">Tanggal Kadaluarsa Baru</label>
                                 <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa_baru" name="tanggal_kadaluarsa_baru" required>
+                                <div class="invalid-feedback">Harap tentukan tanggal kadaluarsa baru.</div>
                                 <div class="form-text text-muted small mt-1">Tanggal harus di antara masa berlaku saat ini dan batas maksimal cuti tahunan periode tersebut.</div>
                             </div>
 
@@ -103,6 +105,7 @@
                             <div class="mb-4">
                                 <label for="ba_tanggal" class="form-label fw-bold text-secondary small">Tanggal Berita Acara (BA)</label>
                                 <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="ba_tanggal" name="ba_tanggal" min="{{ system_date_ymd }}" required>
+                                <div class="invalid-feedback">Harap tentukan tanggal Berita Acara (BA).</div>
                             </div>
 
                             <!-- BA Keterangan -->
@@ -174,6 +177,7 @@
                             e.preventDefault();
                             searchInput.value = emp.text;
                             nikSelect.value = emp.value;
+                            searchInput.setCustomValidity('');
                             suggestionsList.classList.add('d-none');
                             
                             nikSelect.dispatchEvent(new Event('change'));
@@ -190,6 +194,7 @@
             });
             
             searchInput.addEventListener('input', function() {
+                this.setCustomValidity('');
                 showSuggestions(this.value);
             });
             
@@ -308,6 +313,37 @@
                         noEntriesAlert.classList.remove('d-none');
                     });
             });
+        }
+
+        // Validasi form Bootstrap 5 kustom
+        const form = document.getElementById('formBaCutiDinas');
+        if (form) {
+            form.addEventListener('submit', function (event) {
+                if (!nikSelect.value) {
+                    searchInput.setCustomValidity('Harap pilih karyawan dari daftar saran.');
+                } else {
+                    searchInput.setCustomValidity('');
+                }
+
+                // Periksa apakah salah satu transaksi radio dipilih jika bagian entries-section ditampilkan
+                if (!entriesSection.classList.contains('d-none')) {
+                    const radios = form.querySelectorAll('input[name="entry_id_radio"]');
+                    let checked = false;
+                    radios.forEach(r => { if (r.checked) checked = true; });
+                    if (!checked) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        alert('⚠️ Harap pilih salah satu transaksi cuti dinas untuk diperpanjang.');
+                        return;
+                    }
+                }
+
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
         }
     });
 </script>

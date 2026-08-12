@@ -24,7 +24,7 @@
                 <div class="card-body p-4 p-md-5 bg-white">
                     
                     <!-- Filter Periode Form -->
-                    <form id="filterForm" method="GET" action="{{ url_for('generate_laporan') }}" class="row g-3 align-items-end mb-5 p-4 rounded-3 bg-light border">
+                    <form id="filterForm" method="GET" action="{{ url_for('generate_laporan') }}" class="row g-3 align-items-end mb-5 p-4 rounded-3 bg-light border needs-validation" novalidate>
                         <div class="col-md-6 col-12">
                             <label for="bulan" class="form-label fw-bold text-secondary small">Pilih Bulan</label>
                             <select class="form-select bg-white border py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="bulan" name="bulan" required>

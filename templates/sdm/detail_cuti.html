@@ -1,0 +1,88 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Detail Cuti - {{ karyawan.nama }}{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-4">
+        <div class="card-body p-4">
+            
+            <!-- Header Section -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 border-bottom pb-3">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">📊 Detail Jatah Cuti Karyawan</h3>
+                    <p class="text-muted m-0 mt-1">
+                        <strong>{{ karyawan.nama }}</strong> (NIK: {{ karyawan.nik }}) | 
+                        Tanggal Masuk Kerja (TMK): {{ karyawan.tmk or '-' }}
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('master_cuti') }}" class="btn btn-secondary px-4 fw-bold shadow-sm" style="border-radius: 8px;">
+                        <i class="fas fa-arrow-left me-2"></i>Kembali
+                    </a>
+                </div>
+            </div>
+
+            <!-- Balances Row -->
+            <div class="row g-3 mb-5">
+                <div class="col-12">
+                    <div class="p-3 rounded-3 border bg-light d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold">Saldo Cuti Dinas Aktif</span>
+                            <h3 class="fw-bold text-info m-0 mt-1">{{ dinas_balance | int if dinas_balance % 1 == 0 else dinas_balance }} hari</h3>
+                        </div>
+                        <span class="fs-1">💼</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Cuti Dinas -->
+            <div>
+                <h5 class="fw-bold text-secondary mb-3"><i class="fas fa-briefcase me-2 text-info"></i>Detail Cuti Dinas</h5>
+                <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover align-middle table-bordered m-0">
+                        <thead class="table-dark position-sticky top-0 z-1">
+                            <tr>
+                                <th scope="col" class="text-center" style="width: 60px;">No</th>
+                                <th scope="col">Tanggal Didapat</th>
+                                <th scope="col">Tanggal Hangus</th>
+                                <th scope="col" class="text-center">Jatah Awal</th>
+                                <th scope="col" class="text-center">Sisa Aktif</th>
+                                <th scope="col">Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in dinas_list %}
+                            <tr>
+                                <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                                <td>{{ item.date }}</td>
+                                <td>{{ item.expiration }}</td>
+                                <td class="text-center fw-semibold">{{ item.amount }} hari</td>
+                                <td class="text-center fw-bold {% if item.remaining > 0 %}text-success{% else %}text-muted{% endif %}">{{ item.remaining }} hari</td>
+                                <td class="text-muted small text-wrap">{{ item.keterangan }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">📁 Belum ada jatah Cuti Dinas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .position-sticky {
+        position: sticky !important;
+    }
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+</style>
+{% endblock %}

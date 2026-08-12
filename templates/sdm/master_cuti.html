@@ -21,13 +21,24 @@
             <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
                 <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="masterTable">
                     <thead class="table-dark position-sticky top-0 z-1">
-                        <tr class="align-middle">
-                            <th scope="col" class="text-center" style="width: 60px;">No</th>
-                            <th scope="col" style="width: 120px;">NIK</th>
-                            <th scope="col">Nama Karyawan</th>
-                            <th scope="col" class="text-center" style="width: 150px;">TMK</th>
-                            <th scope="col" class="text-center" style="width: 150px;">Cuti Tahunan</th>
-                            <th scope="col" class="text-center" style="width: 220px;">Cuti Dinas</th>
+                        <tr class="align-middle text-center">
+                            <th scope="col" rowspan="2" style="width: 60px;">No</th>
+                            <th scope="col" rowspan="2" style="width: 120px;">NIK</th>
+                            <th scope="col" rowspan="2">Nama Karyawan</th>
+                            <th scope="col" rowspan="2" style="width: 150px;">TMK</th>
+                            <th scope="col" colspan="4" class="bg-primary text-white" style="font-size: 0.95rem;">Cuti Tahunan</th>
+                            <th scope="col" colspan="3" class="bg-info text-dark" style="font-size: 0.95rem;">Cuti Dinas</th>
+                            <th scope="col" rowspan="2" style="width: 140px;" class="bg-success text-white">Cuti Tersedia</th>
+                            <th scope="col" rowspan="2" style="width: 120px;">Aksi</th>
+                        </tr>
+                        <tr class="align-middle text-center" style="font-size: 0.85rem; background-color: #343a40;">
+                            <th scope="col" style="width: 80px;">Jatah</th>
+                            <th scope="col" style="width: 80px;">Digunakan</th>
+                            <th scope="col" style="width: 80px;">Terpotong</th>
+                            <th scope="col" style="width: 80px;">Sisa</th>
+                            <th scope="col" style="width: 80px;">Jatah</th>
+                            <th scope="col" style="width: 80px;">Digunakan</th>
+                            <th scope="col" style="width: 80px;">Sisa</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -37,18 +48,55 @@
                             <td class="fw-bold">{{ entry.nik }}</td>
                             <td>{{ entry.nama }}</td>
                             <td class="text-center fw-semibold text-muted">
-                                {{ entry.karyawan.tmk if entry.karyawan else '-' }}
+                                {{ entry.tmk or '-' }}
+                            </td>
+                            <!-- Cuti Tahunan -->
+                            <td class="text-center fw-semibold text-muted">
+                                {{ entry.tahunan_jatah | int if entry.tahunan_jatah % 1 == 0 else entry.tahunan_jatah }}
+                            </td>
+                            <td class="text-center fw-semibold text-danger">
+                                {{ entry.tahunan_used | int if entry.tahunan_used % 1 == 0 else entry.tahunan_used }}
+                            </td>
+                            <td class="text-center fw-semibold text-danger">
+                                {{ entry.tahunan_potong | int if entry.tahunan_potong % 1 == 0 else entry.tahunan_potong }}
                             </td>
                             <td class="text-center fw-bold text-primary">
-                                {{ entry.cuti_tahunan | int if entry.cuti_tahunan % 1 == 0 else entry.cuti_tahunan }} hari
+                                {{ entry.tahunan_sisa | int if entry.tahunan_sisa % 1 == 0 else entry.tahunan_sisa }}
+                                {% if entry.tahunan_offset > 0 %}
+                                    <div class="text-muted small fw-normal" style="font-size: 0.7rem;" title="Disubsidi otomatis dari Cuti Dinas">
+                                        <i class="fas fa-info-circle text-warning"></i> +{{ entry.tahunan_offset | int if entry.tahunan_offset % 1 == 0 else entry.tahunan_offset }} CD
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <!-- Cuti Dinas -->
+                            <td class="text-center fw-semibold text-muted">
+                                {{ entry.dinas_jatah | int if entry.dinas_jatah % 1 == 0 else entry.dinas_jatah }}
+                            </td>
+                            <td class="text-center fw-semibold text-danger">
+                                {{ entry.dinas_used | int if entry.dinas_used % 1 == 0 else entry.dinas_used }}
                             </td>
                             <td class="text-center fw-bold text-info">
-                                {{ entry.cuti_dinas | int if entry.cuti_dinas % 1 == 0 else entry.cuti_dinas }} hari
+                                {{ entry.dinas_sisa | int if entry.dinas_sisa % 1 == 0 else entry.dinas_sisa }}
+                                {% if entry.dinas_offset > 0 %}
+                                    <div class="text-muted small fw-normal" style="font-size: 0.7rem;" title="Digunakan untuk menutupi minus Cuti Tahunan">
+                                        <i class="fas fa-info-circle text-danger"></i> -{{ entry.dinas_offset | int if entry.dinas_offset % 1 == 0 else entry.dinas_offset }} CT
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <!-- Cuti Tersedia (Sisa CT + Sisa CD) -->
+                            <td class="text-center fw-bold text-success bg-light">
+                                {% set total_sisa = entry.tahunan_sisa + entry.dinas_sisa %}
+                                {{ total_sisa | int if total_sisa % 1 == 0 else total_sisa }} hari
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('detail_cuti', nik=entry.nik) }}" class="btn btn-sm btn-primary px-3 fw-bold" style="border-radius: 6px; font-size: 0.85rem;">
+                                    <i class="fas fa-eye me-1"></i> Detail
+                                </a>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-5">
+                            <td colspan="13" class="text-center text-muted py-5">
                                 📁 Belum ada data karyawan terdaftar.
                             </td>
                         </tr>

@@ -36,16 +36,7 @@
                                     <div class="invalid-feedback">Nama PT wajib diisi!</div>
                                 </div>
 
-                                <div class="mb-3">
-                                    <label for="reference_select" class="form-label fw-semibold text-secondary small">Kota Referensi (Site)</label>
-                                    <select class="form-select bg-white border" id="reference_select" name="reference" required>
-                                        <option value="" disabled selected>-- Pilih Kota --</option>
-                                        {% for kota in references_list %}
-                                            <option value="{{ kota.id }}">{{ kota.nama }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="invalid-feedback">Referensi kota wajib dipilih!</div>
-                                </div>
+
 
                                 <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm">
                                     <i class="fas fa-save me-1"></i> Simpan PT
@@ -63,7 +54,6 @@
                                 <tr class="align-middle">
                                     <th scope="col" class="text-center" style="width: 70px;">No</th>
                                     <th scope="col">Nama PT / Perusahaan</th>
-                                    <th scope="col">Kota Referensi</th>
                                     <th scope="col">Diinput Oleh</th>
                                     <th scope="col">Tanggal Input</th>
                                     <th scope="col" class="text-center" style="width: 150px;">Aksi</th>
@@ -74,11 +64,6 @@
                                 <tr>
                                     <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
                                     <td class="fw-semibold text-dark">{{ entry.nama }}</td>
-                                    <td>
-                                        <span class="badge bg-secondary-subtle text-dark px-2.5 py-1.5 fw-bold" style="font-size: 0.8rem; border-radius: 6px;">
-                                            {{ entry.parent_nama or '-' }}
-                                        </span>
-                                    </td>
                                     <td>
                                         <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
                                             {{ entry.dilakukan_oleh or 'system' }}
@@ -103,7 +88,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-5">
+                                    <td colspan="5" class="text-center text-muted py-5">
                                         🏢 Belum ada data PT yang terdaftar.
                                     </td>
                                 </tr>

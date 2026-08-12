@@ -7,7 +7,7 @@
 
 <div class="card form-card shadow">
     <h3 class="text-center mb-4 fw-bold text-primary"><i class="fas fa-plus-circle me-2"></i>Tambah Data Entry</h3>
-    <form action="{{ url_for('submit_data') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('submit_data') }}" method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
         {{ form.csrf_token }}
         
         <h5 class="text-secondary fw-bold border-bottom pb-2 mb-3">
@@ -15,32 +15,38 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Pulau <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Pulau</label>
                 {{ form.pulau(class="form-select uppercase-input", required=True) }}
+                <div class="invalid-feedback">Harap pilih pulau.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Kota <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Kota</label>
                 {{ form.kota(class="form-select uppercase-input", required=True, **{"data-selected": form.kota.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih kota.</div>
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama PT <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Nama PT</label>
                 {{ form.pt(class="form-select uppercase-input", required=True, **{"data-selected": form.pt.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih PT.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Unit PT <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Nama Unit PT</label>
                 {{ form.unit(class="form-select uppercase-input", required=True, **{"data-selected": form.unit.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih unit PT.</div>
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Kode Unit (CN) <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Kode Unit (CN)</label>
                 {{ form.kode_unit(class="form-control huruf-angka uppercase-input fw-bold text-primary", required=True, placeholder="XX123") }}
+                <div class="invalid-feedback">Harap isi kode unit (CN).</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Lokasi Kerja <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Lokasi Kerja</label>
                 {{ form.lokasi_kerja(class="form-select uppercase-input", required=True, **{"data-selected": form.lokasi_kerja.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih lokasi kerja.</div>
             </div>
         </div>
 
@@ -49,32 +55,38 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Merk <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Merk</label>
                 {{ form.merk(class="form-select uppercase-input", required=True) }}
+                <div class="invalid-feedback">Harap pilih merk.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Kategori <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Kategori</label>
                 {{ form.kategori(class="form-select uppercase-input", required=True) }}
+                <div class="invalid-feedback">Harap pilih kategori.</div>
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Equipment Model <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Equipment Model</label>
                 {{ form.eqp_model(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
+                <div class="invalid-feedback">Harap isi model equipment.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">S/N Equipment <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">S/N Equipment</label>
                 {{ form.sn_equipment(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
+                <div class="invalid-feedback">Harap isi serial number equipment.</div>
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">S/N Engine <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">S/N Engine</label>
                 {{ form.sn_engine(class="form-control huruf-angka uppercase-input", required=True, placeholder="XXX123") }}
+                <div class="invalid-feedback">Harap isi serial number engine.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Year <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Year</label>
                 {{ form.year(class="form-select", required=True) }}
+                <div class="invalid-feedback">Harap pilih tahun pembuatan.</div>
             </div>
         </div>
 
@@ -83,8 +95,9 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polisi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">No. Polisi</label>
                 {{ form.no_polisi(class="form-control huruf-angka uppercase-input", required=True, placeholder="X1234XXX") }}
+                <div class="invalid-feedback">Harap isi nomor polisi.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Notes <span class="text-muted">(Opsional)</span></label>
@@ -93,36 +106,42 @@
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Status STNK <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Status STNK</label>
                 {{ form.status_stnk(class="form-select", required=True, id="status-stnk-select") }}
+                <div class="invalid-feedback">Harap pilih status STNK.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Status Asuransi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Status Asuransi</label>
                 {{ form.status_asuransi(class="form-select", required=True, id="status-asuransi-select") }}
+                <div class="invalid-feedback">Harap pilih status asuransi.</div>
             </div>
         </div>
         <div id="tanggal-row-wrapper" class="row g-3 mb-3" style="display:none">
             <div class="col-md-6">
                 <div id="stnk-date-row">
-                    <label class="form-label fw-semibold text-success">Tanggal Berakhir STNK <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold text-success">Tanggal Berakhir STNK</label>
                     {{ form.tanggal_berakhir_stnk(id="tanggal-berakhir-stnk", class="form-control", type="date") }}
+                    <div class="invalid-feedback">Harap isi tanggal berakhir STNK.</div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div id="asuransi-date-row">
-                    <label class="form-label fw-semibold text-success">Tanggal Berakhir Asuransi <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold text-success">Tanggal Berakhir Asuransi</label>
                     {{ form.tanggal_berakhir_asuransi(id="tanggal-berakhir-asuransi", class="form-control", type="date") }}
+                    <div class="invalid-feedback">Harap isi tanggal berakhir asuransi.</div>
                 </div>
             </div>
         </div>
         <div id="asuransi-info-row" class="row g-3 mb-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Asuransi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
                 {{ form.nama_asuransi(class="form-select uppercase-input", id="nama_asuransi") }}
+                <div class="invalid-feedback">Harap pilih nama asuransi.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi</label>
                 {{ form.no_polis(class="form-control huruf-angka uppercase-input", id="no_polis", placeholder="12AB3456") }}
+                <div class="invalid-feedback">Harap isi nomor polis asuransi.</div>
             </div>
         </div>
         
@@ -141,7 +160,7 @@
                             {% for cat, label, is_required in [('no_mesin', 'No. Mesin', True), ('no_rangka', 'No. Rangka', True), ('bpkb_1', 'Foto BPKB 1', True), ('bpkb_2', 'Foto BPKB 2', True)] %}
                             {% set temp_file = temp_files.get('photo_' ~ cat) if temp_files else None %}
                             <div class="col-md-3 col-sm-6">
-                                <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} {% if is_required %}<span class="text-danger">*</span>{% endif %}</label>
+                                <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }}</label>
                                 <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
                                     <div class="upload-placeholder text-center {% if temp_file %}d-none{% endif %}">
                                         <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
@@ -169,7 +188,7 @@
                             {% for cat, label in [('tampak_depan', 'Tampak Depan'), ('tampak_belakang', 'Tampak Belakang'), ('tampak_kiri', 'Tampak Kiri'), ('tampak_kanan', 'Tampak Kanan')] %}
                             {% set temp_file = temp_files.get('photo_' ~ cat) if temp_files else None %}
                             <div class="col-md-3 col-sm-6">
-                                <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }} <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold text-secondary small d-block text-center">{{ label }}</label>
                                 <div class="custom-file-upload border border-2 rounded-3 p-3 bg-white text-center shadow-sm d-flex flex-column align-items-center justify-content-center position-relative" style="height: 120px; cursor: pointer; border-style: dashed !important; transition: all 0.2s ease;">
                                     <div class="upload-placeholder text-center {% if temp_file %}d-none{% endif %}">
                                         <i class="fas fa-cloud-upload-alt text-primary fa-lg mb-1"></i>
@@ -495,44 +514,52 @@
         });
     });
 
-    // Form validation on submit for required file uploads
-    const dataForm = document.querySelector('form');
-    if (dataForm) {
-        dataForm.addEventListener('submit', function(e) {
-            let valid = true;
-            
-            // Validate required file inputs
-            const requiredCats = ['no_mesin', 'no_rangka', 'bpkb_1', 'bpkb_2', 'tampak_depan', 'tampak_belakang', 'tampak_kiri', 'tampak_kanan'];
-            requiredCats.forEach(cat => {
-                const input = document.querySelector(`input[name="photo_${cat}"]`);
-                if (input) {
-                    const wrapper = input.closest('.custom-file-upload');
-                    if (wrapper) {
-                        wrapper.style.borderColor = ''; // reset error style
-                    }
-                    const tempInput = document.querySelector(`input[name="temp_photo_${cat}"]`);
-                    const hasTemp = tempInput && tempInput.value.trim() !== '';
-                    if ((!input.files || input.files.length === 0) && !hasTemp) {
-                        valid = false;
-                        if (wrapper) {
-                            wrapper.style.setProperty('border-color', '#dc3545', 'important'); // bootstrap danger red
+    // Validasi form Bootstrap 5 dan berkas wajib
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    let filesValid = true;
+                    
+                    // Validate required file inputs
+                    const requiredCats = ['no_mesin', 'no_rangka', 'bpkb_1', 'bpkb_2', 'tampak_depan', 'tampak_belakang', 'tampak_kiri', 'tampak_kanan'];
+                    requiredCats.forEach(cat => {
+                        const input = document.querySelector(`input[name="photo_${cat}"]`);
+                        if (input) {
+                            const wrapper = input.closest('.custom-file-upload');
+                            if (wrapper) {
+                                wrapper.style.borderColor = ''; // reset error style
+                            }
+                            const tempInput = document.querySelector(`input[name="temp_photo_${cat}"]`);
+                            const hasTemp = tempInput && tempInput.value.trim() !== '';
+                            if ((!input.files || input.files.length === 0) && !hasTemp) {
+                                filesValid = false;
+                                if (wrapper) {
+                                    wrapper.style.setProperty('border-color', '#dc3545', 'important'); // bootstrap danger red
+                                }
+                            }
+                        }
+                    });
+
+                    if (!form.checkValidity() || !filesValid) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        
+                        if (!filesValid) {
+                            alert("Mohon lengkapi seluruh foto wajib (No. Mesin, No. Rangka, Foto BPKB 1, Foto BPKB 2, Tampak Depan, Tampak Belakang, Tampak Kiri, dan Tampak Kanan)!");
+                            const firstInvalid = document.querySelector('.custom-file-upload[style*="border-color"]');
+                            if (firstInvalid) {
+                                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
                         }
                     }
-                }
+                    
+                    form.classList.add('was-validated');
+                }, false);
             });
-
-            if (!valid) {
-                e.preventDefault();
-                alert("Mohon lengkapi seluruh foto wajib (No. Mesin, No. Rangka, Foto BPKB 1, Foto BPKB 2, Tampak Depan, Tampak Belakang, Tampak Kiri, dan Tampak Kanan)!");
-                
-                // Scroll to the first missing item
-                const firstInvalid = document.querySelector('.custom-file-upload[style*="border-color"]');
-                if (firstInvalid) {
-                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-        });
-    }
+    })();
 </script>
 
 <style>

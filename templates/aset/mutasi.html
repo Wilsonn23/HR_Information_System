@@ -7,7 +7,7 @@
 
 <div class="card form-card shadow">
     <h3 class="text-center mb-4 fw-bold text-primary"><i class="fas fa-exchange-alt me-2"></i>Mutasi Lokasi Unit</h3>
-    <form method="POST" action="{{ url_for('mutasi') }}" id="mutasiForm">
+    <form method="POST" action="{{ url_for('mutasi') }}" id="mutasiForm" class="needs-validation" novalidate>
         {{ form.csrf_token }}
         
         <!-- JIKA PKEY PRE-SELECTED -->
@@ -87,7 +87,8 @@
             <div class="row g-3 mb-3">
                 <div class="col-12">
                     <label class="form-label fw-semibold text-secondary">Kode Unit (CN) Asal</label>
-                    {{ form.cn_asal(class="form-select uppercase-input fw-bold text-primary", id="cn_asal", **{"data-selected": form.cn_asal.data or ""}) }}
+                    {{ form.cn_asal(class="form-select uppercase-input fw-bold text-primary", id="cn_asal", required=True, **{"data-selected": form.cn_asal.data or ""}) }}
+                    <div class="invalid-feedback">Harap pilih kode unit (CN) asal.</div>
                 </div>
             </div>
         {% endif %}
@@ -99,31 +100,37 @@
         <div class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Pulau Tujuan</label>
-                {{ form.pulau_tujuan(class="form-select uppercase-input", id="pulau_tujuan") }}
+                {{ form.pulau_tujuan(class="form-select uppercase-input", id="pulau_tujuan", required=True) }}
+                <div class="invalid-feedback">Harap pilih pulau tujuan.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Kota Tujuan</label>
-                {{ form.kota_tujuan(class="form-select uppercase-input", id="kota_tujuan", **{"data-selected": form.kota_tujuan.data or ""}) }}
+                {{ form.kota_tujuan(class="form-select uppercase-input", id="kota_tujuan", required=True, **{"data-selected": form.kota_tujuan.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih kota tujuan.</div>
             </div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">PT Tujuan</label>
-                {{ form.pt_tujuan(class="form-select uppercase-input", id="pt_tujuan", **{"data-selected": form.pt_tujuan.data or ""}) }}
+                {{ form.pt_tujuan(class="form-select uppercase-input", id="pt_tujuan", required=True, **{"data-selected": form.pt_tujuan.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih PT tujuan.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Unit Tujuan</label>
-                {{ form.unit_tujuan(class="form-select uppercase-input", id="unit_tujuan", **{"data-selected": form.unit_tujuan.data or ""}) }}
+                {{ form.unit_tujuan(class="form-select uppercase-input", id="unit_tujuan", required=True, **{"data-selected": form.unit_tujuan.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih unit tujuan.</div>
             </div>
         </div>
         <div class="row g-3 mb-4">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Lokasi Kerja Baru</label>
-                {{ form.lokasi_kerja_tujuan(class="form-select uppercase-input", id="lokasi_kerja_tujuan", **{"data-selected": form.lokasi_kerja_tujuan.data or ""}) }}
+                {{ form.lokasi_kerja_tujuan(class="form-select uppercase-input", id="lokasi_kerja_tujuan", required=True, **{"data-selected": form.lokasi_kerja_tujuan.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih lokasi kerja baru.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Kode Unit (CN) Baru</label>
-                {{ form.kode_unit_tujuan(class="form-control uppercase-input fw-bold text-success", id="kode_unit_tujuan", placeholder="XX123", **{"value": form.kode_unit_tujuan.data or ""}) }}
+                {{ form.kode_unit_tujuan(class="form-control uppercase-input fw-bold text-success", id="kode_unit_tujuan", required=True, placeholder="XX123", **{"value": form.kode_unit_tujuan.data or ""}) }}
+                <div class="invalid-feedback">Harap isi kode unit (CN) baru.</div>
             </div>
         </div>
 
@@ -522,5 +529,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (pulauTujuan.value) updateKotaTujuan();
 });
+
+// Validasi form Bootstrap 5
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms)
+        .forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+})()
 </script>
 {% endblock %}

@@ -98,7 +98,8 @@ def compress_image_pil(binary_data, max_dimension=1600, quality=75):
         return binary_data
 
 RAW_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "insurance_app")
+DB_NAME = os.getenv("DB_NAME", "hris_db")
+DB_HOST = os.getenv("DB_HOST", "localhost")
 
 CATEGORIES = [
     'no_mesin', 'no_rangka', 
@@ -109,7 +110,7 @@ CATEGORIES = [
 
 if RAW_PASSWORD:
     DB_PASSWORD = urllib.parse.quote_plus(RAW_PASSWORD)
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://postgres:{DB_PASSWORD}@localhost:5432/{DB_NAME}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://postgres:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 
 @app.before_request
 def batasi_akses_global():
@@ -477,6 +478,13 @@ class Jabatan(db.Model):
     dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
     tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
 
+class SdmPT(db.Model):
+    __tablename__ = 'sdm_pt'
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
+    nama: Mapped[str] = mapped_column(db.String(100), unique=True, nullable=False)
+    dilakukan_oleh: Mapped[str] = mapped_column(db.String(50), nullable=True)
+    tanggal_aksi: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.now)
+
 class UserEntry(db.Model):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
@@ -809,7 +817,7 @@ def view_asset_audit_logs():
         total_pages=total_pages, 
         total_count=total_count, 
         q=q,
-        active_page='logs'
+        active_page='logs-aset'
     )
 
 # Import the modules to register their routes directly on app

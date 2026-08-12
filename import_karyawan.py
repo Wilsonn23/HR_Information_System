@@ -6,25 +6,25 @@ from datetime import datetime, time
 # Add current folder to path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from app import app, db, KaryawanEntry, Cuti
+from app import app, db, KaryawanEntry, Cuti, Jabatan, SdmPT
 
 def import_karyawan_excel(filepath):
     # Verify file existence
     if not os.path.exists(filepath):
-        print(f"❌ Galat: Berkas '{filepath}' tidak ditemukan.")
+        print(f"Error: Berkas '{filepath}' tidak ditemukan.")
         return
         
     ext = filepath.split('.')[-1].lower()
     if ext not in ('xlsx', 'xls'):
-        print("❌ Galat: Format berkas tidak didukung! Harus .xlsx atau .xls.")
+        print("Error: Format berkas tidak didukung! Harus .xlsx atau .xls.")
         return
         
-    print(f"🔄 Membaca berkas Excel: {filepath}...")
+    print(f"Membaca berkas Excel: {filepath}...")
     try:
         engine = 'openpyxl' if ext == 'xlsx' else 'xlrd'
         df = pd.read_excel(filepath, engine=engine)
     except Exception as e:
-        print(f"❌ Galat saat membaca Excel: {str(e)}")
+        print(f"Error saat membaca Excel: {str(e)}")
         return
         
     # Normalize headers
@@ -42,6 +42,7 @@ def import_karyawan_excel(filepath):
     col_pulang = normalized_cols.get('jam pulang')
     col_pt = normalized_cols.get('pt')
     col_staff = normalized_cols.get('staff')
+    col_jabatan = normalized_cols.get('jabatan')
     
     # Validation
     missing = []
@@ -53,10 +54,10 @@ def import_karyawan_excel(filepath):
     if not col_pulang: missing.append("jam_pulang")
     
     if missing:
-        print(f"❌ Galat: Berkas Excel kekurangan kolom wajib: {', '.join(missing)}")
+        print(f"Error: Berkas Excel kekurangan kolom wajib: {', '.join(missing)}")
         return
         
-    print("🚀 Memulai proses impor data karyawan...")
+    print("Memulai proses impor data karyawan...")
     success_count = 0
     skip_count = 0
     error_count = 0
@@ -64,6 +65,8 @@ def import_karyawan_excel(filepath):
     with app.app_context():
         existing_niks = set(db.session.execute(db.select(KaryawanEntry.nik)).scalars().all())
         existing_absens = set(db.session.execute(db.select(KaryawanEntry.absen)).scalars().all())
+        existing_jabatans = {j.lower() for j in db.session.execute(db.select(Jabatan.nama)).scalars().all()}
+        existing_pts = {p.nama.upper() for p in db.session.execute(db.select(SdmPT)).scalars().all()}
         
         for idx, row in df.iterrows():
             try:
@@ -102,7 +105,7 @@ def import_karyawan_excel(filepath):
                         except ValueError:
                             continue
                     if not parsed:
-                        print(f"⚠️ Baris {idx+2}: Format TMK '{tmk_str}' tidak valid, dilewati.")
+                        print(f"Warning: Baris {idx+2}: Format TMK '{tmk_str}' tidak valid, dilewati.")
                         skip_count += 1
                         continue
                         
@@ -125,11 +128,33 @@ def import_karyawan_excel(filepath):
                 
                 # Cek duplikat NIK & Absen
                 if val_nik in existing_niks or absen in existing_absens:
-                    print(f"⚠️ Baris {idx+2}: NIK '{val_nik}' atau Absen '{absen}' sudah digunakan, dilewati.")
+                    print(f"Warning: Baris {idx+2}: NIK '{val_nik}' atau Absen '{absen}' sudah digunakan, dilewati.")
                     skip_count += 1
                     continue
                     
-                val_pt = str(row[col_pt]).strip() if col_pt and not pd.isna(row[col_pt]) else None
+                val_pt = str(row[col_pt]).strip() if col_pt and not pd.isna(row[col_pt]) else val_nik[:3]
+                val_pt_upper = val_pt.upper()
+                
+                # Daftarkan PT ke master sdm_pt jika belum ada
+                if val_pt_upper not in existing_pts:
+                    new_pt = SdmPT(
+                        nama=val_pt_upper,
+                        dilakukan_oleh='excel_import'
+                    )
+                    db.session.add(new_pt)
+                    existing_pts.add(val_pt_upper)
+                    
+                val_jabatan = str(row[col_jabatan]).strip() if col_jabatan and not pd.isna(row[col_jabatan]) else 'STAFF'
+                
+                # Daftarkan ke master jabatan jika belum ada
+                val_jabatan_lower = val_jabatan.lower()
+                if val_jabatan_lower not in existing_jabatans:
+                    new_j = Jabatan(
+                        nama=val_jabatan,
+                        dilakukan_oleh='excel_import'
+                    )
+                    db.session.add(new_j)
+                    existing_jabatans.add(val_jabatan_lower)
                 
                 # Deteksi status staff/non-staff
                 if col_staff and not pd.isna(row[col_staff]):
@@ -146,11 +171,11 @@ def import_karyawan_excel(filepath):
                     nik=val_nik,
                     absen=absen,
                     nama=val_nama,
-                    jabatan='STAFF', # Sesuai request
+                    jabatan=val_jabatan,
                     tmk=tmk_str,
                     jam_masuk=jam_masuk,
                     jam_pulang=jam_pulang,
-                    pt=val_pt,
+                    pt=val_pt_upper,
                     staff=val_staff,
                     dilakukan_oleh='excel_import'
                 )
@@ -167,18 +192,18 @@ def import_karyawan_excel(filepath):
                 success_count += 1
                 
             except Exception as e:
-                print(f"❌ Baris {idx+2}: Gagal memproses data: {str(e)}")
+                print(f"Error: Baris {idx+2}: Gagal memproses data: {str(e)}")
                 error_count += 1
                 
         try:
             db.session.commit()
-            print("\n🎉 Proses Impor Selesai!")
+            print("\nProses Impor Selesai!")
             print(f"   - Berhasil diimpor: {success_count}")
             print(f"   - Dilewati/Duplikat: {skip_count}")
             print(f"   - Galat/Error: {error_count}")
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Gagal menyimpan ke database (Rollback): {str(e)}")
+            print(f"Error: Gagal menyimpan ke database (Rollback): {str(e)}")
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

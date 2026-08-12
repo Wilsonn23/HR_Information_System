@@ -622,9 +622,7 @@
                     modalStatus.disabled = true;
                 } else {
                     modalStatus.disabled = false;
-                    // Disable and hide 'M' and 'P' option for pending cells
-                    document.querySelector('#modal_status option[value="M"]').disabled = true;
-                    document.querySelector('#modal_status option[value="M"]').style.display = 'none';
+                    // Disable and hide 'P' option for pending cells
                     document.querySelector('#modal_status option[value="P"]').disabled = true;
                     document.querySelector('#modal_status option[value="P"]').style.display = 'none';
                     
@@ -726,6 +724,9 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    if (data.warning) {
+                        alert(data.warning);
+                    }
                     if (tanggalSelesai) {
                         window.location.reload();
                         return;

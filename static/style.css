@@ -359,3 +359,39 @@ h5.border-bottom {
     color: #94a3b8;
     font-style: italic;
 }
+
+/* --- Form Validation Icon Overlap Fixes --- */
+
+/* Pastikan form-select memiliki padding-right default yang cukup untuk panah */
+.form-select {
+    padding-right: 2.5rem !important;
+}
+
+/* Mengatur letak ikon bawaan browser untuk date/time input agar di ujung kanan */
+input[type="date"], input[type="time"] {
+    position: relative !important;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute !important;
+    right: 0.75rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer;
+}
+
+/* Menggeser ikon validasi untuk input tanggal (date) dan waktu (time) ke sebelah kiri ikon bawaan browser */
+.was-validated input[type="date"]:invalid, input[type="date"].is-invalid,
+.was-validated input[type="date"]:valid, input[type="date"].is-valid,
+.was-validated input[type="time"]:invalid, input[type="time"].is-invalid,
+.was-validated input[type="time"]:valid, input[type="time"].is-valid {
+    padding-right: 3.5rem !important;
+    background-position: right 2.0rem center !important;
+}
+
+/* Menggeser ikon validasi pada select dropdown agar berada di sebelah kiri panah dropdown */
+.was-validated .form-select:invalid, .form-select.is-invalid,
+.was-validated .form-select:valid, .form-select.is-valid {
+    padding-right: 3.75rem !important;
+    background-position: right 0.75rem center, right 2.0rem center !important;
+}

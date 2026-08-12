@@ -23,13 +23,14 @@
 
                 <!-- Card Body -->
                 <div class="card-body p-4 p-md-5 bg-white">
-                    <form id="formTambahCutiDinas" action="{{ url_for('tambah_cuti_dinas') }}" method="POST">
+                    <form id="formTambahCutiDinas" action="{{ url_for('tambah_cuti_dinas') }}" method="POST" class="needs-validation" novalidate>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <!-- Input Pilih Karyawan -->
                         <div class="mb-4 position-relative">
                             <label for="employee_search_suggest" class="form-label fw-bold text-secondary small">Karyawan</label>
                             <input type="text" id="employee_search_suggest" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" placeholder="Ketik nama, NIK, atau nomor absen..." autocomplete="off" required>
+                            <div class="invalid-feedback">Harap pilih karyawan yang valid.</div>
                             <div id="suggestions_list" class="list-group shadow-lg position-absolute w-100 d-none" style="z-index: 1050; max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid #e5e7eb; background: white; margin-top: 5px;"></div>
                             
                             <select class="form-select d-none" id="nik_select" name="nik" required>
@@ -62,19 +63,22 @@
                         <!-- Jumlah Hari -->
                         <div class="mb-4">
                             <label for="jumlah" class="form-label fw-bold text-secondary small">Jumlah Hari Yang Ditambahkan</label>
-                            <input type="number" step="0.5" min="0.5" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah" name="jumlah" value="1" required>
+                            <input type="number" step="1" min="1" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-bold text-primary" id="jumlah" name="jumlah" value="1" required>
+                            <div class="invalid-feedback">Harap isi jumlah hari berupa angka bulat (minimal 1 hari).</div>
                         </div>
 
                         <!-- Tanggal Kadaluarsa -->
                         <div class="mb-4">
                             <label for="tanggal_kadaluarsa" class="form-label fw-bold text-secondary small">Tanggal Kadaluarsa / Hangus</label>
                             <input type="date" class="form-control bg-light border-0 py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tanggal_kadaluarsa" name="tanggal_kadaluarsa" min="{{ min_kadaluarsa }}" required>
+                            <div class="invalid-feedback">Harap tentukan tanggal kadaluarsa (minimal 30 hari dari hari ini).</div>
                         </div>
 
                         <!-- Keterangan -->
                         <div class="mb-5">
-                            <label for="keterangan" class="form-label fw-bold text-secondary small">Keterangan / Alasan (Opsional)</label>
-                            <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="keterangan" name="keterangan" rows="3" placeholder="Contoh: Penambahan jatah cuti dinas luar kota..."></textarea>
+                            <label for="keterangan" class="form-label fw-bold text-secondary small">Keterangan / Alasan</label>
+                            <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="keterangan" name="keterangan" rows="3" placeholder="Contoh: Penambahan jatah cuti dinas luar kota..." required></textarea>
+                            <div class="invalid-feedback">Harap isi keterangan / alasan penambahan cuti dinas.</div>
                         </div>
 
                         <!-- Action Buttons -->
@@ -131,6 +135,7 @@
                             e.preventDefault();
                             searchInput.value = emp.text;
                             nikSelect.value = emp.value;
+                            searchInput.setCustomValidity('');
                             suggestionsList.classList.add('d-none');
                             
                             nikSelect.dispatchEvent(new Event('change'));
@@ -147,6 +152,7 @@
             });
             
             searchInput.addEventListener('input', function() {
+                this.setCustomValidity('');
                 showSuggestions(this.value);
             });
             
@@ -191,6 +197,25 @@
                     });
             });
         }
+
+        // Validasi form Bootstrap 5
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!nikSelect.value) {
+                        searchInput.setCustomValidity('Harap pilih karyawan dari daftar saran.');
+                    } else {
+                        searchInput.setCustomValidity('');
+                    }
+
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
     });
 </script>
 

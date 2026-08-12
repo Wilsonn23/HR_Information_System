@@ -7,7 +7,7 @@
 
 <div class="card form-card shadow">
     <h3 class="text-center mb-4 fw-bold text-primary"><i class="fas fa-history me-2"></i>Perpanjang Masa Berlaku</h3>
-    <form action="{{ url_for('submit_extend') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('submit_extend') }}" method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
         {{ form.csrf_token }}
         
         <h5 class="text-secondary fw-bold border-bottom pb-2 mb-3">
@@ -65,7 +65,8 @@
         <div class="row g-3 mb-3">
             <div class="col-md-12">
                 <label for="cn-input" class="form-label fw-semibold text-secondary">Kode Unit (CN)</label>
-                {{ form.cn(id="cn-input", class="form-select uppercase-input fw-bold text-primary", **{"data-selected": form.cn.data or ""}) }}
+                {{ form.cn(id="cn-input", class="form-select uppercase-input fw-bold text-primary", required=True, **{"data-selected": form.cn.data or ""}) }}
+                <div class="invalid-feedback">Harap pilih kode unit (CN).</div>
             </div>
         </div>
 
@@ -76,36 +77,42 @@
         <div class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Jenis</label>
-                {{ form.jenis(id="jenis-input", class="form-select") }}
+                {{ form.jenis(id="jenis-input", class="form-select", required=True) }}
+                <div class="invalid-feedback">Harap pilih jenis perpanjangan.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Jumlah Dibayar</label>
-                <div class="input-group">
+                <div class="input-group has-validation">
                     <span class="input-group-text">Rp</span>
-                    {{ form.jumlah_dibayar(id="jumlah-dibayar", class="form-control rupiah-input", placeholder="0,00") }}
+                    {{ form.jumlah_dibayar(id="jumlah-dibayar", class="form-control rupiah-input", required=True, placeholder="0,00") }}
+                    <div class="invalid-feedback">Harap isi jumlah dibayar.</div>
                 </div>
             </div>
         </div>
         
         <div id="asuransi-extend-fields" class="row g-3 mb-3" style="display: none;">
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">Nama Asuransi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">Nama Asuransi</label>
                 {{ form.nama_asuransi(class="form-select uppercase-input", id="nama_asuransi") }}
+                <div class="invalid-feedback">Harap pilih nama asuransi.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi <span class="text-danger">*</span></label>
+                <label class="form-label fw-semibold text-secondary">No. Polis Asuransi</label>
                 {{ form.no_polis(class="form-control huruf-angka uppercase-input", id="no_polis", placeholder="12AB3456") }}
+                <div class="invalid-feedback">Harap isi nomor polis asuransi.</div>
             </div>
         </div>
         
         <div class="row g-3 mb-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Tanggal Berakhir Baru</label>
-                {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date") }}
+                {{ form.tanggal_berakhir_baru(id="tanggal-berakhir-baru", class="form-control", type="date", required=True) }}
+                <div class="invalid-feedback">Harap isi tanggal berakhir baru.</div>
             </div>
             <div class="col-md-6">
-                <label id="upload-label" class="form-label fw-semibold text-secondary">Upload Foto STNK <span class="text-danger">*</span></label>
+                <label id="upload-label" class="form-label fw-semibold text-secondary">Upload Foto STNK</label>
                 <input type="file" name="photo_bukti" id="photo-bukti-input" class="form-control shadow-sm" accept="image/*" required>
+                <div class="invalid-feedback">Harap unggah bukti foto.</div>
                 <div class="form-text text-muted small mt-1"><i class="fas fa-info-circle me-1"></i>Maksimal ukuran file: 20 MB</div>
             </div>
         </div>
@@ -170,12 +177,12 @@
             if (jenisSelect && uploadLabel) {
                 const val = jenisSelect.value;
                 if (val === "STNK") {
-                    uploadLabel.innerHTML = 'Upload Foto STNK <span class="text-danger">*</span>';
+                    uploadLabel.innerHTML = 'Upload Foto STNK';
                     if (asuransiExtendFields) asuransiExtendFields.style.display = "none";
                     if (namaAsuransi) namaAsuransi.removeAttribute("required");
                     if (noPolis) noPolis.removeAttribute("required");
                 } else {
-                    uploadLabel.innerHTML = 'Upload Foto Asuransi <span class="text-danger">*</span>';
+                    uploadLabel.innerHTML = 'Upload Foto Asuransi';
                     if (asuransiExtendFields) asuransiExtendFields.style.display = "flex";
                     if (namaAsuransi) namaAsuransi.setAttribute("required", "required");
                     if (noPolis) noPolis.setAttribute("required", "required");
@@ -515,5 +522,21 @@
             updateKotaChoices();
         }
     }
+
+    // Validasi form Bootstrap 5
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
 </script>
 {% endblock %}

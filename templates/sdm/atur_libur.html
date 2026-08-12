@@ -44,18 +44,20 @@
                 <!-- Sisi Kiri: Form Tambah Libur Baru -->
                 <div class="col-md-5 border-end pe-md-4">
                     <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-plus-circle me-1"></i> Tambah Hari Libur</h5>
-                    <form action="{{ url_for('add_libur') }}" method="POST" id="addLiburForm">
+                    <form action="{{ url_for('add_libur') }}" method="POST" id="addLiburForm" class="needs-validation" novalidate>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         
                         <div class="mb-3">
                             <label for="tanggal" class="form-label fw-semibold text-muted small">Tanggal Libur</label>
                             <input type="date" class="form-control border-2" id="tanggal" name="tanggal" required>
+                            <div class="invalid-feedback">Harap tentukan tanggal libur.</div>
                             <div class="form-text text-muted small">Pilih tanggal spesifik libur.</div>
                         </div>
                         
                         <div class="mb-4">
                             <label for="keterangan" class="form-label fw-semibold text-muted small">Keterangan / Nama Libur</label>
                             <input type="text" class="form-control border-2" id="keterangan" name="keterangan" required placeholder="Contoh: Tahun Baru Imlek">
+                            <div class="invalid-feedback">Harap masukkan keterangan / nama hari libur.</div>
                         </div>
                         
                         <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm transition-all" style="background-color: #0d6efd; border-color: #0d6efd;">

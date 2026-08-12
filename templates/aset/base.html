@@ -57,6 +57,10 @@
         document.addEventListener("DOMContentLoaded", function() {
             document.querySelectorAll('form').forEach(form => {
                 form.addEventListener('submit', function(e) {
+                    if (e.defaultPrevented || !this.checkValidity()) {
+                        return;
+                    }
+                    
                     const action = this.getAttribute('action') || '';
                     if (action.includes('download') || action.includes('export') || this.hasAttribute('data-no-disable')) {
                         return;
