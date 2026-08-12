@@ -1,0 +1,188 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Unggah Karyawan Excel (Hidden){% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="card shadow-lg border-0 mx-auto mb-5" style="border-radius: 16px; max-width: 800px; overflow: hidden;">
+        <!-- Header Card dengan Gradient Premium -->
+        <div class="card-header bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #10b981, #059669) !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-2 me-3">👤</span>
+                <div>
+                    <h3 class="fw-bold m-0" style="font-size: 1.5rem;">Unggah Database Karyawan (Excel)</h3>
+                    <p class="small text-white-50 m-0">Menu Rahasia/Tersembunyi untuk Impor Bulk Data Karyawan Baru</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 p-md-5 bg-white">
+            <!-- Informasi Format Excel -->
+            <div class="alert alert-success border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background-color: #ecfdf5; color: #065f46;">
+                <h5 class="fw-bold text-success mb-3"><i class="fas fa-info-circle me-2"></i>Petunjuk Format Kolom Excel</h5>
+                <p class="small mb-3 text-dark">
+                    Sistem akan membaca data karyawan baru secara bulk. Pastikan lembar kerja (worksheet) Excel Anda memiliki kolom-kolom berikut di baris pertama (header):
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered text-center small m-0 bg-white" style="border-color: #a7f3d0;">
+                        <thead style="background-color: #d1fae5; color: #065f46;">
+                            <tr>
+                                <th>absen</th>
+                                <th>nik</th>
+                                <th>nama</th>
+                                <th>tmk</th>
+                                <th>jam masuk</th>
+                                <th>jam pulang</th>
+                                <th>pt</th>
+                                <th>staff</th>
+                                <th>jabatan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-secondary small">
+                            <tr>
+                                <td>102</td>
+                                <td>NIK2026102</td>
+                                <td>Ahmad Fauzi</td>
+                                <td>01-08-2026</td>
+                                <td>08:00</td>
+                                <td>17:00</td>
+                                <td>PT INDEPENDEN</td>
+                                <td>Staff</td>
+                                <td>IT Administrator</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="small text-secondary mt-3 mb-0 ps-3">
+                    <li>Kolom <strong>absen, nik, nama, tmk, jam masuk, jam pulang</strong> bersifat wajib diisi.</li>
+                    <li>Kolom <strong>pt, staff, jabatan</strong> bersifat opsional. Jika PT atau Jabatan baru tidak terdaftar, sistem akan otomatis mendaftarkannya ke database.</li>
+                    <li>Sistem otomatis akan membuat data sisa cuti awal `0` hari untuk karyawan baru.</li>
+                </ul>
+            </div>
+
+            <!-- Form Upload -->
+            <form action="{{ url_for('import_karyawan_hidden') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <!-- Drag and Drop Zone -->
+                <div id="dropzone" class="border-2 border-dashed rounded-3 p-5 text-center transition-all cursor-pointer bg-light border-secondary" style="border-color: #cbd5e1 !important;">
+                    <div class="py-4">
+                        <span class="fs-1 text-success mb-3 d-block">📤</span>
+                        <h5 class="fw-bold text-dark mb-2" id="dropzoneText">Tarik & Lepas file Excel di sini</h5>
+                        <p class="small text-muted mb-4">atau klik untuk menelusuri dari penyimpanan Anda</p>
+                        <input type="file" name="file" id="fileInput" accept=".xlsx, .xls" class="d-none" required>
+                        <button type="button" class="btn btn-emerald fw-bold px-4 rounded-pill btn-sm text-white" style="background-color: #10b981;" onclick="document.getElementById('fileInput').click()">
+                            Pilih Berkas Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Berkas yang dipilih -->
+                <div id="fileInfo" class="mt-3 alert alert-success border-0 p-3 align-items-center justify-content-between rounded-3 d-none">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-4 me-2">📄</span>
+                        <div>
+                            <strong id="fileName" class="text-dark small d-block">nama_file.xlsx</strong>
+                            <span id="fileSize" class="text-muted small">0 KB</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close shadow-none" id="removeFileBtn" aria-label="Close"></button>
+                </div>
+
+                <!-- Tombol Submit -->
+                <div class="mt-4 text-end">
+                    <a href="{{ url_for('master_karyawan') }}" class="btn btn-light fw-bold px-4 py-2 border shadow-sm rounded-pill me-2">
+                        Batal
+                    </a>
+                    <button type="submit" class="btn btn-emerald fw-bold px-5 py-2 text-white shadow-sm rounded-pill" style="background-color: #10b981;" id="submitBtn" disabled>
+                        Mulai Impor Karyawan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-emerald:hover {
+        background-color: #059669 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2) !important;
+    }
+    #dropzone {
+        transition: all 0.25s ease-in-out;
+    }
+    #dropzone.dragover {
+        background-color: #f0fdf4 !important;
+        border-color: #10b981 !important;
+    }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const dropzoneText = document.getElementById("dropzoneText");
+    const fileInfo = document.getElementById("fileInfo");
+    const fileName = document.getElementById("fileName");
+    const fileSize = document.getElementById("fileSize");
+    const removeFileBtn = document.getElementById("removeFileBtn");
+    const submitBtn = document.getElementById("submitBtn");
+
+    function handleFile(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'xlsx' && ext !== 'xls') {
+            alert("Hanya berkas berekstensi .xlsx atau .xls yang diperbolehkan!");
+            return;
+        }
+
+        fileName.textContent = file.name;
+        fileSize.textContent = (file.size / 1024).toFixed(2) + " KB";
+
+        dropzone.classList.add("d-none");
+        fileInfo.classList.remove("d-none");
+        fileInfo.classList.add("d-flex");
+        submitBtn.disabled = false;
+    }
+
+    // Drag-and-drop events
+    dropzone.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+    });
+
+    dropzone.addEventListener("dragleave", function(e) {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+    });
+
+    dropzone.addEventListener("drop", function(e) {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    // File input change event
+    fileInput.addEventListener("change", function() {
+        if (fileInput.files.length > 0) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+
+    // Remove file button
+    removeFileBtn.addEventListener("click", function() {
+        fileInput.value = "";
+        fileInfo.classList.add("d-none");
+        fileInfo.classList.remove("d-flex");
+        dropzone.classList.remove("d-none");
+        submitBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}

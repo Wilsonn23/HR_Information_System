@@ -1118,22 +1118,25 @@ def master_karyawan():
 
     return render_template('sdm/master_karyawan.html', entries=entries, active_page='master-sdm')
 
-@app.route('/upload-karyawan', methods=['POST'])
-def upload_karyawan():
+@app.route('/import-karyawan', methods=['GET', 'POST'])
+def import_karyawan():
     if 'logged_user' not in session:
         return redirect(url_for('login'))
+        
+    if request.method == 'GET':
+        return render_template('sdm/import_karyawan.html')
         
     import pandas as pd
     
     file = request.files.get('file')
     if not file or file.filename == '':
         flash("⚠️ Silakan pilih berkas Excel terlebih dahulu!", "danger")
-        return redirect(url_for('master_karyawan'))
+        return redirect(url_for('import_karyawan'))
         
     ext = file.filename.split('.')[-1].lower()
     if ext not in ('xlsx', 'xls'):
-        flash("⚠️ Format berkas tidak didukung! Pastikan berkas Anda bertipe .xlsx atau .xls", "danger")
-        return redirect(url_for('master_karyawan'))
+        flash("⚠️ Format berkas tidak didukung! Pastikan berkas Anda bertipe .xlsx or .xls", "danger")
+        return redirect(url_for('import_karyawan'))
         
     try:
         engine = 'openpyxl' if ext == 'xlsx' else 'xlrd'
@@ -1167,7 +1170,7 @@ def upload_karyawan():
         
         if missing:
             flash(f"⚠️ Berkas Excel kekurangan kolom wajib: {', '.join(missing)}", "danger")
-            return redirect(url_for('master_karyawan'))
+            return redirect(url_for('import_karyawan'))
             
         success_count = 0
         skip_count = 0
@@ -1309,6 +1312,7 @@ def upload_karyawan():
     except Exception as e:
         db.session.rollback()
         flash(f"⚠️ Terjadi kesalahan saat memproses berkas Excel: {str(e)}", "danger")
+        return redirect(url_for('import_karyawan'))
         
     return redirect(url_for('master_karyawan'))
 
