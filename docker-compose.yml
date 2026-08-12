@@ -1,32 +1,32 @@
-version: '3.9'
+version: '3.8'
 
 services:
-  web:
-    build: .
-    ports:
-      - "5000:5000"
-    depends_on:
-      - db
-    env_file:
-      - .env
-    environment:
-      - SECRET_KEY=ChangeThisSecretKey
-      - DB_HOST=db
-      - FLASK_ENV=production
-    volumes:
-      - .:/usr/src/app
-
   db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: hris_postgres_db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: hris_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Topuinoknok123!@#
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: hris_flask_web
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=hris_db
+      - DB_PASSWORD=Topuinoknok123!@#
+      - SECRET_KEY=TopSecretKey1234!@#$
+    depends_on:
+      - db
 
 volumes:
-  postgres_data:
+  pgdata:

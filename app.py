@@ -199,167 +199,6 @@ def cleanup_temp_uploads():
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-with app.app_context():
-    db.create_all()
-    try:
-        from sqlalchemy import text
-        # Check if 'category' column exists in 'images' table, if not, add it
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='images' AND column_name='category'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE images ADD COLUMN category VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added category column to images table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding category column: {e}")
-        
-    try:
-        from sqlalchemy import text
-        # Check if 'cuti_dinas_period' column exists in 'cuti' table for PostgreSQL
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti' AND column_name='cuti_dinas_period'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE cuti ADD COLUMN cuti_dinas_period VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added cuti_dinas_period column to cuti table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding cuti_dinas_period column: {e}")
-        
-    try:
-        from sqlalchemy import text
-        # Check if 'tanggal_kadaluarsa' column exists in 'cuti_manual' table for PostgreSQL
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti_manual' AND column_name='tanggal_kadaluarsa'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN tanggal_kadaluarsa VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added tanggal_kadaluarsa column to cuti_manual table.")
-            
-        # Check if 'ba_nomor' column exists
-        result_ba = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti_manual' AND column_name='ba_nomor'"
-        )).fetchone()
-        if not result_ba:
-            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_nomor VARCHAR(100)"))
-            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_tanggal VARCHAR(50)"))
-            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_keterangan VARCHAR(255)"))
-            db.session.commit()
-            print("Successfully added ba_nomor, ba_tanggal, and ba_keterangan columns to cuti_manual table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding cuti_manual columns: {e}")
-        
-    try:
-        # Check if 'nik' column exists in 'users' table, if not, add it
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='nik'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN nik VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added nik column to users table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding nik column to users: {e}")
-
-    try:
-        # Check if 'pt' column exists in 'karyawan_entries' table, if not, add it
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='pt'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN pt VARCHAR(100)"))
-            db.session.commit()
-            print("Successfully added pt column to karyawan_entries table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding pt column to karyawan_entries: {e}")
-
-    try:
-        # Check if 'staff' column exists in 'karyawan_entries' table, if not, add it
-        result = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='staff'"
-        )).fetchone()
-        if not result:
-            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN staff VARCHAR(20) DEFAULT 'Staff'"))
-            db.session.commit()
-            print("Successfully added staff column to karyawan_entries table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error checking/adding staff column to karyawan_entries: {e}")
-
-    # Migrasi auditing fields untuk tabel jabatan
-    try:
-        # dilakukan_oleh
-        res = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='dilakukan_oleh'"
-        )).fetchone()
-        if not res:
-            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN dilakukan_oleh VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added dilakukan_oleh column to jabatan table.")
-        # tanggal_aksi
-        res2 = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='tanggal_aksi'"
-        )).fetchone()
-        if not res2:
-            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
-            db.session.commit()
-            print("Successfully added tanggal_aksi column to jabatan table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error migrating auditing columns in jabatan table: {e}")
-
-    # Migrasi auditing fields untuk tabel karyawan_entries
-    try:
-        # dilakukan_oleh
-        res = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='dilakukan_oleh'"
-        )).fetchone()
-        if not res:
-            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN dilakukan_oleh VARCHAR(50)"))
-            db.session.commit()
-            print("Successfully added dilakukan_oleh column to karyawan_entries table.")
-        # tanggal_aksi
-        res2 = db.session.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='tanggal_aksi'"
-        )).fetchone()
-        if not res2:
-            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
-            db.session.commit()
-            print("Successfully added tanggal_aksi column to karyawan_entries table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error migrating auditing columns in karyawan_entries table: {e}")
-
-    try:
-        # Pindahkan data jabatan unik dari karyawan ke tabel jabatan jika tabel jabatan kosong
-        res = db.session.execute(text("SELECT COUNT(*) FROM jabatan")).fetchone()
-        if res and res[0] == 0:
-            karyawan_jabs = db.session.execute(text("SELECT DISTINCT jabatan FROM karyawan_entries")).fetchall()
-            for row in karyawan_jabs:
-                if row[0]:
-                    # Cek case-insensitive duplicate sebelum insert
-                    exist = db.session.execute(text("SELECT id FROM jabatan WHERE LOWER(nama) = LOWER(:nama)"), {"nama": row[0].strip()}).fetchone()
-                    if not exist:
-                        db.session.execute(text("INSERT INTO jabatan (nama) VALUES (:nama)"), {"nama": row[0].strip()})
-            db.session.commit()
-            print("Successfully migrated existing jabatans to jabatan table.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error migrating jabatans: {e}")
-
-    try:
-        cleanup_temp_uploads()
-        print("Successfully cleaned up old temporary uploads.")
-    except Exception as e:
-        print(f"Error cleaning temp uploads: {e}")
-
 # ===============================================================================================================
 # CLASS DEFINITIONS
 # ===============================================================================================================
@@ -697,6 +536,187 @@ class SdmActivityLog(db.Model):
 # ROUTING
 # ===============================================================================================================
 
+# Import the modules to register their models and routes directly on app
+import aset
+import sdm
+
+with app.app_context():
+    db.create_all()
+    try:
+        from sqlalchemy import text
+        from werkzeug.security import generate_password_hash
+        user_count = db.session.execute(text("SELECT COUNT(*) FROM users")).scalar()
+        if user_count == 0:
+            hashed_pw = generate_password_hash("admin123")
+            db.session.execute(
+                text("INSERT INTO users (username, password, role) VALUES (:username, :password, :role)"),
+                {"username": "admin", "password": hashed_pw, "role": "admin"}
+            )
+            db.session.commit()
+            print("Default admin user created (username: admin, password: admin123).")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error seeding default user: {e}")
+        
+    try:
+        from sqlalchemy import text
+        # Check if 'category' column exists in 'images' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='images' AND column_name='category'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE images ADD COLUMN category VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added category column to images table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding category column: {e}")
+        
+    try:
+        from sqlalchemy import text
+        # Check if 'cuti_dinas_period' column exists in 'cuti' table for PostgreSQL
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti' AND column_name='cuti_dinas_period'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE cuti ADD COLUMN cuti_dinas_period VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added cuti_dinas_period column to cuti table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding cuti_dinas_period column: {e}")
+        
+    try:
+        from sqlalchemy import text
+        # Check if 'tanggal_kadaluarsa' column exists in 'cuti_manual' table for PostgreSQL
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti_manual' AND column_name='tanggal_kadaluarsa'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN tanggal_kadaluarsa VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added tanggal_kadaluarsa column to cuti_manual table.")
+            
+        # Check if 'ba_nomor' column exists
+        result_ba = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='cuti_manual' AND column_name='ba_nomor'"
+        )).fetchone()
+        if not result_ba:
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_nomor VARCHAR(100)"))
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_tanggal VARCHAR(50)"))
+            db.session.execute(text("ALTER TABLE cuti_manual ADD COLUMN ba_keterangan VARCHAR(255)"))
+            db.session.commit()
+            print("Successfully added ba_nomor, ba_tanggal, and ba_keterangan columns to cuti_manual table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding cuti_manual columns: {e}")
+        
+    try:
+        # Check if 'nik' column exists in 'users' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='nik'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN nik VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added nik column to users table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding nik column to users: {e}")
+
+    try:
+        # Check if 'pt' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='pt'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN pt VARCHAR(100)"))
+            db.session.commit()
+            print("Successfully added pt column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding pt column to karyawan_entries: {e}")
+
+    try:
+        # Check if 'staff' column exists in 'karyawan_entries' table, if not, add it
+        result = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='staff'"
+        )).fetchone()
+        if not result:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN staff VARCHAR(20) DEFAULT 'Staff'"))
+            db.session.commit()
+            print("Successfully added staff column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error checking/adding staff column to karyawan_entries: {e}")
+
+    # Migrasi auditing fields untuk tabel jabatan
+    try:
+        # dilakukan_oleh
+        res = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='dilakukan_oleh'"
+        )).fetchone()
+        if not res:
+            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN dilakukan_oleh VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added dilakukan_oleh column to jabatan table.")
+        # tanggal_aksi
+        res2 = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='jabatan' AND column_name='tanggal_aksi'"
+        )).fetchone()
+        if not res2:
+            db.session.execute(text("ALTER TABLE jabatan ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
+            db.session.commit()
+            print("Successfully added tanggal_aksi column to jabatan table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating auditing columns in jabatan table: {e}")
+
+    # Migrasi auditing fields untuk tabel karyawan_entries
+    try:
+        # dilakukan_oleh
+        res = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='dilakukan_oleh'"
+        )).fetchone()
+        if not res:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN dilakukan_oleh VARCHAR(50)"))
+            db.session.commit()
+            print("Successfully added dilakukan_oleh column to karyawan_entries table.")
+        # tanggal_aksi
+        res2 = db.session.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='karyawan_entries' AND column_name='tanggal_aksi'"
+        )).fetchone()
+        if not res2:
+            db.session.execute(text("ALTER TABLE karyawan_entries ADD COLUMN tanggal_aksi TIMESTAMP DEFAULT NOW()"))
+            db.session.commit()
+            print("Successfully added tanggal_aksi column to karyawan_entries table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating auditing columns in karyawan_entries table: {e}")
+
+    try:
+        # Pindahkan data jabatan unik dari karyawan ke tabel jabatan jika tabel jabatan kosong
+        res = db.session.execute(text("SELECT COUNT(*) FROM jabatan")).fetchone()
+        if res and res[0] == 0:
+            karyawan_jabs = db.session.execute(text("SELECT DISTINCT jabatan FROM karyawan_entries")).fetchall()
+            for row in karyawan_jabs:
+                if row[0]:
+                    # Cek case-insensitive duplicate sebelum insert
+                    exist = db.session.execute(text("SELECT id FROM jabatan WHERE LOWER(nama) = LOWER(:nama)"), {"nama": row[0].strip()}).fetchone()
+                    if not exist:
+                        db.session.execute(text("INSERT INTO jabatan (nama) VALUES (:nama)"), {"nama": row[0].strip()})
+            db.session.commit()
+            print("Successfully migrated existing jabatans to jabatan table.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error migrating jabatans: {e}")
+
+    try:
+        cleanup_temp_uploads()
+        print("Successfully cleaned up old temporary uploads.")
+    except Exception as e:
+        print(f"Error cleaning temp uploads: {e}")
+
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -820,9 +840,7 @@ def view_asset_audit_logs():
         active_page='logs-aset'
     )
 
-# Import the modules to register their routes directly on app
-import aset
-import sdm
+# Modules are imported above database initialization to ensure models register before db.create_all()
 
 if __name__ == '__main__':
     # app.run(debug=True)

@@ -4,7 +4,7 @@ Werkzeug
 WTForms
 Flask-WTF
 python-dotenv
-psycopg2
+psycopg2-binary
 SQLAlchemy
 pandas
 Pillow
