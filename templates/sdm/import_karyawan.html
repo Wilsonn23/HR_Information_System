@@ -98,13 +98,23 @@
                 </div>
 
                 <!-- Tombol Submit -->
-                <div class="mt-4 text-end">
-                    <a href="{{ url_for('master_karyawan') }}" class="btn btn-light fw-bold px-4 py-2 border shadow-sm rounded-pill me-2">
-                        Batal
-                    </a>
-                    <button type="submit" class="btn btn-emerald fw-bold px-5 py-2 text-white shadow-sm rounded-pill" style="background-color: #10b981;" id="submitBtn" disabled>
-                        Mulai Impor Karyawan
-                    </button>
+                <div class="mt-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div>
+                        {% if session.get('role') == 'admin' %}
+                        <!-- Clear Database Button -->
+                        <button type="button" class="btn btn-outline-danger fw-bold px-4 py-2 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#confirmClearDbModal">
+                            <i class="fas fa-trash-alt me-2"></i>Bersihkan Database
+                        </button>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="{{ url_for('master_karyawan') }}" class="btn btn-light fw-bold px-4 py-2 border shadow-sm rounded-pill me-2">
+                            Batal
+                        </a>
+                        <button type="submit" class="btn btn-emerald fw-bold px-5 py-2 text-white shadow-sm rounded-pill" style="background-color: #10b981;" id="submitBtn" disabled>
+                            Mulai Impor Karyawan
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -191,4 +201,41 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 </script>
+
+{% if session.get('role') == 'admin' %}
+<!-- Modal Konfirmasi Bersihkan Database -->
+<div class="modal fade" id="confirmClearDbModal" tabindex="-1" aria-labelledby="confirmClearDbModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header bg-danger text-white border-0 py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                <h5 class="modal-title fw-bold" id="confirmClearDbModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Peringatan Keras!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-dark text-start">
+                <p class="mb-3 fw-semibold">Tindakan ini akan menghapus data berikut dari database secara permanen:</p>
+                <ul class="text-danger small mb-4">
+                    <li>Semua data Karyawan</li>
+                    <li>Semua Riwayat Kehadiran (Absensi)</li>
+                    <li>Semua Log & Riwayat Pengambilan Cuti</li>
+                    <li>Semua transaksi log & data non-master lainnya</li>
+                </ul>
+                <div class="alert alert-warning border-0 small m-0" style="background-color: #fff3cd; color: #856404;">
+                    <i class="fas fa-info-circle me-1"></i> Data master seperti <strong>Unit, PT, Pulau, Kota, Jabatan, dll.</strong> tetap aman dan tidak akan dihapus.
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-3 bg-light" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button type="button" class="btn btn-secondary fw-bold px-3 py-2 rounded-pill" data-bs-dismiss="modal">Batal</button>
+                <form action="{{ url_for('db_clear') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger fw-bold px-4 py-2 rounded-pill shadow-sm">
+                        Ya, Bersihkan Database
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

@@ -10,10 +10,21 @@
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
-            <!-- Header Section -->
-            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                <div>
-                    <h3 class="fw-bold text-primary m-0">📁 Master Data Jatah Cuti Karyawan</h3>
+            <!-- Title Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="fw-bold text-primary m-0">📁 Master Data Jatah Cuti Karyawan</h3>
+            </div>
+
+            <!-- Filter & Search Bar -->
+            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4 col-sm-12">
+                        <label class="form-label fw-bold text-secondary small">Cari Karyawan (Nama / NIK)</label>
+                        <div class="search-container shadow-sm">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchCuti" class="form-control" placeholder="Ketik nama atau NIK..." onkeydown="if(event.key === 'Enter') { event.preventDefault(); }">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -43,8 +54,8 @@
                     </thead>
                     <tbody>
                         {% for entry in entries %}
-                        <tr>
-                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                        <tr data-nik="{{ entry.nik | lower }}" data-nama="{{ entry.nama | lower }}">
+                            <td class="text-center text-muted small fw-bold row-num"></td>
                             <td class="fw-bold">{{ entry.nik }}</td>
                             <td>{{ entry.nama }}</td>
                             <td class="text-center fw-semibold text-muted">
@@ -94,6 +105,11 @@
                                 </a>
                             </td>
                         </tr>
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="13" class="text-center text-muted py-5">
+                                🔍 Tidak ada karyawan yang cocok dengan pencarian.
+                            </td>
+                        </tr>
                         {% else %}
                         <tr>
                             <td colspan="13" class="text-center text-muted py-5">
@@ -109,6 +125,45 @@
     </div>
 </div>
 
+<script>
+    const searchInput = document.getElementById('searchCuti');
+    const rows = Array.from(document.querySelectorAll('#masterTable tbody tr[data-nik]'));
+    const noResultsRow = document.getElementById('noResultsRow');
+
+    function applyFilter() {
+        const query = searchInput.value.toLowerCase().trim();
+        let visible = 0;
+
+        rows.forEach(row => {
+            const name = (row.dataset.nama || '').toLowerCase();
+            const nik = (row.dataset.nik || '').toLowerCase();
+            
+            const show = !query || name.includes(query) || nik.includes(query);
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+
+        // Re-number visible rows
+        let num = 1;
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const numCell = row.querySelector('.row-num');
+                if (numCell) numCell.textContent = num++;
+            }
+        });
+
+        // Show/hide no results row
+        if (noResultsRow) {
+            noResultsRow.style.display = (visible === 0 && rows.length > 0) ? '' : 'none';
+        }
+    }
+
+    searchInput.addEventListener('input', applyFilter);
+
+    // Run initially to set numbers
+    applyFilter();
+</script>
+
 <style>
     .position-sticky {
         position: sticky !important;
@@ -116,6 +171,37 @@
 
     thead th {
         box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    /* Kehadiran search container styles */
+    .search-container {
+        position: relative;
+        width: 100%;
+    }
+    .search-container .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .search-container input {
+        padding-left: 36px !important;
+        border-radius: 8px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #dee2e6 !important;
+        transition: all 0.2s ease-in-out;
+    }
+    .search-container input:focus {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
+    }
+    .form-control:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: #cbd5e1 !important;
     }
 </style>
 {% endblock %}

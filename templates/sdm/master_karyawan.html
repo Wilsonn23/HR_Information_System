@@ -25,6 +25,37 @@
                 </div>
             </div>
 
+            <!-- Filter Bar -->
+            <div class="row g-3 mb-4 p-3 bg-light rounded-3 align-items-end mx-0 border">
+                <div class="col-md-3">
+                    <label for="searchKaryawan" class="form-label fw-bold text-secondary small">Cari Nama atau NIK</label>
+                    <input type="text" id="searchKaryawan" class="form-control border shadow-sm rounded-3 py-2" placeholder="Cari nama atau NIK..." style="font-size: 0.9rem;">
+                </div>
+                <div class="col-md-2">
+                    <label for="filterPT" class="form-label fw-bold text-secondary small">Filter PT</label>
+                    <select id="filterPT" class="form-select border shadow-sm rounded-3 py-2" style="font-size: 0.9rem;">
+                        <option value="">Semua PT</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="filterDivisi" class="form-label fw-bold text-secondary small">Filter Divisi</label>
+                    <select id="filterDivisi" class="form-select border shadow-sm rounded-3 py-2" style="font-size: 0.9rem;">
+                        <option value="">Semua Divisi</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="filterDepartemen" class="form-label fw-bold text-secondary small">Filter Departemen</label>
+                    <select id="filterDepartemen" class="form-select border shadow-sm rounded-3 py-2" style="font-size: 0.9rem;">
+                        <option value="">Semua Departemen</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button id="btnResetFilter" class="btn btn-outline-danger fw-bold rounded-pill py-2 shadow-sm" style="font-size: 0.9rem;">
+                        ✕ Reset Filter
+                    </button>
+                </div>
+            </div>
+
             <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 650px; overflow-y: auto;">
                 <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="masterTable">
                     <thead class="table-dark position-sticky top-0 z-1">
@@ -50,6 +81,11 @@
                     <tbody id="tableBody">
                         {% for entry in entries %}
                         <tr data-resign="{{ 'true' if entry.is_actually_resigned else 'false' }}"
+                            data-pt="{{ entry.pt or '' }}"
+                            data-divisi="{{ entry.divisi or '' }}"
+                            data-departemen="{{ entry.departemen or '' }}"
+                            data-nama="{{ entry.nama or '' }}"
+                            data-nik="{{ entry.nik or '' }}"
                             {% if entry.is_actually_resigned %}class="text-muted"{% endif %}>
                             <td class="text-center text-muted small fw-bold row-num"></td>
                             <td>{{ entry.absen }}</td>
@@ -69,7 +105,7 @@
                             <td>
                                 {% if entry.priority_level is not none %}
                                     {% if entry.priority_level == 1 %}
-                                        <span class="badge bg-danger-subtle text-danger px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">1 (Utama)</span>
+                                        <span class="badge bg-danger-subtle text-danger px-2 py-1" style="border-radius: 6px; font-size: 0.75rem;">1</span>
                                     {% elif entry.priority_level == 2 %}
                                         <span class="badge bg-warning-subtle text-warning px-2 py-1" style="border-radius: 6px; font-size: 0.75rem; color: #856404 !important;">2</span>
                                     {% else %}
@@ -118,6 +154,11 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="16" class="text-center text-muted py-5">
+                                🔍 Tidak ada karyawan yang cocok dengan pencarian atau filter.
+                            </td>
+                        </tr>
                         {% else %}
                         <tr>
                             <td colspan="16" class="text-center text-muted py-5">
@@ -137,15 +178,127 @@
     const toggle = document.getElementById('toggleAktif');
     const tableBody = document.getElementById('tableBody');
     const counter = document.getElementById('rowCounter');
+    
+    const searchInput = document.getElementById('searchKaryawan');
+    const filterPT = document.getElementById('filterPT');
+    const filterDivisi = document.getElementById('filterDivisi');
+    const filterDepartemen = document.getElementById('filterDepartemen');
+    const btnReset = document.getElementById('btnResetFilter');
+
+    // Get all rows
+    const rows = Array.from(tableBody.querySelectorAll('tr[data-resign]'));
+
+    // Populate filters initially
+    function populateFilters() {
+        const pts = new Set();
+        const divisis = new Set();
+        const departemens = new Set();
+
+        rows.forEach(row => {
+            if (row.dataset.pt) pts.add(row.dataset.pt);
+            if (row.dataset.divisi) divisis.add(row.dataset.divisi);
+            if (row.dataset.departemen) departemens.add(row.dataset.departemen);
+        });
+
+        // PT options
+        Array.from(pts).sort().forEach(pt => {
+            const opt = document.createElement('option');
+            opt.value = pt;
+            opt.textContent = pt;
+            filterPT.appendChild(opt);
+        });
+
+        // Divisi options
+        Array.from(divisis).sort().forEach(divisi => {
+            const opt = document.createElement('option');
+            opt.value = divisi;
+            opt.textContent = divisi;
+            filterDivisi.appendChild(opt);
+        });
+
+        // Departemen options
+        Array.from(departemens).sort().forEach(dept => {
+            const opt = document.createElement('option');
+            opt.value = dept;
+            opt.textContent = dept;
+            filterDepartemen.appendChild(opt);
+        });
+    }
+
+    // Update filter options cascadingly
+    function updateFilterOptions() {
+        const selectedPT = filterPT.value;
+        const selectedDivisi = filterDivisi.value;
+
+        // Collect valid divisis and departemens based on selected PT / Divisi
+        const validDivisis = new Set();
+        const validDepts = new Set();
+
+        rows.forEach(row => {
+            const rowPT = row.dataset.pt;
+            const rowDivisi = row.dataset.divisi;
+            const rowDept = row.dataset.departemen;
+
+            // PT filter check
+            const matchesPT = !selectedPT || rowPT === selectedPT;
+            // Divisi filter check
+            const matchesDivisi = !selectedDivisi || rowDivisi === selectedDivisi;
+
+            if (matchesPT && rowDivisi) {
+                validDivisis.add(rowDivisi);
+            }
+            if (matchesPT && matchesDivisi && rowDept) {
+                validDepts.add(rowDept);
+            }
+        });
+
+        // Update Divisi options (keep selected value if still valid)
+        const currentDivisi = filterDivisi.value;
+        filterDivisi.innerHTML = '<option value="">Semua Divisi</option>';
+        Array.from(validDivisis).sort().forEach(divisi => {
+            const opt = document.createElement('option');
+            opt.value = divisi;
+            opt.textContent = divisi;
+            if (divisi === currentDivisi) opt.selected = true;
+            filterDivisi.appendChild(opt);
+        });
+
+        // Update Departemen options (keep selected value if still valid)
+        const currentDept = filterDepartemen.value;
+        filterDepartemen.innerHTML = '<option value="">Semua Departemen</option>';
+        Array.from(validDepts).sort().forEach(dept => {
+            const opt = document.createElement('option');
+            opt.value = dept;
+            opt.textContent = dept;
+            if (dept === currentDept) opt.selected = true;
+            filterDepartemen.appendChild(opt);
+        });
+    }
 
     function applyFilter() {
         const onlyActive = toggle.checked;
-        const rows = tableBody.querySelectorAll('tr[data-resign]');
+        const query = searchInput.value.toLowerCase().trim();
+        const selectedPT = filterPT.value;
+        const selectedDivisi = filterDivisi.value;
+        const selectedDept = filterDepartemen.value;
+
         let visible = 0;
 
         rows.forEach(row => {
             const isResign = row.dataset.resign === 'true';
-            const show = !onlyActive || !isResign;
+            const rowPT = row.dataset.pt;
+            const rowDivisi = row.dataset.divisi;
+            const rowDept = row.dataset.departemen;
+            const rowNama = (row.dataset.nama || '').toLowerCase();
+            const rowNIK = (row.dataset.nik || '').toLowerCase();
+
+            const matchesActive = !onlyActive || !isResign;
+            const matchesSearch = !query || rowNama.includes(query) || rowNIK.includes(query);
+            const matchesPT = !selectedPT || rowPT === selectedPT;
+            const matchesDivisi = !selectedDivisi || rowDivisi === selectedDivisi;
+            const matchesDept = !selectedDept || rowDept === selectedDept;
+
+            const show = matchesActive && matchesSearch && matchesPT && matchesDivisi && matchesDept;
             row.style.display = show ? '' : 'none';
             if (show) visible++;
         });
@@ -159,12 +312,67 @@
             }
         });
 
+        const noResultsRow = document.getElementById('noResultsRow');
+        if (noResultsRow) {
+            noResultsRow.style.display = (visible === 0 && rows.length > 0) ? '' : 'none';
+        }
+
         counter.textContent = visible + ' karyawan';
     }
 
+    // Set up event listeners
+    searchInput.addEventListener('input', applyFilter);
+
+    filterPT.addEventListener('change', () => {
+        updateFilterOptions();
+        applyFilter();
+    });
+
+    filterDivisi.addEventListener('change', () => {
+        updateFilterOptions();
+        applyFilter();
+    });
+
+    filterDepartemen.addEventListener('change', applyFilter);
+
     toggle.addEventListener('change', applyFilter);
 
+    btnReset.addEventListener('click', () => {
+        searchInput.value = "";
+        filterPT.value = "";
+        
+        // Re-populate all original options
+        filterDivisi.innerHTML = '<option value="">Semua Divisi</option>';
+        filterDepartemen.innerHTML = '<option value="">Semua Departemen</option>';
+        
+        const divisis = new Set();
+        const departemens = new Set();
+        rows.forEach(row => {
+            if (row.dataset.divisi) divisis.add(row.dataset.divisi);
+            if (row.dataset.departemen) departemens.add(row.dataset.departemen);
+        });
+        
+        Array.from(divisis).sort().forEach(divisi => {
+            const opt = document.createElement('option');
+            opt.value = divisi;
+            opt.textContent = divisi;
+            filterDivisi.appendChild(opt);
+        });
+        
+        Array.from(departemens).sort().forEach(dept => {
+            const opt = document.createElement('option');
+            opt.value = dept;
+            opt.textContent = dept;
+            filterDepartemen.appendChild(opt);
+        });
+
+        filterDivisi.value = "";
+        filterDepartemen.value = "";
+        applyFilter();
+    });
+
     // Run on page load
+    populateFilters();
     applyFilter();
 </script>
 

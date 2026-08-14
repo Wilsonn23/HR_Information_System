@@ -1,0 +1,325 @@
+{% extends 'sdm/base.html' %}
+
+{% block title %}Laporan Jam Kerja Karyawan - Admin System{% endblock %}
+
+{% block body_class %}dashboard-page bg-light text-dark{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-2">
+    <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
+        <div class="card-body p-4">
+
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold text-primary m-0">⏱️ Laporan Kelebihan & Kekurangan Jam Kerja</h3>
+                </div>
+            </div>
+
+            <!-- Filter & Download Bar -->
+            <form id="filterForm" action="{{ url_for('laporan_jam_kerja') }}" method="GET">
+            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                <div class="row g-3 align-items-end">
+
+                    <!-- Filter Bulan -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1">Filter Bulan</label>
+                        <select id="filter_bulan" name="bulan" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for b in list_bulan %}
+                            <option value="{{ b.nama }}" {% if b.nama == selected_bulan %}selected{% endif %}>{{ b.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Filter Tahun -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1">Filter Tahun</label>
+                        <select id="filter_tahun" name="tahun" class="form-select shadow-sm" onchange="this.form.submit()">
+                            {% for t in list_tahun %}
+                            <option value="{{ t }}" {% if t == selected_tahun %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Filter PT -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1">Filter PT</label>
+                        <select id="filter_pt_jk" class="form-select shadow-sm" onchange="applyJKFilters()">
+                            <option value="">— Semua PT —</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter Divisi -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1">Filter Divisi</label>
+                        <select id="filter_divisi_jk" class="form-select shadow-sm" onchange="applyJKFilters()">
+                            <option value="">— Semua Divisi —</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter Jabatan -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1">Filter Jabatan</label>
+                        <select id="filter_jabatan_jk" class="form-select shadow-sm" onchange="applyJKFilters()">
+                            <option value="">— Semua Jabatan —</option>
+                        </select>
+                    </div>
+
+                    <!-- Tombol Unduh -->
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label fw-bold text-secondary small mb-1 invisible">Aksi</label>
+                        <div>
+                            <button form="downloadForm" type="submit" class="btn fw-bold w-100 shadow-sm rounded-3 d-flex align-items-center justify-content-center gap-2"
+                                style="background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; height: 38px; font-size: 0.9rem;">
+                                📥 Unduh Laporan (Excel)
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            </form>
+
+            <!-- Hidden download form -->
+            <form id="downloadForm" method="POST" action="{{ url_for('download_laporan_jam_kerja') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="bulan" value="{{ selected_bulan }}">
+                <input type="hidden" name="tahun" value="{{ selected_tahun }}">
+            </form>
+
+            <!-- Table Section -->
+            <div class="table-responsive border rounded-3 shadow-sm" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-bordered text-nowrap m-0" id="jamKerjaTable">
+                    <thead class="table-dark position-sticky top-0 z-1">
+                        <tr class="align-middle text-center">
+                            <th scope="col" style="width: 60px;">No</th>
+                            <th scope="col" style="width: 120px;">NIK</th>
+                            <th scope="col" class="text-start">Nama Karyawan</th>
+                            <th scope="col" style="width: 150px;">Hari Kerja Efektif</th>
+                            <th scope="col" style="width: 120px;">Hari Alpa</th>
+                            <th scope="col" style="width: 130px;">Wajib Kerja</th>
+                            <th scope="col" style="width: 130px;">Aktual Kerja</th>
+                            <th scope="col" style="width: 130px;" class="text-success">Kelebihan</th>
+                            <th scope="col" style="width: 130px;" class="text-danger">Kekurangan</th>
+                            <th scope="col" style="width: 130px;" class="text-danger">Penalti</th>
+                            <th scope="col" style="width: 135px;" class="text-danger">Penalti Bulan Sebelumnya</th>
+                            <th scope="col" style="width: 130px;" class="text-danger">Total</th>
+                            <th scope="col" style="width: 130px;" class="text-danger">Potong Cuti</th>
+                            <th scope="col" style="width: 130px;" class="text-primary">Saldo Awal Cuti</th>
+                            <th scope="col" style="width: 130px;" class="text-primary">Saldo Akhir Cuti</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr data-pt="{{ entry.pt }}" data-divisi="{{ entry.divisi }}" data-jabatan="{{ entry.jabatan }}">
+                            <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
+                            <td class="text-center fw-bold">{{ entry.nik }}</td>
+                            <td class="fw-bold">
+                                <a href="/master-jam-kerja/detail/{{ entry.nik }}?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="text-decoration-none text-primary d-flex align-items-center gap-1">
+                                    <span>🔍</span>
+                                    <span class="hover-underline">{{ entry.nama }}</span>
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">
+                                    {{ entry.total_masuk }} hari
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger-subtle text-danger px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">
+                                    {{ entry.total_alpa }} hari
+                                </span>
+                            </td>
+                            <td class="text-center fw-semibold text-muted">{{ entry.wajib }}</td>
+                            <td class="text-center fw-bold text-dark">{{ entry.aktual }}</td>
+                            <td class="text-center fw-bold text-success">
+                                {% if entry.kelebihan != "0m" %}
+                                    ➕ {{ entry.kelebihan }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.kekurangan != "0m" %}
+                                    ⚠️ {{ entry.kekurangan }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.penalti != "0m" %}
+                                    ⚠️ {{ entry.penalti }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.penalti_sebelumnya != "0m" %}
+                                    ⚠️ {{ entry.penalti_sebelumnya }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.total != "0m" %}
+                                    ⚠️ {{ entry.total }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-danger">
+                                {% if entry.potong_cuti != "-" %}
+                                    ⚠️ {{ entry.potong_cuti }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-primary">{{ entry.saldo_awal }}</td>
+                            <td class="text-center fw-bold text-primary">{{ entry.saldo_akhir }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="15" class="text-center text-muted py-5">
+                                📁 Tidak ada data jam kerja untuk periode terpilih.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-primary-subtle {
+        background-color: rgba(13, 110, 253, 0.08) !important;
+    }
+    .bg-success-subtle {
+        background-color: rgba(25, 135, 84, 0.08) !important;
+    }
+    .bg-danger-subtle {
+        background-color: rgba(220, 53, 69, 0.08) !important;
+    }
+    .fw-extrabold {
+        font-weight: 800 !important;
+    }
+    #jamKerjaTable tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.02);
+    }
+    .position-sticky {
+        position: sticky !important;
+    }
+    .hover-underline:hover {
+        text-decoration: underline !important;
+    }
+    thead th {
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    }
+    .search-container {
+        position: relative;
+        width: 100%;
+    }
+    .search-container .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .search-container input {
+        padding-left: 36px !important;
+        border-radius: 8px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #dee2e6 !important;
+        transition: all 0.2s ease-in-out;
+    }
+    .search-container input:focus {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search_karyawan');
+        const table = document.getElementById('jamKerjaTable');
+        const ptSelect = document.getElementById('filter_pt_jk');
+        const divisiSelect = document.getElementById('filter_divisi_jk');
+        const jabatanSelect = document.getElementById('filter_jabatan_jk');
+
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        const originalRows = Array.from(tbody.querySelectorAll('tr'));
+        const isEmpty = originalRows.length === 1 && originalRows[0].cells.length === 1;
+
+        if (!isEmpty) {
+            // Populate PT/Divisi/Jabatan dropdowns from row data
+            const ptSet = new Set(), divisiSet = new Set(), jabatanSet = new Set();
+            originalRows.forEach(row => {
+                if (row.dataset.pt) ptSet.add(row.dataset.pt);
+                if (row.dataset.divisi) divisiSet.add(row.dataset.divisi);
+                if (row.dataset.jabatan) jabatanSet.add(row.dataset.jabatan);
+            });
+            [...ptSet].sort().forEach(v => {
+                const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+                ptSelect.appendChild(opt);
+            });
+            [...divisiSet].sort().forEach(v => {
+                const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+                divisiSelect.appendChild(opt);
+            });
+            [...jabatanSet].sort().forEach(v => {
+                const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+                jabatanSelect.appendChild(opt);
+            });
+
+            // No-match row
+            const noMatchRow = document.createElement('tr');
+            noMatchRow.id = 'noMatchRow';
+            noMatchRow.style.display = 'none';
+            noMatchRow.innerHTML = `<td colspan="15" class="text-center text-muted py-5 fw-bold">🔍 Tidak ada data yang sesuai filter.</td>`;
+            tbody.appendChild(noMatchRow);
+
+            function applyAllFilters() {
+                const query = (searchInput ? searchInput.value.toLowerCase().trim() : '');
+                const pt = ptSelect ? ptSelect.value : '';
+                const divisi = divisiSelect ? divisiSelect.value : '';
+                const jabatan = jabatanSelect ? jabatanSelect.value : '';
+                let visibleCount = 0, index = 1;
+
+                originalRows.forEach(row => {
+                    if (row.id === 'noMatchRow') return;
+                    const nikText = (row.cells[1] ? row.cells[1].textContent.toLowerCase() : '');
+                    const nameText = (row.cells[2] ? row.cells[2].textContent.toLowerCase() : '');
+                    const rowPt = row.dataset.pt || '';
+                    const rowDivisi = row.dataset.divisi || '';
+                    const rowJabatan = row.dataset.jabatan || '';
+
+                    const matchSearch = !query || nikText.includes(query) || nameText.includes(query);
+                    const matchPt = !pt || rowPt === pt;
+                    const matchDivisi = !divisi || rowDivisi === divisi;
+                    const matchJabatan = !jabatan || rowJabatan === jabatan;
+
+                    if (matchSearch && matchPt && matchDivisi && matchJabatan) {
+                        row.style.display = '';
+                        if (row.cells[0]) row.cells[0].textContent = index++;
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                noMatchRow.style.display = visibleCount === 0 ? '' : 'none';
+            }
+
+            // Expose globally for onchange handlers
+            window.applyJKFilters = applyAllFilters;
+
+            if (searchInput) searchInput.addEventListener('input', applyAllFilters);
+        }
+    });
+</script>
+{% endblock %}

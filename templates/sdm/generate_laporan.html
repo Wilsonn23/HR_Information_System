@@ -25,7 +25,7 @@
                     
                     <!-- Filter Periode Form -->
                     <form id="filterForm" method="GET" action="{{ url_for('generate_laporan') }}" class="row g-3 align-items-end mb-5 p-4 rounded-3 bg-light border needs-validation" novalidate>
-                        <div class="col-md-6 col-12">
+                        <div class="col-md-4 col-sm-6 col-12">
                             <label for="bulan" class="form-label fw-bold text-secondary small">Pilih Bulan</label>
                             <select class="form-select bg-white border py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="bulan" name="bulan" required>
                                 {% for b in list_bulan %}
@@ -33,13 +33,48 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6 col-12">
+                        <div class="col-md-4 col-sm-6 col-12">
                             <label for="tahun" class="form-label fw-bold text-secondary small">Pilih Tahun</label>
                             <select class="form-select bg-white border py-2.5 px-3 rounded-3 shadow-none fw-semibold" id="tahun" name="tahun" required>
                                 {% for y in range(2024, 2031) %}
                                     <option value="{{ y }}" {% if y == selected_tahun %}selected{% endif %}>{{ y }}</option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        <div class="col-md-4 col-sm-6 col-12">
+                            <label for="filter_pt" class="form-label fw-bold text-secondary small">Filter PT</label>
+                            <select class="form-select bg-white border rounded-3 shadow-none fw-semibold" id="filter_pt" name="pt">
+                                <option value="">— Semua PT —</option>
+                                {% for p in list_pt %}
+                                    <option value="{{ p }}" {% if p == selected_pt %}selected{% endif %}>{{ p }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 col-sm-6 col-12">
+                            <label for="filter_divisi" class="form-label fw-bold text-secondary small">Filter Divisi</label>
+                            <select class="form-select bg-white border rounded-3 shadow-none fw-semibold" id="filter_divisi" name="divisi">
+                                <option value="">— Semua Divisi —</option>
+                                {% for d in list_divisi %}
+                                    <option value="{{ d }}" {% if d == selected_divisi %}selected{% endif %}>{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 col-sm-6 col-12">
+                            <label for="filter_jabatan" class="form-label fw-bold text-secondary small">Filter Jabatan</label>
+                            <select class="form-select bg-white border rounded-3 shadow-none fw-semibold" id="filter_jabatan" name="jabatan">
+                                <option value="">— Semua Jabatan —</option>
+                                {% for j in list_jabatan %}
+                                    <option value="{{ j }}" {% if j == selected_jabatan %}selected{% endif %}>{{ j }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 col-sm-6 col-12 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary fw-bold w-100 py-2 rounded-3">
+                                🔍 Terapkan Filter
+                            </button>
+                            {% if selected_pt or selected_divisi or selected_jabatan %}
+                            <a href="{{ url_for('generate_laporan', bulan=selected_bulan, tahun=selected_tahun) }}" class="btn btn-outline-secondary fw-bold w-50 py-2 rounded-3" title="Reset filter">✕</a>
+                            {% endif %}
                         </div>
                     </form>
 
@@ -125,11 +160,18 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="bulan" value="{{ selected_bulan }}">
                             <input type="hidden" name="tahun" value="{{ selected_tahun }}">
+                            <input type="hidden" name="pt" value="{{ selected_pt }}">
+                            <input type="hidden" name="divisi" value="{{ selected_divisi }}">
+                            <input type="hidden" name="jabatan" value="{{ selected_jabatan }}">
                             
                             <button type="submit" class="btn btn-success btn-lg py-3 px-5 fw-bold shadow-sm transition-all" style="border-radius: 10px; font-size: 1.1rem; background: linear-gradient(135deg, #10b981, #059669); border: none;">
                                 📥 Unduh Laporan Rekap (Excel)
                             </button>
-                            <div class="form-text text-muted small mt-2">Format berkas: Excel (.xlsx). Laporan mencakup data rekap hadir, sakit, izin, cuti, terlambat, pulang cepat, dan sisa saldo cuti.</div>
+                            <div class="form-text text-muted small mt-2">Format berkas: Excel (.xlsx). Laporan mencakup data rekap hadir, sakit, izin, cuti, terlambat, pulang cepat, dan sisa saldo cuti.
+                            {% if selected_pt or selected_divisi or selected_jabatan %}
+                            <br><span class="badge bg-info-subtle text-info border border-info-subtle mt-1">Filter aktif: {{ selected_pt or '' }}{% if selected_pt and selected_divisi %} · {% endif %}{{ selected_divisi or '' }}{% if (selected_pt or selected_divisi) and selected_jabatan %} · {% endif %}{{ selected_jabatan or '' }}</span>
+                            {% endif %}
+                            </div>
                         </form>
                     {% endif %}
 
@@ -157,18 +199,19 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        const form = document.getElementById('filterForm');
         const bulanSelect = document.getElementById('bulan');
         const tahunSelect = document.getElementById('tahun');
+        const filterForm = document.getElementById('filterForm');
         
-        if (bulanSelect && tahunSelect && form) {
+        if (bulanSelect && tahunSelect && filterForm) {
             bulanSelect.addEventListener('change', function() {
-                form.submit();
+                filterForm.submit();
             });
             tahunSelect.addEventListener('change', function() {
-                form.submit();
+                filterForm.submit();
             });
         }
     });
 </script>
 {% endblock %}
+

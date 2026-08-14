@@ -955,6 +955,12 @@ def sdm_transaksi():
         return redirect(url_for('login'))
     return render_template('sdm/sdm_transaksi.html', active_page='sdm-transaksi')
 
+@app.route('/sdm-report')
+def sdm_report():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+    return render_template('sdm/sdm_report.html', active_page='sdm-report')
+
 @app.route('/master-sdm')
 def master_sdm():
     if 'logged_user' not in session:
@@ -1239,7 +1245,13 @@ def master_karyawan():
         system_date = dt_module.date.today()
 
     entries = db.session.execute(
-        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+        db.select(KaryawanEntry).order_by(
+            KaryawanEntry.pt,
+            KaryawanEntry.divisi,
+            db.func.coalesce(KaryawanEntry.departemen, ''),
+            KaryawanEntry.priority_level.nulls_last(),
+            KaryawanEntry.absen
+        )
     ).scalars().all()
 
     for entry in entries:
@@ -1254,6 +1266,50 @@ def master_karyawan():
         entry.is_actually_resigned = is_resign
 
     return render_template('sdm/master_karyawan.html', entries=entries, active_page='master-sdm')
+
+@app.route('/db-clear', methods=['POST'])
+def db_clear():
+    if 'logged_user' not in session or session.get('role') != 'admin':
+        flash("Anda tidak memiliki akses untuk melakukan tindakan ini.", "danger")
+        return redirect(url_for('login'))
+        
+    try:
+        excluded = {
+            "users", 
+            "pulau", 
+            "kota", 
+            "pt", 
+            "unit", 
+            "nama_asuransi", 
+            "merk", 
+            "kategori", 
+            "bulan", 
+            "hari_libur",
+            "jabatan"
+        }
+
+        # Dapatkan daftar tabel untuk dihapus (mengikuti urutan relasi foreign key)
+        sorted_tables = [table for table in db.metadata.sorted_tables if table.name not in excluded]
+
+        # Hapus tabel dengan urutan terbalik (anak tabel terlebih dahulu)
+        db.metadata.drop_all(bind=db.engine, tables=reversed(sorted_tables))
+        
+        # Buat ulang tabel kosong
+        db.metadata.create_all(bind=db.engine, tables=sorted_tables)
+        
+        # Catat aktivitas ke log
+        try:
+            sdm_log("HAPUS", "DATABASE", f"Membersihkan database (dbclear) oleh user {session.get('logged_user')}")
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            
+        flash("Database berhasil dibersihkan (kecuali data master)!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Gagal membersihkan database: {str(e)}", "danger")
+        
+    return redirect(url_for('import_karyawan'))
 
 @app.route('/import-karyawan', methods=['GET', 'POST'])
 def import_karyawan():
@@ -2112,7 +2168,13 @@ def master_cuti():
 
     # Hanya tampilkan karyawan aktif (belum resign)
     all_k = db.session.execute(
-        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+        db.select(KaryawanEntry).order_by(
+            KaryawanEntry.pt,
+            KaryawanEntry.divisi,
+            db.func.coalesce(KaryawanEntry.departemen, ''),
+            KaryawanEntry.priority_level.nulls_last(),
+            KaryawanEntry.absen
+        )
     ).scalars().all()
     karyawan_list = []
     for k in all_k:
@@ -2658,6 +2720,10 @@ def generate_laporan():
         except ValueError:
             selected_tahun = default_tahun
 
+    selected_pt = request.args.get('pt', '').strip()
+    selected_divisi = request.args.get('divisi', '').strip()
+    selected_jabatan = request.args.get('jabatan', '').strip()
+
     # Get Bulan meta to calculate jumlah_hari
     bulan_meta = db.session.execute(db.select(Bulan).where(Bulan.nama == selected_bulan)).scalar_one_or_none()
     jumlah_hari = bulan_meta.jumlah_hari if bulan_meta else 31
@@ -2707,6 +2773,22 @@ def generate_laporan():
             except Exception:
                 pass
         filtered_karyawan_list.append(k)
+
+    # Filter tambahan: PT, Divisi, Jabatan
+    if selected_pt:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.pt or '') == selected_pt]
+    if selected_divisi:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.divisi or '') == selected_divisi]
+    if selected_jabatan:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.jabatan or '') == selected_jabatan]
+
+    # Ambil daftar unik PT / Divisi / Jabatan dari semua karyawan (untuk dropdown)
+    all_karyawan_for_filter = db.session.execute(
+        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+    ).scalars().all()
+    list_pt = sorted(set(k.pt for k in all_karyawan_for_filter if k.pt))
+    list_divisi = sorted(set(k.divisi for k in all_karyawan_for_filter if k.divisi))
+    list_jabatan = sorted(set(k.jabatan for k in all_karyawan_for_filter if k.jabatan))
 
     # Ambil data kehadiran dari DB yang sudah ada untuk periode terpilih
     existing_entries = db.session.execute(
@@ -2799,7 +2881,13 @@ def generate_laporan():
         pending_list=pending_list,
         month_ended=month_ended,
         next_day_str=next_day_str,
-        active_page='sdm-transaksi'
+        list_pt=list_pt,
+        list_divisi=list_divisi,
+        list_jabatan=list_jabatan,
+        selected_pt=selected_pt,
+        selected_divisi=selected_divisi,
+        selected_jabatan=selected_jabatan,
+        active_page='sdm-report'
     )
 
 @app.route('/generate-laporan/download', methods=['POST'])
@@ -2818,6 +2906,9 @@ def download_laporan():
 
     selected_bulan = request.form.get('bulan', '').strip()
     selected_tahun_str = request.form.get('tahun', '').strip()
+    selected_pt = request.form.get('pt', '').strip()
+    selected_divisi = request.form.get('divisi', '').strip()
+    selected_jabatan = request.form.get('jabatan', '').strip()
     
     if not selected_bulan or not selected_tahun_str:
         flash("⚠️ Periode laporan tidak valid!", "danger")
@@ -2890,6 +2981,14 @@ def download_laporan():
             except Exception:
                 pass
         filtered_karyawan_list.append(k)
+
+    # Filter tambahan: PT, Divisi, Jabatan
+    if selected_pt:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.pt or '') == selected_pt]
+    if selected_divisi:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.divisi or '') == selected_divisi]
+    if selected_jabatan:
+        filtered_karyawan_list = [k for k in filtered_karyawan_list if (k.jabatan or '') == selected_jabatan]
 
     # Ambil data kehadiran dari DB yang sudah ada untuk periode terpilih
     existing_entries = db.session.execute(
@@ -4138,24 +4237,9 @@ def upload_kehadiran():
                 flash("⚠️ Berkas Excel wajib memiliki kolom 'NIK' dan 'tanggal'!", "danger")
                 return redirect(url_for('upload_kehadiran'))
                 
-            # Validasi bahwa semua baris log kehadiran memiliki tanggal yang sama, yaitu H-1 dari tanggal sistem/simulasi
+            # Validasi bahwa semua baris log kehadiran memiliki tanggal yang sama
             from datetime import date, timedelta, datetime
-            system_date = date.today()
-            if 'simulation_date' in session:
-                try:
-                    system_date = datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
-                except ValueError:
-                    pass
-            target_date = system_date - timedelta(days=1)
-            target_date_str = target_date.strftime("%Y-%m-%d")
             
-            MONTH_INDO = {
-                1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
-                5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
-                9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
-            }
-            target_date_formatted = f"{target_date.day} {MONTH_INDO.get(target_date.month, '')} {target_date.year}"
-
             unique_dates = set()
             for index, row in df.iterrows():
                 if row.isnull().all():
@@ -4184,9 +4268,16 @@ def upload_kehadiran():
                     
                 unique_dates.add(ts.strftime("%Y-%m-%d"))
                 
-            if not unique_dates or any(d != target_date_str for d in unique_dates):
-                flash(f"⚠️ Gagal! Berkas Excel hanya boleh berisi data log kehadiran untuk tanggal {target_date_formatted}.", "danger")
+            if not unique_dates:
+                flash("⚠️ Gagal! Berkas Excel tidak berisi data log kehadiran yang valid.", "danger")
                 return redirect(url_for('upload_kehadiran'))
+                
+            if len(unique_dates) > 1:
+                flash("⚠️ Gagal! Berkas Excel berisi data log kehadiran untuk beberapa tanggal berbeda. Harap unggah per satu tanggal saja.", "danger")
+                return redirect(url_for('upload_kehadiran'))
+                
+            target_date_str = list(unique_dates)[0]
+            target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
                 
             # Ambil semua karyawan aktif pada tanggal target
             all_employees = db.session.execute(db.select(KaryawanEntry)).scalars().all()
@@ -4984,38 +5075,7 @@ def get_karyawan_jam_kerja_history(karyawan, kehadiran_entries=None, bulan_days_
         
     return history
 
-@app.route('/master-jam-kerja')
-def master_jam_kerja():
-    if 'logged_user' not in session:
-        return redirect(url_for('login'))
-
-    INDONESIAN_MONTHS = {
-        1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
-        5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
-        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
-    }
-
-    default_bulan = None
-    default_tahun = None
-    if 'simulation_date' in session:
-        try:
-            sim_dt = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
-            default_bulan = INDONESIAN_MONTHS.get(sim_dt.month)
-            default_tahun = sim_dt.year
-        except Exception:
-            pass
-
-    if not default_bulan:
-        today = datetime.date.today()
-        default_bulan = INDONESIAN_MONTHS.get(today.month)
-        default_tahun = today.year
-
-    selected_bulan = request.args.get('bulan', default_bulan)
-    try:
-        selected_tahun = int(request.args.get('tahun', default_tahun))
-    except ValueError:
-        selected_tahun = default_tahun
-
+def calculate_jam_kerja_entries(selected_bulan, selected_tahun):
     MONTH_NUMBERS = {
         'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
         'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
@@ -5032,7 +5092,13 @@ def master_jam_kerja():
         jumlah_hari = 29 if is_leap else 28
 
     karyawan_list = db.session.execute(
-        db.select(KaryawanEntry).order_by(KaryawanEntry.absen)
+        db.select(KaryawanEntry).order_by(
+            KaryawanEntry.pt,
+            KaryawanEntry.divisi,
+            db.func.coalesce(KaryawanEntry.departemen, ''),
+            KaryawanEntry.priority_level.nulls_last(),
+            KaryawanEntry.absen
+        )
     ).scalars().all()
 
     active_karyawan = []
@@ -5063,7 +5129,6 @@ def master_jam_kerja():
     ).scalars().all()
     presence_map = {p.nik: p for p in presences}
 
-    # Fetch all kehadiran and cuti_manual for all employees in one go to optimize
     all_kehadiran = db.session.execute(db.select(Kehadiran)).scalars().all()
     kehadiran_by_nik = {}
     for p in all_kehadiran:
@@ -5087,7 +5152,6 @@ def master_jam_kerja():
         total_kelebihan_menit = 0
         total_kekurangan_menit = 0
         total_penalti_menit = 0
-
         presence = presence_map.get(k.nik)
 
         if presence and presence.status_hari:
@@ -5117,7 +5181,7 @@ def master_jam_kerja():
                             in_mins = s_start
                             
                     if in_mins and out_mins and out_mins > in_mins:
-                        if in_mins < 13 * 60: # Sebelum 13.00
+                        if in_mins < 13 * 60:
                             a_dur = max(0, (out_mins - in_mins) - 60)
                         else:
                             a_dur = max(0, out_mins - in_mins)
@@ -5159,7 +5223,6 @@ def master_jam_kerja():
         total_gabungan_menit = info.get('total', total_kekurangan_menit + total_penalti_menit)
         potong_cuti = info.get('potong_cuti', 0.0)
 
-        # Get leave balance at the end of the selected month
         end_of_month = datetime.date(selected_tahun, month_num, jumlah_hari)
         cuti_info = get_cuti_tahunan_balance(
             k, 
@@ -5174,6 +5237,9 @@ def master_jam_kerja():
         entries.append({
             'nik': k.nik,
             'nama': k.nama,
+            'pt': k.pt or '',
+            'divisi': k.divisi or '',
+            'jabatan': k.jabatan or '',
             'total_masuk': total_masuk,
             'total_alpa': total_alpa,
             'wajib': format_mins(total_wajib_menit),
@@ -5187,6 +5253,42 @@ def master_jam_kerja():
             'saldo_awal': f"{saldo_awal} hari" if saldo_awal > 0 else "0 hari",
             'saldo_akhir': f"{saldo_akhir} hari" if saldo_akhir > 0 else "0 hari"
         })
+    return entries
+
+@app.route('/master-jam-kerja')
+def master_jam_kerja():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+
+    INDONESIAN_MONTHS = {
+        1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+        5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+    }
+
+    default_bulan = None
+    default_tahun = None
+    if 'simulation_date' in session:
+        try:
+            sim_dt = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+            default_bulan = INDONESIAN_MONTHS.get(sim_dt.month)
+            default_tahun = sim_dt.year
+        except Exception:
+            pass
+
+    if not default_bulan:
+        today = datetime.date.today()
+        default_bulan = INDONESIAN_MONTHS.get(today.month)
+        default_tahun = today.year
+
+    selected_bulan = request.args.get('bulan', default_bulan)
+    try:
+        selected_tahun = int(request.args.get('tahun', default_tahun))
+    except ValueError:
+        selected_tahun = default_tahun
+
+    entries = calculate_jam_kerja_entries(selected_bulan, selected_tahun)
+    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
     current_year = datetime.datetime.now().year
     list_tahun = list(range(current_year - 5, current_year + 6))
 
@@ -5198,6 +5300,219 @@ def master_jam_kerja():
         selected_bulan=selected_bulan,
         selected_tahun=selected_tahun,
         active_page='master-sdm'
+    )
+
+@app.route('/laporan-jam-kerja')
+def laporan_jam_kerja():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+
+    INDONESIAN_MONTHS = {
+        1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+        5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+    }
+
+    default_bulan = None
+    default_tahun = None
+    if 'simulation_date' in session:
+        try:
+            sim_dt = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
+            default_bulan = INDONESIAN_MONTHS.get(sim_dt.month)
+            default_tahun = sim_dt.year
+        except Exception:
+            pass
+
+    if not default_bulan:
+        today = datetime.date.today()
+        default_bulan = INDONESIAN_MONTHS.get(today.month)
+        default_tahun = today.year
+
+    selected_bulan = request.args.get('bulan', default_bulan)
+    try:
+        selected_tahun = int(request.args.get('tahun', default_tahun))
+    except ValueError:
+        selected_tahun = default_tahun
+
+    entries = calculate_jam_kerja_entries(selected_bulan, selected_tahun)
+    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
+    current_year = datetime.datetime.now().year
+    list_tahun = list(range(current_year - 5, current_year + 6))
+
+    return render_template(
+        'sdm/laporan_jam_kerja.html',
+        entries=entries,
+        list_bulan=list_bulan,
+        list_tahun=list_tahun,
+        selected_bulan=selected_bulan,
+        selected_tahun=selected_tahun,
+        active_page='sdm-report'
+    )
+
+@app.route('/laporan-jam-kerja/download', methods=['POST'])
+def download_laporan_jam_kerja():
+    if 'logged_user' not in session:
+        return redirect(url_for('login'))
+
+    selected_bulan = request.form.get('bulan', '').strip()
+    selected_tahun_str = request.form.get('tahun', '').strip()
+    
+    if not selected_bulan or not selected_tahun_str:
+        flash("⚠️ Laporan tidak valid!", "danger")
+        return redirect(url_for('laporan_jam_kerja'))
+        
+    try:
+        selected_tahun = int(selected_tahun_str)
+    except ValueError:
+        flash("⚠️ Tahun tidak valid!", "danger")
+        return redirect(url_for('laporan_jam_kerja'))
+
+    import datetime
+    MONTH_NUMBERS = {
+        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+    }
+    month_num = MONTH_NUMBERS.get(selected_bulan, 1)
+
+    list_bulan = db.session.execute(db.select(Bulan)).scalars().all()
+    bulan_days_map = {b.nama: b.jumlah_hari for b in list_bulan}
+    jumlah_hari = bulan_days_map.get(selected_bulan, 30)
+    
+    if selected_bulan == 'Februari':
+        is_leap = (selected_tahun % 4 == 0 and (selected_tahun % 100 != 0 or selected_tahun % 400 == 0))
+        jumlah_hari = 29 if is_leap else 28
+
+    karyawan_list = db.session.execute(
+        db.select(KaryawanEntry).order_by(
+            KaryawanEntry.pt,
+            KaryawanEntry.divisi,
+            db.func.coalesce(KaryawanEntry.departemen, ''),
+            KaryawanEntry.priority_level.nulls_last(),
+            KaryawanEntry.absen
+        )
+    ).scalars().all()
+
+    active_karyawan = []
+    for k in karyawan_list:
+        if k.tanggal_resign:
+            try:
+                dt_resign = None
+                for fmt in ("%Y-%m-%d", "%Y-%d-%m"):
+                    try:
+                        dt_resign = datetime.datetime.strptime(k.tanggal_resign, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if dt_resign:
+                    resign_month_start = datetime.date(dt_resign.year, dt_resign.month, 1)
+                    selected_month_start = datetime.date(selected_tahun, month_num, 1)
+                    if resign_month_start < selected_month_start:
+                        continue
+            except Exception:
+                pass
+        active_karyawan.append(k)
+
+    presences = db.session.execute(
+        db.select(Kehadiran).where(
+            Kehadiran.bulan == selected_bulan,
+            Kehadiran.tahun == selected_tahun
+        )
+    ).scalars().all()
+    presence_map = {p.nik: p for p in presences}
+
+    kelebihan_rows = []
+    kekurangan_rows = []
+
+    for idx, k in enumerate(active_karyawan, 1):
+        presence = presence_map.get(k.nik)
+        s_start = time_to_minutes(k.jam_masuk)
+        s_end = time_to_minutes(k.jam_pulang)
+        s_dur = max(0, s_end - s_start - 60) if s_end > s_start else 0
+
+        k_row_kelebihan = {'No': idx, 'NIK': k.nik, 'Nama Karyawan': k.nama}
+        k_row_kekurangan = {'No': idx, 'NIK': k.nik, 'Nama Karyawan': k.nama}
+
+        total_kelebihan = 0
+        total_kekurangan = 0
+
+        for d in range(1, jumlah_hari + 1):
+            status = presence.status_hari.get(str(d)) if (presence and presence.status_hari) else None
+            scan_in = presence.scan_masuk_hari.get(str(d)) if (presence and presence.scan_masuk_hari) else None
+            scan_out = presence.scan_pulang_hari.get(str(d)) if (presence and presence.scan_pulang_hari) else None
+            
+            kelebihan_str = "-"
+            kekurangan_str = "-"
+            
+            if status == 'M':
+                in_mins = parse_time_str_to_minutes(scan_in)
+                out_mins = parse_time_str_to_minutes(scan_out)
+                
+                if in_mins and out_mins:
+                    if in_mins < s_start:
+                        in_mins = s_start
+                
+                if in_mins and out_mins and out_mins > in_mins:
+                    if in_mins < 13 * 60:
+                        a_dur = max(0, (out_mins - in_mins) - 60)
+                    else:
+                        a_dur = max(0, out_mins - in_mins)
+                    
+                    if a_dur > s_dur:
+                        diff = a_dur - s_dur
+                        total_kelebihan += diff
+                        kelebihan_str = f"{diff // 60}j {diff % 60}m"
+                    elif a_dur < s_dur:
+                        diff_kekurangan = s_dur - a_dur
+                        total_kekurangan += diff_kekurangan
+                        kekurangan_str = f"{diff_kekurangan // 60}j {diff_kekurangan % 60}m"
+                else:
+                    total_kekurangan += s_dur
+                    kekurangan_str = f"{s_dur // 60}j {s_dur % 60}m"
+            elif status == 'A':
+                total_kekurangan += s_dur
+                kekurangan_str = f"{s_dur // 60}j {s_dur % 60}m"
+
+            k_row_kelebihan[str(d)] = kelebihan_str
+            k_row_kekurangan[str(d)] = kekurangan_str
+
+        def format_mins_local(total_mins):
+            h = total_mins // 60
+            m = total_mins % 60
+            if h == 0 and m == 0:
+                return "0m"
+            elif h == 0:
+                return f"{m}m"
+            elif m == 0:
+                return f"{h}j"
+            else:
+                return f"{h}j {m}m"
+
+        k_row_kelebihan['Total'] = format_mins_local(total_kelebihan)
+        k_row_kekurangan['Total'] = format_mins_local(total_kekurangan)
+
+        kelebihan_rows.append(k_row_kelebihan)
+        kekurangan_rows.append(k_row_kekurangan)
+
+    import pandas as pd
+    import io
+    from flask import send_file
+
+    df_kelebihan = pd.DataFrame(kelebihan_rows)
+    df_kekurangan = pd.DataFrame(kekurangan_rows)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_kelebihan.to_excel(writer, sheet_name='Kelebihan', index=False)
+        df_kekurangan.to_excel(writer, sheet_name='Kekurangan', index=False)
+    output.seek(0)
+
+    filename = f"Laporan_Jam_Kerja_Harian_{selected_bulan}_{selected_tahun}.xlsx"
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
     )
 
 @app.route('/master-jam-kerja/detail/<nik>')
@@ -5415,7 +5730,7 @@ def master_jam_kerja_detail(nik):
         selected_tahun=selected_tahun,
         list_bulan=bulans,
         list_tahun=list_tahun,
-        active_page='master-sdm'
+        active_page='sdm-report'
     )
 
 
