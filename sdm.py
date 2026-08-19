@@ -612,7 +612,7 @@ class UserForm(FlaskForm):
     nik = StringField('NIK', validators=[DataRequired(), Length(min=3, max=50)])
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=50)])
     password = StringField('Password (Isi jika ingin diubah)', validators=[Optional(), Length(min=6)])
-    role = SelectField('Role', choices=[('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator'), ('user', 'User')], validators=[DataRequired()])
+    role = SelectField('Role', choices=[('user', 'User'), ('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator')], validators=[DataRequired()])
     submit = SubmitField('Simpan Pengguna')
 
 @app.route('/sdm-dashboard')
@@ -715,10 +715,10 @@ def sdm_dashboard():
         start_year = tmk_date.year if tmk_date else system_date.year
         start_month = tmk_date.month if tmk_date else system_date.month
 
-        # Batasi agar perhitungan pengingat absensi pending di dashboard hanya mulai dari Mei 2026
-        if start_year < 2026 or (start_year == 2026 and start_month < 6):
+        # Batasi agar perhitungan pengingat absensi pending di dashboard hanya mulai dari 1 Agustus 2026
+        if start_year < 2026 or (start_year == 2026 and start_month < 8):
             start_year = 2026
-            start_month = 6
+            start_month = 8
 
         end_year = system_date.year
         end_month = system_date.month
@@ -767,6 +767,10 @@ def sdm_dashboard():
                 try:
                     cell_date = datetime.date(y, m, d)
                 except ValueError:
+                    continue
+
+                # Abaikan tanggal sebelum 1 Agustus 2026
+                if cell_date < datetime.date(2026, 8, 1):
                     continue
 
                 # Batasi sampai sebelum waktu sistem (H-1)
@@ -4090,119 +4094,9 @@ def upload_kehadiran():
     if 'logged_user' not in session:
         return redirect(url_for('login'))
         
-    from datetime import date
-    import datetime
-    system_date = date.today()
-    if 'simulation_date' in session:
-        try:
-            system_date = datetime.datetime.strptime(session['simulation_date'], "%Y-%m-%d").date()
-        except ValueError:
-            pass
-            
-    # Target tanggal upload adalah H-1
-    target_date = system_date - datetime.timedelta(days=1)
-
-    # Check if there are any pending attendance entries (warnings on dashboard)
-    all_kehadiran = db.session.execute(db.select(Kehadiran)).scalars().all()
-    bulan_list = db.session.execute(db.select(Bulan)).scalars().all()
-    bulan_days_map = {b.nama: b.jumlah_hari for b in bulan_list}
-    all_holidays = db.session.execute(db.select(HariLibur)).scalars().all()
-
-    MONTH_NUMBERS = {
-        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
-        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
-        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
-    }
-    
-    has_warning = False
-    for k in all_kehadiran:
-        selected_bulan = k.bulan
-        selected_tahun = k.tahun
-        
-        jumlah_hari = bulan_days_map.get(selected_bulan, 31)
-        if selected_bulan == 'Februari':
-            if (selected_tahun % 4 == 0 and selected_tahun % 100 != 0) or (selected_tahun % 400 == 0):
-                jumlah_hari = 29
-            else:
-                jumlah_hari = 28
-                
-        month_num = MONTH_NUMBERS.get(selected_bulan, 1)
-
-        # Cek jika karyawan sudah resign sebelum bulan ini
-        if k.karyawan and k.karyawan.tanggal_resign:
-            try:
-                dt_resign = datetime.datetime.strptime(k.karyawan.tanggal_resign, "%Y-%m-%d")
-                if selected_tahun > dt_resign.year:
-                    continue
-                if selected_tahun == dt_resign.year and month_num > dt_resign.month:
-                    continue
-            except ValueError:
-                pass
-        
-        # Calculate weekends
-        weekends = set()
-        for d in range(1, jumlah_hari + 1):
-            try:
-                dt = datetime.date(selected_tahun, month_num, d)
-                if dt.weekday() in (5, 6):
-                    weekends.add(d)
-            except ValueError:
-                pass
-                
-        # Calculate holidays
-        holidays = set()
-        for h in all_holidays:
-            if h.tanggal.month == month_num and h.tanggal.year == selected_tahun:
-                holidays.add(h.tanggal.day)
-                
-        # Dapatkan tmk_date untuk karyawan ini
-        tmk_date = None
-        if k.karyawan and k.karyawan.tmk:
-            for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
-                try:
-                    tmk_date = datetime.datetime.strptime(k.karyawan.tmk.strip(), fmt).date()
-                    break
-                except ValueError:
-                    pass
-
-        for d in range(1, jumlah_hari + 1):
-            try:
-                cell_date = datetime.date(selected_tahun, month_num, d)
-            except ValueError:
-                continue
-
-            # Hanya periksa hari kerja lampau sebelum target_date (H-1)
-            if cell_date >= target_date:
-                continue
-
-            # Jangan dihitung jika sebelum TMK
-            if tmk_date and cell_date < tmk_date:
-                continue
-
-            # Jika karyawan resign di bulan ini, lewati pengecekan untuk hari >= tanggal resign
-            if k.karyawan and k.karyawan.tanggal_resign:
-                try:
-                    dt_resign = datetime.datetime.strptime(k.karyawan.tanggal_resign, "%Y-%m-%d").date()
-                    if cell_date >= dt_resign:
-                        continue
-                except ValueError:
-                    pass
-
-            day_str = str(d)
-            db_status = k.status_hari.get(day_str, '')
-            if (d in weekends or d in holidays) and db_status != 'M':
-                continue
-            if db_status == 'P' or db_status == '':
-                has_warning = True
-                break
-        if has_warning:
-            break
+    from datetime import date, datetime, timedelta
 
     if request.method == 'POST':
-        if has_warning:
-            flash("⚠️ Gagal! Anda tidak dapat mengunggah berkas baru karena masih ada data kehadiran berstatus Pending di Dashboard.", "danger")
-            return redirect(url_for('upload_kehadiran'))
-            
         import pandas as pd
         
         file = request.files.get('file')
@@ -4238,8 +4132,6 @@ def upload_kehadiran():
                 return redirect(url_for('upload_kehadiran'))
                 
             # Validasi bahwa semua baris log kehadiran memiliki tanggal yang sama
-            from datetime import date, timedelta, datetime
-            
             unique_dates = set()
             for index, row in df.iterrows():
                 if row.isnull().all():
@@ -4278,11 +4170,133 @@ def upload_kehadiran():
                 
             target_date_str = list(unique_dates)[0]
             target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+            
+            MONTH_MAPPING = {
+                1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+                5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+                9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+            }
+            
+            target_day = str(target_date.day)
+            target_bulan_num = target_date.month
+            target_tahun = target_date.year
+            target_bulan = MONTH_MAPPING[target_bulan_num]
+
+            bulan_list = db.session.execute(db.select(Bulan)).scalars().all()
+            bulan_days_map = {b.nama: b.jumlah_hari for b in bulan_list}
+            all_holidays = db.session.execute(db.select(HariLibur)).scalars().all()
                 
+            # Validasi ketat: Pastikan tidak ada data kehadiran berstatus Pending pada tanggal sebelum target_date (< target_date)
+            # Misalnya upload untuk 19 Agustus 2026 -> tanggal 18 Agustus 2026 dan hari-hari sebelumnya harus bersih dari pending
+            pending_found = False
+            pending_sample_date = None
+            pending_sample_name = None
+
+            all_emp_entries = db.session.execute(db.select(KaryawanEntry)).scalars().all()
+            kehadiran_records = db.session.execute(db.select(Kehadiran)).scalars().all()
+            kh_lookup = {(k.nik, k.bulan, k.tahun): k for k in kehadiran_records}
+
+            INV_MONTH_NAMES = MONTH_MAPPING
+
+            for emp in all_emp_entries:
+                emp_tmk = None
+                if emp.tmk:
+                    for fmt in ("%Y-%m-%d", "%Y-%d-%m", "%d-%m-%Y"):
+                        try:
+                            emp_tmk = datetime.strptime(emp.tmk.strip(), fmt).date()
+                            break
+                        except ValueError:
+                            pass
+                
+                emp_resign = None
+                if emp.tanggal_resign:
+                    try:
+                        emp_resign = datetime.strptime(emp.tanggal_resign.strip(), "%Y-%m-%d").date()
+                    except ValueError:
+                        pass
+
+                # Lewati jika karyawan mulai bekerja pada atau setelah target_date
+                if emp_tmk and emp_tmk >= target_date:
+                    continue
+
+                # Tentukan start year & month untuk pengecekan
+                start_y = emp_tmk.year if emp_tmk else target_date.year
+                start_m = emp_tmk.month if emp_tmk else target_date.month
+
+                # Batasi pengecekan agar mulai dari 1 Agustus 2026 (abaikan Juli 2026 dan sebelumnya)
+                if start_y < 2026 or (start_y == 2026 and start_m < 8):
+                    start_y = 2026
+                    start_m = 8
+
+                curr_y, curr_m = start_y, start_m
+                while (curr_y < target_date.year) or (curr_y == target_date.year and curr_m <= target_date.month):
+                    b_name = INV_MONTH_NAMES[curr_m]
+                    j_hari = bulan_days_map.get(b_name, 31)
+                    if curr_m == 2:
+                        if (curr_y % 4 == 0 and curr_y % 100 != 0) or (curr_y % 400 == 0):
+                            j_hari = 29
+                        else:
+                            j_hari = 28
+
+                    kh_obj = kh_lookup.get((emp.nik, b_name, curr_y))
+                    st_hari = kh_obj.status_hari if kh_obj and kh_obj.status_hari else {}
+
+                    for d in range(1, j_hari + 1):
+                        try:
+                            c_date = date(curr_y, curr_m, d)
+                        except ValueError:
+                            continue
+
+                        # Abaikan tanggal sebelum 1 Agustus 2026
+                        if c_date < date(2026, 8, 1):
+                            continue
+
+                        # Hanya periksa tanggal SEBELUM target_date (< target_date)
+                        if c_date >= target_date:
+                            continue
+
+                        if emp_tmk and c_date < emp_tmk:
+                            continue
+
+                        if emp_resign and c_date >= emp_resign:
+                            continue
+
+                        # Cek weekend (Sabtu/Minggu)
+                        if c_date.weekday() in (5, 6):
+                            continue
+
+                        # Cek hari libur nasional
+                        if any(h.tanggal == c_date for h in all_holidays):
+                            continue
+
+                        status_val = st_hari.get(str(d), '')
+                        if status_val == 'P' or status_val == '':
+                            pending_found = True
+                            pending_sample_date = c_date.strftime("%d/%m/%Y")
+                            pending_sample_name = f"{emp.nama} ({emp.nik})"
+                            break
+
+                    if pending_found:
+                        break
+
+                    curr_m += 1
+                    if curr_m > 12:
+                        curr_m = 1
+                        curr_y += 1
+
+                if pending_found:
+                    break
+
+            if pending_found:
+                flash(
+                    f"⚠️ Gagal! Tidak dapat mengunggah kehadiran tanggal {target_date.strftime('%d/%m/%Y')} karena masih terdapat data kehadiran berstatus Pending pada tanggal sebelumnya (misal tanggal {pending_sample_date} untuk {pending_sample_name}). Harap selesaikan seluruh data pending sebelum tanggal {target_date.strftime('%d/%m/%Y')} terlebih dahulu di Dashboard / Edit Kehadiran!",
+                    "danger"
+                )
+                return redirect(url_for('upload_kehadiran'))
+
             # Ambil semua karyawan aktif pada tanggal target
-            all_employees = db.session.execute(db.select(KaryawanEntry)).scalars().all()
+            all_employees = all_emp_entries
             active_niks = []
-            from datetime import datetime
             for emp in all_employees:
                 # Cek jika tanggal target sebelum TMK karyawan
                 if emp.tmk:
@@ -4327,12 +4341,6 @@ def upload_kehadiran():
             skipped_missing_count = 0
             unique_employees = set()
             processed_niks_in_file = set()
-            
-            MONTH_MAPPING = {
-                1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
-                5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
-                9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
-            }
             
             # Iterasi setiap baris log harian
             for index, row in df.iterrows():
@@ -4492,14 +4500,14 @@ def upload_kehadiran():
             missing_niks = [nik for nik in active_niks if nik not in processed_niks_in_file]
             for m_nik in missing_niks:
                 entry = db.session.execute(
-                    db.select(Kehadiran).where(Kehadiran.nik == m_nik, Kehadiran.bulan == bulan, Kehadiran.tahun == tahun)
+                    db.select(Kehadiran).where(Kehadiran.nik == m_nik, Kehadiran.bulan == target_bulan, Kehadiran.tahun == target_tahun)
                 ).scalar_one_or_none()
                 
                 if not entry:
                     entry = Kehadiran(
                         nik=m_nik,
-                        bulan=bulan,
-                        tahun=tahun,
+                        bulan=target_bulan,
+                        tahun=target_tahun,
                         status_hari={},
                         scan_masuk_hari={},
                         scan_pulang_hari={}
@@ -4511,13 +4519,13 @@ def upload_kehadiran():
                 scan_pulang_dict = dict(entry.scan_pulang_hari) if entry.scan_pulang_hari else {}
                 
                 # Jangan overwrite jika status di DB sudah 'R' (Resign)
-                current_status = status_dict.get(day, '')
+                current_status = status_dict.get(target_day, '')
                 if current_status == 'R':
                     continue
                     
-                status_dict[day] = 'P'
-                scan_masuk_dict[day] = ''
-                scan_pulang_dict[day] = ''
+                status_dict[target_day] = 'P'
+                scan_masuk_dict[target_day] = ''
+                scan_pulang_dict[target_day] = ''
                 
                 entry.status_hari = status_dict
                 entry.scan_masuk_hari = scan_masuk_dict
@@ -4551,7 +4559,7 @@ def upload_kehadiran():
             flash(f"⚠️ Terjadi kesalahan saat membaca berkas Excel: {str(e)}", "danger")
             return redirect(url_for('upload_kehadiran'))
             
-    return render_template('sdm/upload_kehadiran.html', has_warning=has_warning, active_page='sdm-transaksi')
+    return render_template('sdm/upload_kehadiran.html', active_page='sdm-transaksi')
 
 @app.route('/atur-libur')
 def atur_libur():

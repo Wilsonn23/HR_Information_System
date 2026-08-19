@@ -704,6 +704,12 @@ def master_lokasi_kerja():
         # Sort accordion groups alphabetically by their group name
         grouped_data = {k: grouped_dict[k] for k in sorted(grouped_dict.keys())}
         
+    # Build SN lookup map: pkey -> {sn_engine, sn_equipment}
+    all_sn = db.session.execute(
+        db.select(DataEntry.pkey, DataEntry.sn_engine, DataEntry.sn_equipment)
+    ).all()
+    sn_map = {row.pkey: {'sn_engine': row.sn_engine or '', 'sn_equipment': row.sn_equipment or ''} for row in all_sn}
+
     return render_template(
         'aset/master_lokasi_kerja.html', 
         grouped_data=grouped_data, 
@@ -711,6 +717,7 @@ def master_lokasi_kerja():
         selected_filters=selected_filters,
         active_groupby=group_by,
         active_sortby=sort_by,
+        sn_map=sn_map,
         active_page='master'
     )
     
@@ -2934,7 +2941,9 @@ def export_excel():
         wb.save(out_buffer)
         out_buffer.seek(0)
         
-        filename = f"DatabaseMasterExport_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        groupby_label = groupby if groupby and groupby != 'ALL' else 'Semua'
+        groupby_camel = "".join(word.capitalize() for word in groupby_label.replace("_", " ").split())
+        filename = f"Laporan_Unit_Berdasarkan_{groupby_camel}_{datetime.now().strftime('%Y%m%d')}.xlsx"
         return send_file(
             out_buffer,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -3069,182 +3078,6 @@ def export_lokasi_kerja():
     except Exception as e:
         return f"Terjadi kesalahan saat mengekspor Lokasi Kerja ke Excel: {str(e)}", 500
 
-@app.route('/expost/report-unit/excel')
-def export_unit_excel():
-    try:
-        # 1. Ambil data dari database dengan filter pencarian jika ada
-        search_query = request.args.get('search', '').strip()
-        pulau_filter = request.args.get('pulau', '').strip()
-        kota_filter = request.args.get('kota', '').strip()
-        pt_filter = request.args.get('pt', '').strip()
-        unit_filter = request.args.get('unit', '').strip()
-        lokasi_kerja_filter = request.args.get('lokasi_kerja', '').strip()
-        asuransi_filter = request.args.get('nama_asuransi', '').strip()
-        merk_filter = request.args.get('merk', '').strip()
-        kategori_filter = request.args.get('kategori', '').strip()
-        model_filter = request.args.get('eqp_model', '').strip()
-        
-        groupby = request.args.get('groupby', '').strip()
-        groupval = request.args.get('groupval', '').strip()
-        sort_by = request.args.get('sortby', 'id_desc').strip()
-        
-        query = db.select(DataEntry)
-        
-        # Apply filters
-        if search_query:
-            search_pattern = f"%{search_query}%"
-            query = query.where(
-                DataEntry.pulau.ilike(search_pattern) |
-                DataEntry.kota.ilike(search_pattern) |
-                DataEntry.pt.ilike(search_pattern) |
-                DataEntry.unit.ilike(search_pattern) |
-                DataEntry.kode_unit.ilike(search_pattern) |
-                DataEntry.nama_asuransi.ilike(search_pattern) |
-                DataEntry.no_polis.ilike(search_pattern) |
-                DataEntry.no_polisi.ilike(search_pattern) |
-                DataEntry.merk.ilike(search_pattern) |
-                DataEntry.kategori.ilike(search_pattern) |
-                DataEntry.eqp_model.ilike(search_pattern)
-            )
-        if pulau_filter:
-            query = query.where(db.func.upper(DataEntry.pulau) == pulau_filter.upper())
-        if kota_filter:
-            query = query.where(db.func.upper(DataEntry.kota) == kota_filter.upper())
-        if pt_filter:
-            query = query.where(db.func.upper(DataEntry.pt) == pt_filter.upper())
-        if unit_filter:
-            query = query.where(
-                (db.func.upper(DataEntry.unit) == unit_filter.upper()) | 
-                (DataEntry.unit.like(f"%{unit_filter}%"))
-            )
-        if asuransi_filter:
-            query = query.where(db.func.upper(DataEntry.nama_asuransi) == asuransi_filter.upper())
-        if merk_filter:
-            query = query.where(db.func.upper(DataEntry.merk) == merk_filter.upper())
-        if kategori_filter:
-            query = query.where(db.func.upper(DataEntry.kategori) == kategori_filter.upper())
-        if model_filter:
-            query = query.where(db.func.upper(DataEntry.eqp_model) == model_filter.upper())
-        if lokasi_kerja_filter:
-            query = query.where(db.func.upper(DataEntry.lokasi_kerja) == lokasi_kerja_filter.upper())
-            
-        # Apply group filtering
-        if groupby and groupval and groupby != 'ALL':
-            query = query.where(db.func.upper(getattr(DataEntry, groupby)) == groupval.upper())
-            
-        # Apply sorting
-        if sort_by == 'pulau':
-            query = query.order_by(DataEntry.pulau.asc())
-        elif sort_by == 'kota':
-            query = query.order_by(DataEntry.kota.asc())
-        elif sort_by == 'pt':
-            query = query.order_by(DataEntry.pt.asc())
-        elif sort_by == 'unit':
-            query = query.order_by(DataEntry.unit.asc())
-        elif sort_by == 'lokasi_kerja':
-            query = query.order_by(DataEntry.lokasi_kerja.asc())
-        elif sort_by == 'nama_asuransi':
-            query = query.order_by(DataEntry.nama_asuransi.asc())
-        elif sort_by == 'merk':
-            query = query.order_by(DataEntry.merk.asc())
-        elif sort_by == 'kategori':
-            query = query.order_by(DataEntry.kategori.asc())
-        elif sort_by == 'eqp_model':
-            query = query.order_by(DataEntry.eqp_model.asc())
-        else: # id_desc
-            query = query.order_by(DataEntry.id.desc())
-            
-        all_entries = db.session.execute(query).scalars().all()
-        
-        # 2. Inisialisasi Workbook openpyxl
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Master Database"
-        
-        # Otomatis aktifkan grid lines agar tabel terlihat rapi
-        ws.views.sheetView[0].showGridLines = True
-        
-        # 3. Definisi Judul Kolom (Headers)
-        headers = [
-            'No', 'Nama PT', 'Nama Asuransi', 'Pulau', 'Site (Provinsi)', 'CN Unit', 
-            'Status', 'Notes', 'No. Polis', 'No. Polisi', 'Merk', 'Kategori', 'Equipment Model', 
-            'SN Equipment', 'SN Engine', 'Year', 'Status STNK', 'Masa Berlaku STNK', 
-            'Status Asuransi', 'Masa Berlaku Asuransi', 
-            'Diinput Oleh', 'Tanggal Input'
-        ]
-        ws.append(headers)
-        
-        header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        thin_border = Border(
-            left=Side(style='thin', color='CCCCCC'),
-            right=Side(style='thin', color='CCCCCC'),
-            top=Side(style='thin', color='CCCCCC'),
-            bottom=Side(style='thin', color='CCCCCC')
-        )
-        
-        # Terapkan style ke baris header (Baris 1)
-        ws.row_dimensions[1].height = 28
-        for cell in ws[1]:
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_align
-            cell.border = thin_border
-
-        # 5. Iterasi dan Masukkan Data dari Database
-        for idx, entry in enumerate(all_entries, start=1):
-            row_data = [
-                idx, entry.pt, entry.nama_asuransi, entry.pulau, entry.kota, entry.kode_unit, entry.status,
-                entry.notes if entry.notes else '-',
-                entry.no_polis, entry.no_polisi, entry.merk, entry.kategori, entry.eqp_model,
-                entry.sn_equipment, entry.sn_engine, 
-                entry.year,
-                entry.status_stnk, 
-                entry.tanggal_berakhir_stnk if entry.tanggal_berakhir_stnk else '-',
-                entry.status_asuransi,
-                entry.tanggal_berakhir_asuransi if entry.tanggal_berakhir_asuransi else '-',
-                entry.diinput_oleh, entry.tanggal_input if entry.tanggal_input else '-'
-            ]
-            ws.append(row_data)
-            
-            # Format Border dan Alignments untuk Baris Data yang Baru Ditambahkan
-            current_row = ws.max_row
-            ws.row_dimensions[current_row].height = 20
-            
-            for col_num in range(1, len(headers) + 1):
-                cell = ws.cell(row=current_row, column=col_num)
-                cell.border = thin_border
-                cell.font = Font(name="Arial", size=10)
-                
-                # Sisi perataan data
-                if col_num in [1, 6, 14, 15, 16, 17, 18]: # No, CN Unit, Status, Tanggal, Tahun
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-                else:
-                    cell.alignment = Alignment(horizontal="left", vertical="center")
-
-        # 6. Otomatis Menyesuaikan Lebar Kolom Berdasarkan Karakter Terpanjang
-        for col in ws.columns:
-            max_len = max(len(str(cell.value or '')) for cell in col)
-            col_letter = col[0].column_letter
-            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
-
-        # 7. Kirim file ke browser sebagai file download langsung
-        out_buffer = io.BytesIO()
-        wb.save(out_buffer)
-        out_buffer.seek(0)
-        
-        filename = f"Laporan_Unit_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        return send_file(
-            out_buffer,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=filename
-        )
-        
-    except Exception as e:
-        return f"Terjadi kesalahan saat mengekspor ke Excel: {str(e)}", 500
-
 @app.route('/export/report-transaksi/excel')
 def export_transaksi_excel():
     if 'logged_user' not in session:
@@ -3290,7 +3123,7 @@ def export_transaksi_excel():
         )
  
         headers = [
-            'No', 'CN', 'No Mesin', 'Jenis', 'Nama Unit PT', 
+            'No', 'CN', 'No Mesin', 'No Rangka', 'Jenis', 'Nama Unit PT', 
             'Jumlah Dibayar', 'Tanggal Berakhir Baru', 'Diinput Oleh', 'Tanggal Input'
         ]
  
@@ -3315,7 +3148,8 @@ def export_transaksi_excel():
             
             for idx, (entry, report_entry) in enumerate(rows, start=1):
                 row_values = [
-                    idx, entry.kode_unit, entry.sn_engine, report_entry.jenis, entry.unit,
+                    idx, entry.kode_unit, entry.sn_engine or '-', entry.sn_equipment or '-',
+                    report_entry.jenis, entry.unit,
                     report_entry.jumlah_dibayar or 0.0,
                     report_entry.tanggal_berakhir_baru if report_entry.tanggal_berakhir_baru else '-',
                     report_entry.diinput_oleh,
@@ -3331,9 +3165,9 @@ def export_transaksi_excel():
                     cell.border = thin_border
                     cell.font = Font(name="Arial", size=10)
                     
-                    if col_num in [1, 2, 3, 7, 9]: 
+                    if col_num in [1, 2, 3, 4, 8, 10]: 
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif col_num == 6: 
+                    elif col_num == 7: 
                         cell.number_format = '"Rp "#,##0.00'
                         cell.alignment = Alignment(horizontal="right", vertical="center")
                     else:

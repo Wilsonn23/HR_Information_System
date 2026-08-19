@@ -29,6 +29,26 @@
         </h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Pulau - Read Only</label>
+                <input type="text" class="form-control" value="{{ entry.pulau or '-' }}" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Kota - Read Only</label>
+                <input type="text" class="form-control" value="{{ entry.kota or '-' }}" readonly>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">PT - Read Only</label>
+                <input type="text" class="form-control" value="{{ entry.pt or '-' }}" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary">Unit - Read Only</label>
+                <input type="text" class="form-control" value="{{ entry.unit or '-' }}" readonly>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary">Kode Unit (CN) - Read Only</label>
                 {{ form.kode_unit(class="form-control huruf-angka uppercase-input fw-bold text-primary", placeholder="XX123", readonly=true) }}
             </div>

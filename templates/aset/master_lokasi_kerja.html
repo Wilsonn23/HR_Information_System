@@ -19,12 +19,11 @@
                 <input type="hidden" name="groupby" value="{{ active_groupby }}">
                 <input type="hidden" name="sortby" value="{{ active_sortby }}">
                 <div class="card shadow-sm border rounded-3 bg-light p-3">
-                    
-                    <!-- Filter Dropdowns Grid -->
+                    <!-- Filter & Search Dropdowns Grid -->
                     <div class="row g-3">
 
                         <!-- Pulau Filter -->
-                        <div class="col-lg-2.5 col-md-4 col-sm-6">
+                        <div class="col-lg-4 col-md-6 col-sm-12">
                             <label class="form-label fw-bold text-secondary small">🏝️ Pulau:</label>
                             <select name="pulau" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Pulau --</option>
@@ -35,7 +34,7 @@
                         </div>
 
                         <!-- Kota/Site Filter -->
-                        <div class="col-lg-2.5 col-md-4 col-sm-6">
+                        <div class="col-lg-4 col-md-6 col-sm-12">
                             <label class="form-label fw-bold text-secondary small">🌆 Kota/Site:</label>
                             <select name="kota" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Kota --</option>
@@ -46,7 +45,7 @@
                         </div>
 
                         <!-- PT Filter -->
-                        <div class="col-lg-2.5 col-md-4 col-sm-6">
+                        <div class="col-lg-4 col-md-6 col-sm-12">
                             <label class="form-label fw-bold text-secondary small">🏢 Nama PT:</label>
                             <select name="pt" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua PT --</option>
@@ -57,7 +56,7 @@
                         </div>
 
                         <!-- Unit PT Filter -->
-                        <div class="col-lg-2.5 col-md-4 col-sm-6">
+                        <div class="col-lg-4 col-md-6 col-sm-12">
                             <label class="form-label fw-bold text-secondary small">🏬 Unit PT (Owner):</label>
                             <select name="unit" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Unit PT --</option>
@@ -68,7 +67,7 @@
                         </div>
 
                         <!-- Lokasi Kerja Filter -->
-                        <div class="col-lg-2.5 col-md-4 col-sm-6">
+                        <div class="col-lg-4 col-md-6 col-sm-12">
                             <label class="form-label fw-bold text-secondary small">📍 Lokasi Kerja:</label>
                             <select name="lokasi_kerja" class="form-select shadow-sm" style="height: 38px; font-size: 0.875rem;" onchange="this.form.submit()">
                                 <option value="">-- Semua Lokasi Kerja --</option>
@@ -77,13 +76,20 @@
                                 {% endfor %}
                             </select>
                         </div>
+
+                        <!-- Search Input Filter -->
+                        <div class="col-lg-4 col-md-6 col-sm-12">
+                            <label class="form-label fw-bold text-secondary small">🔍 Cari No. Mesin/Rangka:</label>
+                            <input type="text" id="SearchInput" class="form-control uppercase-input shadow-sm" placeholder="No. Mesin / Rangka..." style="height: 38px; font-size: 0.875rem;" autocomplete="off">
+                        </div>
                     </div>
                 </div>
             </form>
 
             <!-- Macro for Rendering Row -->
             {% macro render_row(entry, idx) %}
-            <tr>
+            {% set sn = sn_map.get(entry.pkey, {}) %}
+            <tr data-sn-engine="{{ sn.get('sn_engine', '') }}" data-sn-equipment="{{ sn.get('sn_equipment', '') }}">
                 <td class="text-center text-muted small fw-bold">{{ idx }}</td>
                 <td>
                     {% if entry.pkey %}
@@ -200,6 +206,46 @@
         </div>
     </div>
 </div>
+
+<script>
+    const searchInput = document.getElementById('SearchInput');
+
+    // Prevent form submission when pressing Enter in search box
+    searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
+
+    searchInput.addEventListener('keyup', function () {
+        let filter = this.value.toUpperCase().trim();
+        let rows = document.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            let snEngine    = (row.getAttribute('data-sn-engine') || '').toUpperCase();
+            let snEquipment = (row.getAttribute('data-sn-equipment') || '').toUpperCase();
+
+            if (!filter || snEngine.indexOf(filter) > -1 || snEquipment.indexOf(filter) > -1) {
+                row.style.display = '';
+
+                // Auto-expand parent accordion card jika ada filter
+                let collapseParent = row.closest('.collapse');
+                if (collapseParent && filter !== '') {
+                    let bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseParent);
+                    bsCollapse.show();
+                }
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    document.querySelectorAll('.uppercase-input').forEach(input => {
+        input.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
+        });
+    });
+</script>
 
 <style>
     .position-sticky {

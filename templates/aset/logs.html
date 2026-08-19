@@ -5,7 +5,7 @@
 {% block body_class %}dashboard-page bg-light{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 mt-5 pt-3">
+<div class="container-fluid px-4 pt-3">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
@@ -119,18 +119,7 @@
 
             <!-- Pagination -->
             {% if total_pages > 1 %}
-            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
-
-                <!-- Jump to page -->
-                <form method="GET" action="{{ url_for('view_asset_audit_logs') }}" class="d-flex align-items-center gap-2">
-                    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
-                    <label class="text-muted small fw-semibold mb-0 text-nowrap">Pergi ke halaman:</label>
-                    <input type="number" name="page" min="1" max="{{ total_pages }}"
-                           value="{{ page }}"
-                           class="form-control form-control-sm text-center fw-bold"
-                           style="width: 70px; border-radius: 8px;">
-                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold px-3" style="border-radius: 8px;">Go</button>
-                </form>
+            <div class="d-flex justify-content-end align-items-center mt-4 flex-wrap gap-3">
 
                 <!-- Page buttons -->
                 <nav aria-label="Navigasi Halaman Log">

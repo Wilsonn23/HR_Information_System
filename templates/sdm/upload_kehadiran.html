@@ -23,64 +23,47 @@
             <div class="alert alert-info border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background-color: #f0f7ff;">
                 <h5 class="fw-bold text-primary mb-3"><i class="fas fa-info-circle me-2"></i>Petunjuk Penting Format Berkas</h5>
                 <p class="small text-secondary mb-3">
-                    Sistem akan membaca berkas Excel harian yang Anda unggah. Pastikan berkas Anda memiliki kolom-kolom berikut di baris pertama (header):
+                    Sistem membaca berkas log absensi harian (hasil export mesin fingerprint). Pastikan baris pertama (header) berkas Excel Anda memiliki kolom-kolom berikut:
                 </p>
-                <div class="table-responsive">
+                <div class="table-responsive mb-3">
                     <table class="table table-sm table-bordered text-center small m-0 bg-white" style="border-color: #dbeafe;">
                         <thead style="background-color: #eff6ff; color: #1e40af;">
                             <tr>
-                                <th>No. ID</th>
-                                <th>NIK</th>
-                                <th>Nama</th>
-                                <th>tanggal</th>
-                                <th>scan masuk</th>
-                                <th>scan pulang</th>
+                                <th>No. ID <span class="text-muted fw-normal small">(Opsional)</span></th>
+                                <th>NIK <span class="text-danger fw-bold">*</span></th>
+                                <th>Nama <span class="text-muted fw-normal small">(Opsional)</span></th>
+                                <th>tanggal <span class="text-danger fw-bold">*</span></th>
+                                <th>scan masuk <span class="text-danger fw-bold">*</span></th>
+                                <th>scan pulang <span class="text-danger fw-bold">*</span></th>
                             </tr>
                         </thead>
-                        <tbody class="text-secondary">
+                        <tbody class="text-secondary align-middle">
                             <tr>
                                 <td>1</td>
-                                <td>NIK2026001</td>
+                                <td><span class="badge bg-light text-dark border font-monospace">NIK1001</span></td>
                                 <td>Budi Santoso</td>
-                                <td>27/07/2026</td>
-                                <td>08:00</td>
-                                <td>17:00</td>
+                                <td><span class="badge bg-primary bg-opacity-10 text-primary font-monospace">08/19/2026</span></td>
+                                <td><span class="badge bg-success bg-opacity-10 text-success font-monospace">07:55</span></td>
+                                <td><span class="badge bg-info bg-opacity-10 text-info font-monospace">17:05</span></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <ul class="small text-secondary mt-3 mb-0 ps-3">
-                    <li>Kolom <strong>tanggal</strong> dapat berupa format tanggal Excel standar, `MM/DD/YYYY`.</li>
-                    <li>Kolom <strong>scan masuk</strong> dan <strong>scan pulang</strong> diisi waktu (`HH:MM`). Jika karyawan tidak melakukan scan, kosongkan kolom tersebut.</li>
+                <ul class="small text-secondary mb-0 ps-3 d-flex flex-column gap-1.5">
+                    <li><strong>Satu Tanggal per Berkas:</strong> Berkas Excel wajib berisi data absensi untuk <strong>1 tanggal yang sama</strong> untuk seluruh karyawan.</li>
+                    <li><strong>Format Tanggal:</strong> Kolom <code>tanggal</code> wajib menggunakan format <strong><code>MM/DD/YYYY</code></strong> (Bulan/Hari/Tahun, contoh: <code>08/19/2026</code> untuk 19 Agustus 2026) atau format Date standar Excel.</li>
+                    <li><strong>Format Jam Scan:</strong> Kolom <code>scan masuk</code> dan <code>scan pulang</code> diisi format jam <strong><code>HH:MM</code></strong> (contoh: <code>08:00</code> dan <code>17:00</code>). Jika karyawan tidak melakukan scan / tidak hadir, kosongkan kolom ini.</li>
+                    <li><strong>Validasi Data Pending:</strong> Pastikan seluruh hari kerja <strong>sebelum tanggal dalam berkas</strong> sudah tidak ada yang berstatus <strong>Pending (P)</strong> agar sistem dapat menerima unggahan.</li>
                 </ul>
             </div>
 
             <!-- Form Upload -->
             <form action="{{ url_for('upload_kehadiran') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                {% if has_warning %}
-                <!-- Locked Warning Alert -->
-                <div class="alert alert-danger border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background-color: #fef2f2; color: #991b1b;">
-                    <h5 class="fw-bold mb-2">🚨 Unggah Dinonaktifkan</h5>
-                    <p class="small m-0">
-                        Anda tidak dapat mengunggah berkas kehadiran baru karena masih ada data kehadiran yang berstatus <strong>Pending (P)</strong> di Dashboard. 
-                        Silakan selesaikan seluruh data Pending terlebih dahulu melalui menu Edit Kehadiran sebelum mengunggah berkas baru.
-                    </p>
-                </div>
-                {% endif %}
 
                 <!-- Drag and Drop Zone -->
-                <div id="dropzone" class="border-2 border-dashed rounded-3 p-5 text-center transition-all {% if has_warning %}bg-light cursor-not-allowed text-muted{% else %}cursor-pointer bg-light border-secondary{% endif %}" style="border-color: #cbd5e1 !important;">
+                <div id="dropzone" class="border-2 border-dashed rounded-3 p-5 text-center transition-all cursor-pointer bg-light border-secondary" style="border-color: #cbd5e1 !important;">
                     <div class="py-4">
-                        {% if has_warning %}
-                        <span class="fs-1 mb-3 d-block">🚫</span>
-                        <h5 class="fw-bold text-secondary mb-2">Unggah Absen Dikunci</h5>
-                        <p class="small text-muted mb-4">Selesaikan data pending terlebih dahulu di dashboard</p>
-                        <button type="button" class="btn btn-secondary fw-bold px-4 rounded-pill btn-sm" disabled>
-                            Pilih Berkas Excel
-                        </button>
-                        {% else %}
                         <span class="fs-1 text-primary mb-3 d-block">📤</span>
                         <h5 class="fw-bold text-dark mb-2" id="dropzoneText">Tarik & Lepas file Excel di sini</h5>
                         <p class="small text-muted mb-4">atau klik untuk menelusuri dari penyimpanan Anda</p>
@@ -88,7 +71,6 @@
                         <button type="button" class="btn btn-outline-primary fw-bold px-4 rounded-pill btn-sm" onclick="document.getElementById('fileInput').click()">
                             Pilih Berkas Excel
                         </button>
-                        {% endif %}
                     </div>
                 </div>
 

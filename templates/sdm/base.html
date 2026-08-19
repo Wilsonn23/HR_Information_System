@@ -18,15 +18,7 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    <!-- Debugging Simulation Date Form -->
-                    <form action="/simulasi-tanggal" method="POST" class="d-flex align-items-center ms-auto me-3 mb-2 mb-lg-0 bg-dark bg-opacity-25 p-1 px-2 rounded">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="date" name="sim_date" class="form-control form-control-sm border-0 bg-white text-dark py-0 px-2 fw-semibold" style="width: 135px; height: 26px; font-size: 0.85rem;" value="{{ session.get('simulation_date', '') }}" onchange="this.form.submit()">
-                        {% if session.get('simulation_date') %}
-                            <a href="/simulasi-tanggal/reset" class="btn btn-sm btn-danger py-0 px-2 ms-1 fw-bold text-nowrap" style="height: 26px; line-height: 24px; font-size: 0.75rem;">Reset</a>
-                        {% endif %}
-                    </form>
-                    <ul class="navbar-nav ms-0">
+                    <ul class="navbar-nav ms-auto">
                         {% if session.get('role') == 'admin' %}
                             <li class="nav-item"><a class="nav-link {% if active_page=='users' %}active{% endif %}" href="{{ url_for('manage_users') }}"><i class="fas fa-user-cog me-1"></i>Users</a></li>
                             <li class="nav-item"><a class="nav-link {% if active_page=='sdm-logs' %}active{% endif %}" href="{{ url_for('view_cuti_audit_logs') }}"><i class="fas fa-history me-1"></i>Logs</a></li>
