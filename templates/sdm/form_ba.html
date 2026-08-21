@@ -8,17 +8,6 @@
     <div class="row justify-content-center">
         <div class="col-lg-8 col-md-10 col-12">
             
-            <!-- Alert Section for Flash Messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
 
             <div class="card shadow border-0" style="border-radius: 16px;">
                 
@@ -110,8 +99,9 @@
 
                             <!-- BA Keterangan -->
                             <div class="mb-5">
-                                <label for="ba_keterangan" class="form-label fw-bold text-secondary small">Keterangan / Catatan BA (Opsional)</label>
-                                <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="ba_keterangan" name="ba_keterangan" rows="3" placeholder="Tambahkan catatan khusus tentang persetujuan perpanjangan ini..."></textarea>
+                                <label for="ba_keterangan" class="form-label fw-bold text-secondary small">Keterangan / Catatan BA <span class="text-danger">*</span></label>
+                                <textarea class="form-control bg-light border-0 py-3 px-3 rounded-3 shadow-none" id="ba_keterangan" name="ba_keterangan" rows="3" placeholder="Tambahkan catatan khusus tentang persetujuan perpanjangan ini..." required></textarea>
+                                <div class="invalid-feedback">Harap isi keterangan / catatan Berita Acara (BA).</div>
                             </div>
 
                             <!-- Action Buttons -->
@@ -294,10 +284,10 @@
                                         tanggalKadaluarsaBaru.max = entry.max_extension_date;
                                         tanggalKadaluarsaBaru.value = entry.tanggal_kadaluarsa;
                                         
-                                        // Fill BA details if they exist
-                                        document.getElementById('ba_nomor').value = entry.ba_nomor;
-                                        document.getElementById('ba_tanggal').value = entry.ba_tanggal ? entry.ba_tanggal : "{{ system_date_ymd }}";
-                                        document.getElementById('ba_keterangan').value = entry.ba_keterangan;
+                                        // Reset / Set default values for new BA submission
+                                        document.getElementById('ba_nomor').value = '';
+                                        document.getElementById('ba_tanggal').value = "{{ system_date_ymd }}";
+                                        document.getElementById('ba_keterangan').value = '';
  
                                         baFormDetails.classList.remove('d-none');
                                     }
@@ -327,15 +317,24 @@
 
                 // Periksa apakah salah satu transaksi radio dipilih jika bagian entries-section ditampilkan
                 if (!entriesSection.classList.contains('d-none')) {
-                    const radios = form.querySelectorAll('input[name="entry_id_radio"]');
+                    const radios = form.querySelectorAll('input[name="entry_radio"]');
                     let checked = false;
                     radios.forEach(r => { if (r.checked) checked = true; });
-                    if (!checked) {
+                    if (!checked || !selectedEntryIdInput.value) {
                         event.preventDefault();
                         event.stopPropagation();
                         alert('⚠️ Harap pilih salah satu transaksi cuti dinas untuk diperpanjang.');
                         return;
                     }
+                } else {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!nikSelect.value) {
+                        alert('⚠️ Harap pilih karyawan terlebih dahulu.');
+                    } else {
+                        alert('⚠️ Harap pilih salah satu transaksi cuti dinas untuk diperpanjang.');
+                    }
+                    return;
                 }
 
                 if (!form.checkValidity()) {

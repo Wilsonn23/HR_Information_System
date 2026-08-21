@@ -70,7 +70,7 @@
                         <label class="form-label fw-bold text-secondary small mb-1 invisible">Aksi</label>
                         <div>
                             <button form="downloadForm" type="submit" class="btn fw-bold w-100 shadow-sm rounded-3 d-flex align-items-center justify-content-center gap-2"
-                                style="background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; height: 38px; font-size: 0.9rem;">
+                                style="background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; height: 42px; font-size: 0.9rem;">
                                 📥 Unduh Laporan (Excel)
                             </button>
                         </div>
@@ -114,12 +114,7 @@
                         <tr data-pt="{{ entry.pt }}" data-divisi="{{ entry.divisi }}" data-jabatan="{{ entry.jabatan }}">
                             <td class="text-center text-muted small fw-bold">{{ loop.index }}</td>
                             <td class="text-center fw-bold">{{ entry.nik }}</td>
-                            <td class="fw-bold">
-                                <a href="/master-jam-kerja/detail/{{ entry.nik }}?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="text-decoration-none text-primary d-flex align-items-center gap-1">
-                                    <span>🔍</span>
-                                    <span class="hover-underline">{{ entry.nama }}</span>
-                                </a>
-                            </td>
+                            <td class="fw-semibold">{{ entry.nama }}</td>
                             <td class="text-center">
                                 <span class="badge bg-success-subtle text-success px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">
                                     {{ entry.total_masuk }} hari

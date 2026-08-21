@@ -56,7 +56,7 @@
                                             <th class="text-start" style="width: 25%;">Nama Karyawan</th>
                                             <th style="width: 15%;">Cuti Tahunan Hangus</th>
                                             <th style="width: 15%;">Cuti Dinas Hangus</th>
-                                            <th class="text-start" style="width: 20%;">Keterangan / Alasan (Opsional)</th>
+                                            <th class="text-start" style="width: 20%;">Keterangan / Alasan <span class="text-danger">*</span></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -88,7 +88,8 @@
                                             <td class="text-start">
                                                 <input type="text" class="form-control form-control-sm bg-light border-0 py-1.5 px-3 rounded-3 shadow-none input-keterangan" 
                                                        id="keterangan_{{ emp.nik }}" name="keterangan_{{ emp.nik }}"
-                                                       placeholder="Pilih baris ini untuk mengisi..." disabled>
+                                                       placeholder="Pilih baris ini untuk mengisi..." disabled required>
+                                                <div class="invalid-feedback">Keterangan wajib diisi.</div>
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -189,8 +190,9 @@
                                             <div class="form-text text-muted small mt-1" id="ct-max-hint"></div>
                                         </div>
                                         <div class="mb-4">
-                                            <label class="form-label fw-bold text-secondary small">Keterangan (Opsional)</label>
-                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="ct-keterangan" name="keterangan" rows="2" placeholder="Masukkan Keterangan Disini"></textarea>
+                                            <label class="form-label fw-bold text-secondary small">Keterangan <span class="text-danger">*</span></label>
+                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="ct-keterangan" name="keterangan" rows="2" placeholder="Masukkan Keterangan Disini" required></textarea>
+                                            <div class="invalid-feedback">Harap isi keterangan penghapusan cuti tahunan.</div>
                                         </div>
                                         <button type="submit" id="btn-ct-submit" class="btn btn-danger text-white w-100 py-3 fw-bold shadow-sm" style="border-radius: 8px; border: none;" disabled>
                                             🗑️ Hapus Cuti Tahunan Hangus
@@ -234,8 +236,9 @@
                                             <div class="form-text text-muted small mt-1" id="cd-max-hint"></div>
                                         </div>
                                         <div class="mb-4">
-                                            <label class="form-label fw-bold text-secondary small">Keterangan (Opsional)</label>
-                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="cd-keterangan" name="keterangan" rows="2" placeholder="Masukkan Keterangan Disini"></textarea>
+                                            <label class="form-label fw-bold text-secondary small">Keterangan <span class="text-danger">*</span></label>
+                                            <textarea class="form-control bg-light border-0 py-2 px-3 rounded-3 shadow-none" id="cd-keterangan" name="keterangan" rows="2" placeholder="Masukkan Keterangan Disini" required></textarea>
+                                            <div class="invalid-feedback">Harap isi keterangan penghapusan cuti dinas.</div>
                                         </div>
                                         <button type="submit" id="btn-cd-submit" class="btn btn-primary text-white w-100 py-3 fw-bold shadow-sm" style="border-radius: 8px; border: none;" disabled>
                                             🗑️ Hapus Cuti Dinas Hangus
@@ -303,9 +306,10 @@
 
                 if (isChecked) {
                     inputKeterangan.disabled = false;
+                    inputKeterangan.required = true;
                     inputKeterangan.classList.remove('bg-light');
                     inputKeterangan.classList.add('bg-white', 'border');
-                    inputKeterangan.placeholder = `Penghapusan cuti hangus untuk NIK ${nik} pada ${systemDate}`;
+                    inputKeterangan.placeholder = `Masukkan alasan penghapusan cuti NIK ${nik}`;
                     
                     if (inputJumlahHangus && parseFloat(inputJumlahHangus.max) > 0) {
                         inputJumlahHangus.disabled = false;
@@ -315,6 +319,7 @@
                     }
                 } else {
                     inputKeterangan.disabled = true;
+                    inputKeterangan.required = false;
                     inputKeterangan.classList.add('bg-light');
                     inputKeterangan.classList.remove('bg-white', 'border');
                     inputKeterangan.placeholder = "Pilih baris ini untuk mengisi...";
@@ -430,6 +435,7 @@
         const ctValHangus   = document.getElementById('ct-val-hangus');
         const ctNoHangus    = document.getElementById('ct-no-hangus-msg');
         const ctJumlah      = document.getElementById('ct-jumlah');
+        const ctKeterangan  = document.getElementById('ct-keterangan');
         const ctMaxHint     = document.getElementById('ct-max-hint');
         const ctBtnSubmit   = document.getElementById('btn-ct-submit');
 
@@ -437,7 +443,8 @@
 
         function updateCtState() {
             const val = parseFloat(ctJumlah.value) || 0;
-            ctBtnSubmit.disabled = !(nikSelectIndividu.value && ctCurrentHangus > 0 && val > 0 && val <= ctCurrentHangus);
+            const ket = (ctKeterangan ? ctKeterangan.value : '').trim();
+            ctBtnSubmit.disabled = !(nikSelectIndividu.value && ctCurrentHangus > 0 && val > 0 && val <= ctCurrentHangus && ket !== '');
         }
 
         // --- CD Hangus ---
@@ -448,13 +455,15 @@
         const cdNoHangus     = document.getElementById('cd-no-hangus-msg');
         const cdFormFields   = document.getElementById('cd-form-fields');
         const cdJumlah       = document.getElementById('cd-jumlah');
+        const cdKeterangan   = document.getElementById('cd-keterangan');
         const cdMaxHint      = document.getElementById('cd-max-hint');
         const cdBtnSubmit    = document.getElementById('btn-cd-submit');
         let cdCurrentHangus  = 0;
 
         function updateCdState() {
             const val = parseFloat(cdJumlah.value) || 0;
-            cdBtnSubmit.disabled = !(nikSelectIndividu.value && cdCurrentHangus > 0 && val > 0 && val <= cdCurrentHangus);
+            const ket = (cdKeterangan ? cdKeterangan.value : '').trim();
+            cdBtnSubmit.disabled = !(nikSelectIndividu.value && cdCurrentHangus > 0 && val > 0 && val <= cdCurrentHangus && ket !== '');
         }
 
         // Shared fetch when employee changes
@@ -541,7 +550,9 @@
             });
 
             ctJumlah && ctJumlah.addEventListener('input', updateCtState);
+            ctKeterangan && ctKeterangan.addEventListener('input', updateCtState);
             cdJumlah && cdJumlah.addEventListener('input', updateCdState);
+            cdKeterangan && cdKeterangan.addEventListener('input', updateCdState);
         }
     });
 </script>

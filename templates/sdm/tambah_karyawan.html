@@ -140,20 +140,22 @@
 
                         <!-- Departemen -->
                         <div class="col-md-6 mt-3">
-                            <label for="input_departemen" class="form-label fw-bold text-secondary small">Departemen</label>
+                            <label for="input_departemen" class="form-label fw-bold text-secondary small">
+                                Departemen <span id="departemen_optional_badge" class="text-muted fw-normal d-none">(Opsional untuk Priority 1)</span>
+                            </label>
                             <select class="form-select bg-light border-0 py-2.5 px-3 rounded-3" id="input_departemen" name="departemen" required style="box-shadow: none;">
-                                <option value="" disabled selected>-- Pilih Departemen --</option>
+                                <option value="" selected>-- Pilih Departemen --</option>
                                 {% for dept in list_departemen %}
                                     <option value="{{ dept.nama }}">{{ dept.nama }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="invalid-feedback">Harap pilih departemen karyawan.</div>
+                            <div class="invalid-feedback">Harap pilih departemen karyawan (wajib jika bukan Priority 1).</div>
                         </div>
 
                         <!-- Priority Level -->
                         <div class="col-md-6 mt-3">
-                            <label for="input_priority_level" class="form-label fw-bold text-secondary small">Priority Level (1: Tinggi, 2: Lebih Rendah)</label>
-                            <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_priority_level" name="priority_level" placeholder="Contoh: 1 (Prioritas Utama)" required min="1" step="1" style="box-shadow: none;">
+                            <label for="input_priority_level" class="form-label fw-bold text-secondary small">Priority Level (1: Kepala Divisi, 2+: Lainnya)</label>
+                            <input type="number" class="form-control bg-light border-0 py-2.5 px-3 rounded-3" id="input_priority_level" name="priority_level" placeholder="Contoh: 1 (Kepala Divisi)" required min="1" step="1" style="box-shadow: none;">
                             <div class="invalid-feedback">Harap masukkan priority level berupa angka (minimal 1).</div>
                         </div>
 
@@ -259,6 +261,24 @@
         
         const defaultAbsen = "{{ next_absen }}";
 
+        // Validasi kondisional: Departemen hanya opsional jika Priority Level == 1 (Kepala Divisi)
+        function updateDepartemenValidation() {
+            const priorityVal = inputPriorityLevel.value.trim();
+            const labelBadge = document.getElementById('departemen_optional_badge');
+            
+            if (priorityVal === '1') {
+                inputDepartemen.removeAttribute('required');
+                inputDepartemen.classList.remove('is-invalid');
+                if (labelBadge) labelBadge.classList.remove('d-none');
+            } else {
+                inputDepartemen.setAttribute('required', 'required');
+                if (labelBadge) labelBadge.classList.add('d-none');
+            }
+        }
+
+        inputPriorityLevel.addEventListener('input', updateDepartemenValidation);
+        inputPriorityLevel.addEventListener('change', updateDepartemenValidation);
+
         // Reset form ke keadaan kosong (mode tambah)
         function resetFormToTambah() {
             inputActionType.value = "tambah";
@@ -287,6 +307,8 @@
             inputJamMasuk.value = "08:00";
             inputJamPulang.value = "17:00";
             
+            updateDepartemenValidation();
+
             searchContainer.classList.add('d-none');
             placeholderContainer.classList.add('d-none');
             formFieldsContainer.classList.remove('d-none');
@@ -431,6 +453,8 @@
                         inputJamMasuk.value = data.jam_masuk;
                         inputJamPulang.value = data.jam_pulang;
                         
+                        updateDepartemenValidation();
+                        
                         // Tampilkan form fields
                         placeholderContainer.classList.add('d-none');
                         formFieldsContainer.classList.remove('d-none');
@@ -441,6 +465,9 @@
                     });
             });
         }
+
+        // Jalankan inisialisasi status validasi departemen
+        updateDepartemenValidation();
 
         // Cek jika terdapat parameter 'nik' di URL (digunakan dari tombol edit di master karyawan)
         const urlParams = new URLSearchParams(window.location.search);

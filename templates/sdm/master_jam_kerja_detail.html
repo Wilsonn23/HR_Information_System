@@ -5,15 +5,15 @@
 {% block body_class %}dashboard-page bg-light text-dark{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 mt-5 pt-3">
+<div class="container-fluid px-4 pt-3">
     <div class="card shadow border-0 rounded-3 bg-white text-dark mb-5">
         <div class="card-body p-4">
 
             <!-- Back Link & Header -->
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div>
-                    <a href="/master-jam-kerja?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="btn btn-outline-secondary btn-sm mb-2 fw-bold">
-                        ← Kembali ke Rekap Bulanan
+                    <a href="/master-jam-kerja?bulan={{ selected_bulan }}&tahun={{ selected_tahun }}" class="btn btn-outline-secondary btn-sm mb-2 fw-bold rounded-pill px-3">
+                        ← Kembali ke Master Kelebihan & Kekurangan Jam Kerja
                     </a>
                     <h3 class="fw-bold text-primary m-0">🔍 Detail Harian Jam Kerja: {{ karyawan.nama }}</h3>
                     <p class="text-muted small m-0">Periode: <strong>{{ selected_bulan }} {{ selected_tahun }}</strong> | NIK: <strong>{{ karyawan.nik }}</strong> | Shift: <strong>{{ karyawan.jam_masuk.strftime('%H:%M') }} - {{ karyawan.jam_pulang.strftime('%H:%M') }}</strong></p>
@@ -166,7 +166,7 @@
                     </thead>
                     <tbody>
                         {% for row in daily_details %}
-                        <tr class="{% if row.status == 'A' %}table-danger-bg{% elif row.status == '-' %}text-muted{% endif %}">
+                        <tr class="{% if row.status == 'A' %}table-danger-bg{% elif row.status == 'L' %}table-light text-muted{% elif row.status == '-' %}text-muted{% endif %}">
                             <td class="text-center fw-bold">{{ row.tanggal }}</td>
                             <td class="text-center text-muted small">{{ row.hari }}</td>
                             <td class="text-center">
@@ -174,6 +174,8 @@
                                     <span class="badge bg-success-subtle text-success px-2 py-1 fw-bold">M</span>
                                 {% elif row.status == 'A' %}
                                     <span class="badge bg-danger-subtle text-danger px-2 py-1 fw-bold">A</span>
+                                {% elif row.status == 'L' %}
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1 fw-bold">L</span>
                                 {% elif row.status == 'CT' %}
                                     <span class="badge bg-info-subtle text-info px-2 py-1 fw-bold">CT</span>
                                 {% elif row.status == 'CD' %}

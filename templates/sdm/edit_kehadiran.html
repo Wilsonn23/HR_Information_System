@@ -487,6 +487,8 @@
         let activeCell = null;
         let currentTahunanBalance = 0;
         let currentDinasBalance = 0;
+        let currentTahunanPendingHangus = 0;
+        let currentDinasPendingHangus = 0;
 
         function updateSisaCutiDisplay() {
             const status = modalStatus.value;
@@ -495,10 +497,18 @@
             
             if (status === 'CT') {
                 infoDiv.classList.remove('d-none');
-                infoText.textContent = `💡 Sisa Cuti Tahunan: ${currentTahunanBalance} Hari`;
+                let text = `💡 Sisa Cuti Tahunan: ${currentTahunanBalance} Hari`;
+                if (currentTahunanPendingHangus > 0) {
+                    text += ` (Termasuk ${currentTahunanPendingHangus} hari hangus belum dihapus)`;
+                }
+                infoText.textContent = text;
             } else if (status === 'CD') {
                 infoDiv.classList.remove('d-none');
-                infoText.textContent = `💡 Sisa Cuti Dinas: ${currentDinasBalance} Hari`;
+                let text = `💡 Sisa Cuti Dinas: ${currentDinasBalance} Hari`;
+                if (currentDinasPendingHangus > 0) {
+                    text += ` (Termasuk ${currentDinasPendingHangus} hari hangus belum dihapus)`;
+                }
+                infoText.textContent = text;
             } else {
                 infoDiv.classList.add('d-none');
             }
@@ -659,6 +669,8 @@
                 // Reset display first
                 currentTahunanBalance = 0;
                 currentDinasBalance = 0;
+                currentTahunanPendingHangus = 0;
+                currentDinasPendingHangus = 0;
                 updateSisaCutiDisplay();
 
                 fetch(`/master-cuti/api/balance/${nik}`)
@@ -667,6 +679,8 @@
                         if (data.success) {
                             currentTahunanBalance = data.cuti_tahunan_balance;
                             currentDinasBalance = data.cuti_dinas_balance;
+                            currentTahunanPendingHangus = data.pending_expiration_amount || 0;
+                            currentDinasPendingHangus = data.pending_dinas_hangus || 0;
                             updateSisaCutiDisplay();
                         }
                     })
