@@ -4089,6 +4089,35 @@ def tambah_karyawan():
                 return redirect(url_for('tambah_karyawan'))
                 
             try:
+                # Track perubahan setiap field
+                changes = []
+                field_labels = [
+                    ('nama', 'Nama', nama),
+                    ('pt', 'PT', pt),
+                    ('jabatan', 'Jabatan', jabatan),
+                    ('staff', 'Tipe Staff', staff),
+                    ('divisi', 'Divisi', divisi if divisi else None),
+                    ('departemen', 'Departemen', departemen if departemen else None),
+                    ('priority_level', 'Priority Level', int(priority_level) if priority_level else None),
+                    ('tmk', 'TMK', tmk),
+                    ('jam_masuk', 'Jam Masuk', jam_masuk),
+                    ('jam_pulang', 'Jam Pulang', jam_pulang)
+                ]
+
+                for attr, label, new_val in field_labels:
+                    old_val = getattr(karyawan, attr)
+                    if attr in ('jam_masuk', 'jam_pulang'):
+                        old_val_str = old_val.strftime("%H:%M") if old_val is not None else ""
+                        new_val_str = new_val.strftime("%H:%M") if new_val is not None else ""
+                    else:
+                        old_val_str = str(old_val).strip() if old_val is not None else ""
+                        new_val_str = str(new_val).strip() if new_val is not None else ""
+                        
+                    if old_val_str != new_val_str:
+                        old_display = old_val_str if old_val_str else "(Kosong)"
+                        new_display = new_val_str if new_val_str else "(Kosong)"
+                        changes.append(f"{label}: {old_display} ➔ {new_display}")
+
                 karyawan.nama = nama
                 karyawan.pt = pt
                 karyawan.jabatan = jabatan
@@ -4102,7 +4131,12 @@ def tambah_karyawan():
                 karyawan.dilakukan_oleh = session.get('logged_user', 'system')
                 karyawan.tanggal_aksi = datetime.now()
                 
-                sdm_log('EDIT_KARYAWAN', 'KARYAWAN', f"Edit data karyawan: '{nama}' (NIK: {nik}, PT: {pt}, Jabatan: {jabatan}, Tipe Staff: {staff}, TMK: {tmk}).", nik=nik, nama_karyawan=nama)
+                if changes:
+                    detail_log = " | ".join(changes)
+                else:
+                    detail_log = "Data disimpan ulang tanpa perubahan nilai."
+
+                sdm_log('EDIT_KARYAWAN', 'KARYAWAN', detail_log, nik=nik, nama_karyawan=nama)
                 db.session.commit()
                 flash(f"✅ Data karyawan '{nama}' (NIK: {nik}) berhasil diperbarui!", "success")
                 return redirect(url_for('master_karyawan'))

@@ -78,6 +78,8 @@
                             <td class="text-center">
                                 {% set aksi_map = {
                                     'TAMBAH_KARYAWAN': ('success', 'TAMBAH KARYAWAN'),
+                                    'EDIT_KARYAWAN': ('warning text-dark', 'EDIT KARYAWAN'),
+                                    'EDIT_KEHADIRAN': ('info text-dark', 'EDIT KEHADIRAN'),
                                     'IMPORT_KARYAWAN': ('success', 'IMPOR KARYAWAN'),
                                     'RESIGN': ('danger', 'RESIGN / NONAKTIF'),
                                     'TAMBAH_CUTI_DINAS': ('success', 'TAMBAH CUTI DINAS'),
@@ -104,8 +106,39 @@
                                 <span class="text-muted small fst-italic">—</span>
                                 {% endif %}
                             </td>
-                            <td class="small text-muted text-wrap">
-                                {{ log.detail or '—' }}
+                            <td class="small text-wrap">
+                                {% if log.detail %}
+                                    {% if ' | ' in log.detail or ' ➔ ' in log.detail %}
+                                        <div class="d-flex flex-column gap-1.5">
+                                            {% for segment in log.detail.split(' | ') %}
+                                                {% if ' ➔ ' in segment %}
+                                                    {% set seg_parts = segment.split(': ', 1) %}
+                                                    {% if seg_parts|length == 2 %}
+                                                        {% set val_parts = seg_parts[1].split(' ➔ ') %}
+                                                        <div class="d-flex align-items-center flex-wrap gap-1">
+                                                            <span class="badge bg-light text-dark border px-2 py-1 fw-bold" style="font-size: 0.78rem;">{{ seg_parts[0] }}</span>
+                                                            <span class="text-danger small"><del>{{ val_parts[0] }}</del></span>
+                                                            <i class="fas fa-arrow-right text-muted mx-1" style="font-size: 0.7rem;"></i>
+                                                            <span class="text-success fw-bold small">{{ val_parts[1] }}</span>
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="text-dark fw-semibold">{{ segment }}</div>
+                                                    {% endif %}
+                                                {% elif segment.startswith('Ket: ') %}
+                                                    <div class="text-muted fst-italic mt-0.5" style="font-size: 0.8rem;">
+                                                        <i class="fas fa-info-circle me-1 text-primary"></i>{{ segment }}
+                                                    </div>
+                                                {% else %}
+                                                    <div class="text-secondary fw-semibold">{{ segment }}</div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-secondary">{{ log.detail }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">—</span>
+                                {% endif %}
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-secondary px-2.5 py-1">{{ log.dilakukan_oleh }}</span>
