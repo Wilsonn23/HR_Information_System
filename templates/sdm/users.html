@@ -23,7 +23,7 @@
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold">NIK</label>
-                            {{ form.nik(class="form-control nik-input", placeholder="Nomor Induk Karyawan", oninput="this.value=this.value.toUpperCase()") }}
+                            {{ form.nik(class="form-control nik-input", placeholder="Nomor Induk Karyawan", pattern="[A-Za-z0-9]+", title="NIK hanya boleh berisi huruf dan angka", oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')") }}
                         </div>
                         
                         <div class="mb-3">

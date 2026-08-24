@@ -110,7 +110,6 @@
         </div>
     </div>
 
-    <!--
     <footer class="select-module-footer">
         <div class="select-module-footer-inner">
             <span class="select-module-footer-brand"><i class="fas fa-shield-alt me-1"></i> HR Information System</span>
@@ -118,7 +117,16 @@
             <span>&copy; 2026 Wilson. All rights reserved.</span>
         </div>
     </footer>
-    -->
+
+    <!-- Floating Help Button di Ujung Kanan Bawah -->
+    <a href="https://docs.google.com/document/d/1XzfGbZ5opx-r0V8CUrj5UiAlvPPbCg_rXODfxaIbk94/edit?usp=sharing" 
+       target="_blank" 
+       rel="noopener noreferrer" 
+       class="help-floating-btn shadow-lg" 
+       title="Bantuan / Panduan Sistem">
+        <i class="fas fa-question-circle"></i>
+        <span>Help</span>
+    </a>
 </div>
 
 
@@ -214,6 +222,34 @@
     }
     .select-module-footer-divider {
         color: rgba(255, 255, 255, 0.2);
+    }
+    .help-floating-btn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1050;
+        background: #ffffff;
+        color: #0052d4;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.92rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1.5px solid rgba(255, 255, 255, 0.9);
+    }
+    .help-floating-btn i {
+        font-size: 1.05rem;
+    }
+    .help-floating-btn:hover {
+        background: #f8fafc;
+        color: #003699;
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
     }
 </style>
 {% endblock %}

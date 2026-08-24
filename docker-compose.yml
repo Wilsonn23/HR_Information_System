@@ -6,9 +6,9 @@ services:
     container_name: hris_postgres_db
     restart: always
     environment:
-      POSTGRES_DB: hris_db
+      POSTGRES_DB: ${DB_NAME:-hris_db}
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Topuinoknok123!@#
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -22,9 +22,9 @@ services:
       - "5000:5000"
     environment:
       - DB_HOST=db
-      - DB_NAME=hris_db
-      - DB_PASSWORD=Topuinoknok123!@#
-      - SECRET_KEY=TopSecretKey1234!@#$
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - db
 

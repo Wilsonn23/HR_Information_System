@@ -1,2 +1,3 @@
-DB_PASSWORD=
-DB_NAME=
+DB_PASSWORD=your_password_here
+DB_NAME=hris_db
+SECRET_KEY=your_secret_key_here

@@ -5,7 +5,7 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, SubmitField
-from wtforms.validators import DataRequired, Optional, Length
+from wtforms.validators import DataRequired, Optional, Length, Regexp
 from werkzeug.security import generate_password_hash
 
 from app import app, db, csrf, UserEntry, KaryawanEntry, Bulan, Kehadiran, Cuti, HariLibur, CutiManual, SdmActivityLog, Jabatan, PT, Kota, Unit, SdmPT, SdmDivisi, SdmDepartemen
@@ -647,7 +647,11 @@ def reset_simulasi_tanggal():
     return redirect(ref)
 
 class UserForm(FlaskForm):
-    nik = StringField('NIK', validators=[DataRequired(), Length(min=3, max=50)])
+    nik = StringField('NIK', validators=[
+        DataRequired(message="NIK wajib diisi!"),
+        Length(min=3, max=50, message="NIK harus antara 3 sampai 50 karakter!"),
+        Regexp(r'^[a-zA-Z0-9]+$', message="NIK hanya boleh berisi huruf dan angka (tanpa spasi/simbol)!")
+    ])
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=50)])
     password = StringField('Password (Isi jika ingin diubah)', validators=[Optional(), Length(min=6)])
     role = SelectField('Role', choices=[('user', 'User'), ('operasional', 'Staff Operasional'), ('hr', 'Staff SDM'), ('admin', 'Administrator')], validators=[DataRequired()])
@@ -3909,7 +3913,14 @@ def cek_cuti():
     cuti_tahunan_balance = 0
     cuti_tahunan_used = 0
     cuti_tahunan_expired = 0
+    cuti_tahunan_next_hangus_date = None
+    cuti_tahunan_next_hangus_amount = 0
+    cuti_tahunan_pending_hangus = 0
+
     cuti_dinas_balance = 0
+    cuti_dinas_next_hangus_date = None
+    cuti_dinas_next_hangus_amount = 0
+    cuti_dinas_pending_hangus = 0
     riwayat = []
 
     if user_nik:
@@ -3971,6 +3982,10 @@ def manage_users():
     
     if form.validate_on_submit():
         nik_clean = form.nik.data.strip().upper()
+        if not nik_clean.isalnum():
+            flash("⚠️ NIK hanya boleh berisi huruf dan angka (tanpa spasi atau simbol)!", "danger")
+            return redirect(url_for('manage_users'))
+            
         username_clean = form.username.data.strip()
         existing_user = db.session.execute(db.select(UserEntry).where(UserEntry.username == username_clean)).scalar_one_or_none()
         
@@ -3986,6 +4001,10 @@ def manage_users():
                 db.session.commit()
                 flash(f"Pengguna '{username_clean}' (NIK: {nik_clean}) berhasil didaftarkan.", "success")
                 return redirect(url_for('manage_users'))
+    elif request.method == 'POST':
+        for field_name, errors in form.errors.items():
+            for error in errors:
+                flash(f"⚠️ {error}", "danger")
 
     all_users = db.session.execute(db.select(UserEntry).order_by(UserEntry.id)).scalars().all()
     return render_template('sdm/users.html', form=form, users=all_users, active_page='users')
