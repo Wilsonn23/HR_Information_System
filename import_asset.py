@@ -2,21 +2,26 @@
 Script to import equipment data from an Excel file into the application's database.
 
 Usage:
-	python insert.py data.xlsx [--dry-run]
+	python import_asset.py data.xlsx [--dry-run] [--update]
 
-The script will attempt to map common column names from the spreadsheet
-to the `DataEntry` model fields. It skips rows where `pkey` already
-exists in the database (to avoid duplicates).
+The script will map common column names from the spreadsheet
+to the `DataEntry` model fields, auto-register master tables
+(Pulau, Kota, PT, Unit, NamaAsuransi, Merk, Kategori, LokasiKerja),
+and insert/update entries in the database.
 """
 
 import sys
 import argparse
-from datetime import datetime
-
-import pandas as pd
+from datetime import datetime, date
+import os
 import re
 
-from app import app, db, DataEntry, Pulau, Kota, PT, Unit
+import pandas as pd
+
+from app import (
+	app, db, DataEntry, Pulau, Kota, PT, Unit,
+	NamaAsuransi, Merk, Kategori, LokasiKerja, KodeUnit
+)
 
 
 COMMON_MAP = {
@@ -24,32 +29,72 @@ COMMON_MAP = {
 	'pulau': 'pulau',
 	'kota': 'kota',
 	'pt': 'pt',
+	'perusahaan': 'pt',
 	'unit': 'unit',
 	'kode_unit': 'kode_unit',
 	'kode unit': 'kode_unit',
 	'cn': 'kode_unit',
+	'code unit': 'kode_unit',
 	'pkey': 'pkey',
 	'lokasi_kerja': 'lokasi_kerja',
 	'lokasi kerja': 'lokasi_kerja',
+	'lokasi': 'lokasi_kerja',
+	'site': 'lokasi_kerja',
 	'nama_asuransi': 'nama_asuransi',
 	'nama_2026': 'nama_asuransi',
 	'nama asuransi': 'nama_asuransi',
+	'asuransi': 'nama_asuransi',
+	'perusahaan asuransi': 'nama_asuransi',
 	'no_polis': 'no_polis',
 	'no polis': 'no_polis',
+	'nomor polis': 'no_polis',
+	'polis': 'no_polis',
 	'no_polis_2026': 'no_polis',
-    'no_polisi': 'no_polisi',
+	'no_polisi': 'no_polisi',
 	'no polisi': 'no_polisi',
+	'nomor polisi': 'no_polisi',
+	'nopol': 'no_polisi',
+	'plat': 'no_polisi',
+	'plat nomor': 'no_polisi',
+	'no plat': 'no_polisi',
 	'akhir_2026': 'tanggal_berakhir_asuransi',
 	'akhir 2026': 'tanggal_berakhir_asuransi',
 	'stnk': 'tanggal_berakhir_stnk',
+	'tgl stnk': 'tanggal_berakhir_stnk',
+	'pajak stnk': 'tanggal_berakhir_stnk',
+	'jatuh tempo stnk': 'tanggal_berakhir_stnk',
+	'exp stnk': 'tanggal_berakhir_stnk',
+	'expired stnk': 'tanggal_berakhir_stnk',
+	'berakhir stnk': 'tanggal_berakhir_stnk',
 	'merk': 'merk',
+	'brand': 'merk',
 	'kategori': 'kategori',
+	'category': 'kategori',
+	'jenis': 'kategori',
 	'eqp_model': 'eqp_model',
 	'eqp model': 'eqp_model',
+	'model': 'eqp_model',
+	'tipe': 'eqp_model',
+	'type': 'eqp_model',
 	'sn_equipment': 'sn_equipment',
 	'sn equipment': 'sn_equipment',
+	'sn_eqp': 'sn_equipment',
+	'sn eqp': 'sn_equipment',
+	'sn_unit': 'sn_equipment',
+	'sn unit': 'sn_equipment',
+	'serial number': 'sn_equipment',
+	'serial no': 'sn_equipment',
+	'no rangka': 'sn_equipment',
+	'nomor rangka': 'sn_equipment',
+	'chassis no': 'sn_equipment',
 	'sn_engine': 'sn_engine',
 	'sn engine': 'sn_engine',
+	'sn mesin': 'sn_engine',
+	'sn_mesin': 'sn_engine',
+	'no mesin': 'sn_engine',
+	'nomor mesin': 'sn_engine',
+	'engine no': 'sn_engine',
+	'engine number': 'sn_engine',
 	'status_stnk': 'status_stnk',
 	'status stnk': 'status_stnk',
 	'status_asuransi': 'status_asuransi',
@@ -60,8 +105,16 @@ COMMON_MAP = {
 	'tanggal_berakhir_asuransi': 'tanggal_berakhir_asuransi',
 	'tgl_berakhir_asuransi': 'tanggal_berakhir_asuransi',
 	'tanggal berakhir asuransi': 'tanggal_berakhir_asuransi',
+	'tgl asuransi': 'tanggal_berakhir_asuransi',
+	'jatuh tempo asuransi': 'tanggal_berakhir_asuransi',
+	'exp asuransi': 'tanggal_berakhir_asuransi',
+	'expired asuransi': 'tanggal_berakhir_asuransi',
+	'berakhir asuransi': 'tanggal_berakhir_asuransi',
 	'year': 'year',
 	'tahun': 'year',
+	'thn': 'year',
+	'tahun pembuatan': 'year',
+	'tahun rakit': 'year',
 	'pembulatan_stnk': 'pembulatan_stnk',
 	'pembulatan_asuransi': 'pembulatan_asuransi',
 	'total_stnk': 'total_stnk',
@@ -70,6 +123,7 @@ COMMON_MAP = {
 	'harus_dibayar_asuransi': 'harus_dibayar_asuransi',
 	'notes': 'notes',
 	'catatan': 'notes',
+	'keterangan': 'notes',
 	'tanggal_input': 'tanggal_input',
 	'diinput_oleh': 'diinput_oleh',
 }
@@ -281,11 +335,26 @@ def map_row_to_entry(row, colmap):
 	return data
 
 
-def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
-	df = pd.read_excel(path)
+def import_excel(path, dry_run=False, update_existing=False, debug_file=None, start=0, limit=None):
+	if not os.path.exists(path):
+		print(f"Error: Berkas '{path}' tidak ditemukan.")
+		return 0, 0, 0, 0, []
+
+	ext = path.split('.')[-1].lower()
+	engine = 'openpyxl' if ext == 'xlsx' else ('xlrd' if ext == 'xls' else None)
+	try:
+		if engine:
+			df = pd.read_excel(path, engine=engine)
+		else:
+			df = pd.read_excel(path)
+	except Exception as e:
+		print(f"Error saat membaca berkas Excel: {e}")
+		return 0, 0, 0, 0, []
+
 	colmap = normalize_columns(df.columns)
 
 	inserted = 0
+	updated = 0
 	skipped = 0
 	errors = 0
 	failed_rows = []
@@ -298,12 +367,16 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 			try:
 				mapped = map_row_to_entry(row, colmap)
 
-				# Ensure master records exist to satisfy FK constraints
+				# Ensure master records exist to satisfy FK constraints and populate dropdowns
 				def ensure_master(m):
 					pulau_name = (m.get('pulau') or '').strip() or 'UNKNOWN'
 					kota_name = (m.get('kota') or '').strip() or 'UNKNOWN'
 					pt_name = (m.get('pt') or '').strip() or 'UNKNOWN'
 					unit_name = (m.get('unit') or '').strip() or (m.get('kode_unit') or 'UNKNOWN_UNIT')
+					lokasi_name = (m.get('lokasi_kerja') or '').strip()
+					asuransi_name = (m.get('nama_asuransi') or '').strip()
+					merk_name = (m.get('merk') or '').strip()
+					kategori_name = (m.get('kategori') or '').strip()
 
 					pulau_obj = None
 					kota_obj = None
@@ -326,7 +399,6 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 							kota_obj = db.session.execute(db.select(Kota).where(db.func.upper(Kota.nama) == kota_name.upper(), Kota.reference == pulau_obj.id)).scalar_one_or_none()
 						if not kota_obj:
 							ref_id = pulau_obj.id if pulau_obj else None
-							# create kota with pulau reference if available
 							kota_obj = Kota(nama=kota_name, reference=ref_id if ref_id is not None else 0, dilakukan_oleh='Import Script')
 							db.session.add(kota_obj)
 							db.session.flush()
@@ -355,8 +427,53 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 							db.session.add(unit_obj)
 							db.session.flush()
 
-				# flush creations so FK ids exist for later logic
-				# note: we don't commit here; per-row commit happens later
+					# Nama Asuransi
+					if asuransi_name and asuransi_name.upper() not in ('NAN', 'NONE', '-', ''):
+						asuransi_obj = db.session.execute(db.select(NamaAsuransi).where(db.func.upper(NamaAsuransi.nama) == asuransi_name.upper())).scalar_one_or_none()
+						if not asuransi_obj:
+							asuransi_obj = NamaAsuransi(nama=asuransi_name, dilakukan_oleh='Import Script')
+							db.session.add(asuransi_obj)
+							db.session.flush()
+
+					# Merk
+					if merk_name and merk_name.upper() not in ('NAN', 'NONE', '-', ''):
+						merk_obj = db.session.execute(db.select(Merk).where(db.func.upper(Merk.nama) == merk_name.upper())).scalar_one_or_none()
+						if not merk_obj:
+							merk_obj = Merk(nama=merk_name, dilakukan_oleh='Import Script')
+							db.session.add(merk_obj)
+							db.session.flush()
+
+					# Kategori
+					if kategori_name and kategori_name.upper() not in ('NAN', 'NONE', '-', ''):
+						kategori_obj = db.session.execute(db.select(Kategori).where(db.func.upper(Kategori.nama) == kategori_name.upper())).scalar_one_or_none()
+						if not kategori_obj:
+							kategori_obj = Kategori(nama=kategori_name, dilakukan_oleh='Import Script')
+							db.session.add(kategori_obj)
+							db.session.flush()
+
+					# Lokasi Kerja
+					if lokasi_name and lokasi_name.upper() not in ('NAN', 'NONE', '-', ''):
+						kode_u = m.get('kode_unit') or '-'
+						owner_u = m.get('unit') or '-'
+						lokasi_obj = db.session.execute(
+							db.select(LokasiKerja).where(
+								db.func.upper(LokasiKerja.nama) == lokasi_name.upper(),
+								db.func.upper(LokasiKerja.kode_unit) == kode_u.upper()
+							)
+						).scalar_one_or_none()
+						if not lokasi_obj:
+							lokasi_obj = LokasiKerja(
+								kode_unit=kode_u,
+								owner=owner_u,
+								pulau=pulau_name,
+								kota=kota_name,
+								pt=pt_name,
+								nama=lokasi_name,
+								dilakukan_oleh='Import Script'
+							)
+							db.session.add(lokasi_obj)
+							db.session.flush()
+
 				ensure_master(mapped)
 
 				pkey = mapped.get('pkey')
@@ -367,9 +484,25 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 
 				exists = db.session.get(DataEntry, pkey)
 				if exists:
-					print(f"Skipping existing pkey={pkey}")
-					skipped += 1
-					continue
+					if update_existing:
+						if dry_run:
+							print(f"Would update existing pkey={pkey}")
+							updated += 1
+							continue
+						# Update attributes
+						for k, v in mapped.items():
+							if k == 'pkey':
+								continue
+							if hasattr(exists, k):
+								setattr(exists, k, v)
+						db.session.commit()
+						updated += 1
+						print(f"Updated pkey={pkey}")
+						continue
+					else:
+						print(f"Skipping existing pkey={pkey} (use --update to overwrite)")
+						skipped += 1
+						continue
 
 				if dry_run:
 					print(f"Would insert pkey={pkey}")
@@ -377,14 +510,12 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 					continue
 
 				entry = DataEntry(pkey=pkey)
-				# set all mapped attributes
 				for k, v in mapped.items():
 					if k == 'pkey':
 						continue
 					if hasattr(entry, k):
 						setattr(entry, k, v)
 					else:
-						# still set attribute even if not defined on model (SQLAlchemy will ignore unknowns on commit)
 						try:
 							setattr(entry, k, v)
 						except Exception:
@@ -399,7 +530,6 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 				err_msg = f"{type(e).__name__}: {e}"
 				print(f"Error importing row {idx+1} (pkey={pkey if 'pkey' in locals() else 'N/A'}): {err_msg}")
 				errors += 1
-				# capture original row data plus error
 				try:
 					rdata = row.to_dict()
 				except Exception:
@@ -407,31 +537,43 @@ def import_excel(path, dry_run=False, debug_file=None, start=0, limit=None):
 				rdata.update({"__error": err_msg, "__pkey": mapped.get('pkey') if 'mapped' in locals() else None, "__row": idx+1})
 				failed_rows.append(rdata)
 
-	return inserted, skipped, errors, failed_rows
+	return inserted, updated, skipped, errors, failed_rows
 
 
 
 def main():
-	parser = argparse.ArgumentParser(description='Import Excel to DB')
-	parser.add_argument('file', help='Path to Excel file')
+	parser = argparse.ArgumentParser(description='Import Excel to DB (Asset Management)')
+	parser.add_argument('file', help='Path to Excel file (.xlsx / .xls)')
 	parser.add_argument('--dry-run', action='store_true', help='Do not commit, just report')
+	parser.add_argument('--update', action='store_true', help='Update existing entries if pkey already exists')
 	parser.add_argument('--debug-file', default='failed_rows.csv', help='Write rows that failed to this CSV')
 	parser.add_argument('--start', type=int, default=0, help='Start row index (0-based)')
 	parser.add_argument('--limit', type=int, default=None, help='Maximum number of rows to process')
 	args = parser.parse_args()
 
-	inserted, skipped, errors, failed_rows = import_excel(args.file, dry_run=args.dry_run, debug_file=args.debug_file, start=args.start, limit=args.limit)
-	print('\nSummary:')
-	print(f'  Inserted: {inserted}')
-	print(f'  Skipped:  {skipped}')
-	print(f'  Errors:   {errors}')
+	inserted, updated, skipped, errors, failed_rows = import_excel(
+		args.file,
+		dry_run=args.dry_run,
+		update_existing=args.update,
+		debug_file=args.debug_file,
+		start=args.start,
+		limit=args.limit
+	)
+	print('\n' + '='*40)
+	print('📊 Ringkasan Impor Aset:')
+	print(f'   - Data Baru Ditambahkan (Inserted): {inserted}')
+	if updated > 0:
+		print(f'   - Data Diperbarui (Updated):        {updated}')
+	print(f'   - Dilewati (Skipped):               {skipped}')
+	print(f'   - Galat/Error (Errors):             {errors}')
+	print('='*40)
 
 	if failed_rows and args.debug_file:
 		try:
 			pd.DataFrame(failed_rows).to_csv(args.debug_file, index=False)
-			print(f"Wrote {len(failed_rows)} failed rows to {args.debug_file}")
+			print(f"Detail baris galat disimpan ke: {args.debug_file}")
 		except Exception as e:
-			print(f"Failed to write debug file: {e}")
+			print(f"Gagal menulis file debug: {e}")
 
 
 if __name__ == '__main__':

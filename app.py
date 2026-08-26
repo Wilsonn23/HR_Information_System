@@ -124,11 +124,11 @@ def batasi_akses_global():
     # Define route prefix groups for each module
     sdm_prefixes = [
         '/sdm-dashboard', '/sdm-transaksi', '/master-sdm', '/master-karyawan', 
-        '/upload-karyawan', '/hapus-cuti', '/logs-cuti', '/nonaktifkan-karyawan', 
+        '/hapus-cuti', '/logs-cuti', '/nonaktifkan-karyawan', 
         '/master-cuti', '/tambah-cuti-dinas', '/form-ba', '/generate-laporan', 
         '/master-bulan', '/master-kehadiran', '/users', '/tambah-karyawan', 
         '/upload-kehadiran', '/atur-libur', '/edit-kehadiran', '/master-jam-kerja', 
-        '/simulasi-tanggal', '/master-jabatan', '/master-sdm-pt', '/import-karyawan',
+        '/simulasi-tanggal', '/master-jabatan', '/master-sdm-pt',
         '/master-sdm-divisi', '/master-sdm-departemen'
     ]
     
