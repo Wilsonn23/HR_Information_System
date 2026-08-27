@@ -17,8 +17,10 @@
         <div class="col-lg-4">
             <div class="card shadow border-0 rounded-3 h-100">
                 <div class="card-body p-4">
-                    <h5 class="fw-bold text-primary mb-3">👤 Daftarkan Akun Baru</h5>
-                    <form method="POST" action="{{ url_for('manage_users') }}">
+                    <h5 class="fw-bold {% if edit_user %}text-warning{% else %}text-primary{% endif %} mb-3">
+                        {% if edit_user %}✏️ Edit Akun Pengguna{% else %}👤 Daftarkan Akun Baru{% endif %}
+                    </h5>
+                    <form method="POST" action="{% if edit_user %}{{ url_for('edit_user', user_id=edit_user.id) }}{% else %}{{ url_for('manage_users') }}{% endif %}">
                         {{ form.csrf_token }}
                         
                         <div class="mb-3">
@@ -33,7 +35,8 @@
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Password</label>
-                            {{ form.password(class="form-control", type="password", placeholder="Password (Minimal 6 karakter)") }}
+                            {% set password_placeholder = 'Kosongkan jika tidak diubah' if edit_user else 'Password (Minimal 6 karakter)' %}
+                            {{ form.password(class="form-control", type="password", placeholder=password_placeholder) }}
                         </div>
                         
                         <div class="mb-3">
@@ -41,7 +44,10 @@
                             {{ form.role(class="form-select") }}
                         </div>
                         
-                        {{ form.submit(class="btn btn-primary w-100 fw-bold shadow-sm mt-2") }}
+                        {{ form.submit(class="btn btn-warning w-100 fw-bold shadow-sm mt-2" if edit_user else "btn btn-primary w-100 fw-bold shadow-sm mt-2") }}
+                        {% if edit_user %}
+                        <a href="{{ url_for('manage_users') }}" class="btn btn-outline-secondary w-100 fw-bold mt-2">Batal</a>
+                        {% endif %}
                     </form>
                 </div>
             </div>
@@ -82,6 +88,11 @@
                                          {% endif %}
                                     </td>
                                     <td class="text-center">
+                                        {% if edit_user and edit_user.id == u.id %}
+                                        <a href="{{ url_for('manage_users') }}" class="btn btn-sm btn-outline-secondary py-1 px-3 me-1">Batal</a>
+                                        {% else %}
+                                        <a href="{{ url_for('edit_user', user_id=u.id) }}" class="btn btn-sm btn-outline-primary py-1 px-3 me-1">Edit</a>
+                                        {% endif %}
                                         <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus permanen akses akun untuk user ini?');" style="display:inline;">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-3">Hapus Akses</button>

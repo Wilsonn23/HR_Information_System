@@ -3769,7 +3769,68 @@ def manage_users():
                 flash(f"⚠️ {error}", "danger")
 
     all_users = db.session.execute(db.select(UserEntry).order_by(UserEntry.id)).scalars().all()
-    return render_template('sdm/users.html', form=form, users=all_users, active_page='users')
+    return render_template('sdm/users.html', form=form, users=all_users, active_page='users', edit_user=None)
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+def edit_user(user_id):
+    if 'logged_user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    user_to_edit = db.session.get(UserEntry, user_id)
+    if not user_to_edit:
+        flash("⚠️ Pengguna yang ingin diedit tidak ditemukan.", "danger")
+        return redirect(url_for('manage_users'))
+
+    if request.method == 'GET':
+        form = UserForm(obj=user_to_edit)
+        form.password.data = ''
+    else:
+        form = UserForm()
+
+    if form.validate_on_submit():
+        nik_clean = form.nik.data.strip().upper()
+        username_clean = form.username.data.strip()
+
+        if not nik_clean.isalnum():
+            flash("⚠️ NIK hanya boleh berisi huruf dan angka (tanpa spasi atau simbol)!", "danger")
+        else:
+            existing_user = db.session.execute(
+                db.select(UserEntry).where(
+                    UserEntry.username == username_clean,
+                    UserEntry.id != user_to_edit.id
+                )
+            ).scalar_one_or_none()
+
+            if existing_user:
+                flash(f"⚠️ Gagal! Username '{username_clean}' sudah digunakan oleh orang lain.", "danger")
+            else:
+                old_username = user_to_edit.username
+                user_to_edit.nik = nik_clean
+                user_to_edit.username = username_clean
+                user_to_edit.role = form.role.data
+                if form.password.data:
+                    user_to_edit.password = generate_password_hash(form.password.data)
+                db.session.commit()
+
+                if session.get('logged_user') == old_username:
+                    session['logged_user'] = username_clean
+                    session['role'] = user_to_edit.role
+
+                flash(f"Pengguna '{username_clean}' berhasil diperbarui.", "success")
+                return redirect(url_for('manage_users'))
+    elif request.method == 'POST':
+        for field_name, errors in form.errors.items():
+            for error in errors:
+                flash(f"⚠️ {error}", "danger")
+
+    all_users = db.session.execute(db.select(UserEntry).order_by(UserEntry.id)).scalars().all()
+    return render_template(
+        'sdm/users.html',
+        form=form,
+        users=all_users,
+        active_page='users',
+        edit_user=user_to_edit
+    )
 
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
